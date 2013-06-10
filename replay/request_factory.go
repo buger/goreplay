@@ -2,19 +2,12 @@ package replay
 
 import (
 	"net/http"
+	"net/url"
 )
-
-// Userd for transfering Request info between Listener and Replay server
-type HttpRequest struct {
-	Tag     string            // Not used yet
-	Method  string            // Right now only 'GET'
-	Url     string            // Request URL
-	Headers map[string]string // Request Headers
-}
 
 type HttpResponse struct {
 	host *ForwardHost
-	req  *HttpRequest
+	req  *http.Request
 	resp *http.Response
 	err  error
 }
@@ -29,7 +22,7 @@ type HttpResponse struct {
 // 4. handleRequest() listen for `response` channel and updates stats
 type RequestFactory struct {
 	responses chan *HttpResponse
-	requests  chan *HttpRequest
+	requests  chan *http.Request
 }
 
 // RequestFactory contstuctor
@@ -37,7 +30,7 @@ type RequestFactory struct {
 func NewRequestFactory() (factory *RequestFactory) {
 	factory = &RequestFactory{}
 	factory.responses = make(chan *HttpResponse)
-	factory.requests = make(chan *HttpRequest)
+	factory.requests = make(chan *http.Request)
 
 	go factory.handleRequests()
 
@@ -45,22 +38,24 @@ func NewRequestFactory() (factory *RequestFactory) {
 }
 
 // Forward http request to given host
-func (f *RequestFactory) sendRequest(host *ForwardHost, request *HttpRequest) {
-	var req *http.Request
-
+func (f *RequestFactory) sendRequest(host *ForwardHost, request *http.Request) {
 	client := &http.Client{}
 
-	req, err := http.NewRequest("GET", host.Url+request.Url, nil)
+	URL := host.Url + request.URL.String()
 
-	// Forwarded request should have same headers
-	for key, value := range request.Headers {
-		req.Header.Add(key, value)
+	request.RequestURI = ""
+	request.URL, _ = url.ParseRequestURI(URL)
+
+	if Settings.verbose {
+		Debug("Sending request:", request)
 	}
 
-	resp, err := client.Do(req)
+	resp, err := client.Do(request)
 
 	if err == nil {
 		defer resp.Body.Close()
+	} else {
+		Debug("Request error:", err)
 	}
 
 	f.responses <- &HttpResponse{host, request, resp, err}
@@ -81,8 +76,6 @@ func (f *RequestFactory) handleRequests() {
 					// Increment Stat.Count
 					host.Stat.IncReq()
 
-                    Debug("GET ",host.Url + req.Url)
-
 					go f.sendRequest(host, req)
 				}
 			}
@@ -94,6 +87,6 @@ func (f *RequestFactory) handleRequests() {
 }
 
 // Add request to channel for further processing
-func (f *RequestFactory) Add(request *HttpRequest) {
+func (f *RequestFactory) Add(request *http.Request) {
 	f.requests <- request
 }

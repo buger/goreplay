@@ -25,29 +25,27 @@
 package replay
 
 import (
+	"bufio"
 	"bytes"
-	"encoding/gob"
 	"log"
 	"net"
+	"net/http"
 )
 
 const bufSize = 1024 * 10
 
 // Enable debug logging only if "--verbose" flag passed
 func Debug(v ...interface{}) {
-	if Settings.verbose { log.Println(v...) }
+	if Settings.verbose {
+		log.Println(v...)
+	}
 }
 
-// Decode HttpRequest object using standard gob decoder
-func DecodeRequest(enc []byte) (request *HttpRequest, err error) {
-	var buf bytes.Buffer
-	buf.Write(enc)
+func ParseRequest(data []byte) (request *http.Request, err error) {
+	buf := bytes.NewBuffer(data)
+	reader := bufio.NewReader(buf)
 
-	request = &HttpRequest{}
-
-	encoder := gob.NewDecoder(&buf)
-	err = encoder.Decode(request)
-
+	request, err = http.ReadRequest(reader)
 	return
 }
 
@@ -78,21 +76,19 @@ func Run() {
 	requestFactory := NewRequestFactory()
 
 	for {
-		rlen, _, err := conn.ReadFromUDP(buf[0:])
+		n, _, err := conn.ReadFromUDP(buf[0:])
 
 		if err != nil {
 			continue
 		}
 
-		if rlen > 0 {
-			if rlen > bufSize {
-				log.Fatal("Too large udp packet", bufSize)
+		if n > 0 {
+			if n > bufSize {
+				Debug("Too large udp packet", bufSize)
 			}
 
-			request, err := DecodeRequest(buf[0:rlen])
-
-			if err != nil {
-				log.Println("Decode error:", err)
+			if request, err := ParseRequest(buf[0:n]); err != nil {
+				Debug("Error while parsing request", err, buf[0:n])
 			} else {
 				requestFactory.Add(request)
 			}
