@@ -14,13 +14,6 @@ import (
 	"os"
 )
 
-type HttpRequest struct {
-	Tag     string            // Not used yet
-	Method  string            // Right now only 'GET'
-	Url     string            // Request URL
-	Headers map[string]string // Request Headers
-}
-
 // Enable debug logging only if "--verbose" flag passed
 func Debug(v ...interface{}) {
 	if Settings.verbose {

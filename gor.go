@@ -52,7 +52,7 @@ func main() {
 		time.AfterFunc(60*time.Second, func() {
 			pprof.StopCPUProfile()
 			f.Close()
-			log.Println("Stop profiling after 10 seconds")
+			log.Println("Stop profiling after 60 seconds")
 		})
 	}
 

@@ -1,6 +1,7 @@
 package listener
 
 import (
+	"github.com/akrennmair/gopcap"
 	"sort"
 	"time"
 )
@@ -8,20 +9,20 @@ import (
 // TCPMessage ensure that all TCP packets for given request is received, and processed in right sequence
 // Its needed because all TCP message can be fragmented or re-transmitted
 //
-// Each TCP Packet have 2 ids: asknowledgement - message_id, and sequence - packet_id
+// Each TCP Packet have 2 ids: acknowledgement - message_id, and sequence - packet_id
 // Message can be compiled from unique packets with same message_id which sorted by sequence
 // Message is received if we did't receive any packets for 200ms OR if we received packet with "fin" flag
 type TCPMessage struct {
-	ask     uint32             // Message ID
-	packets map[int]*TCPPacket // map[packet.sequence]*TCPPacket
-	updated int64              // time of last packet
+	ack     uint32               // Message ID
+	packets map[int]*pcap.Packet // map[packet.sequence]*TCPPacket
+	updated int64                // time of last packet
 }
 
-func NewTCPMessage(ask uint32) (msg *TCPMessage) {
+func NewTCPMessage(ack uint32) (msg *TCPMessage) {
 	msg = &TCPMessage{}
-	msg.packets = make(map[int]*TCPPacket)
+	msg.packets = make(map[int]*pcap.Packet)
 	msg.updated = time.Now().UnixNano()
-	msg.ask = ask
+	msg.ack = ack
 	return
 }
 
@@ -38,15 +39,15 @@ func (t *TCPMessage) Bytes() (output []byte) {
 	sort.Ints(mk)
 
 	for _, k := range mk {
-		output = append(output, t.packets[k].data...)
+		output = append(output, t.packets[k].Payload...)
 	}
 
 	return
 }
 
 // Add packet to the message
-func (t *TCPMessage) AddPacket(packet *TCPPacket) {
-	seq := int(packet.sequence)
+func (t *TCPMessage) AddPacket(packet *pcap.Packet) {
+	seq := int(packet.Headers[1].(*pcap.Tcphdr).Seq)
 
 	if _, ok := t.packets[seq]; !ok {
 		t.packets[seq] = packet

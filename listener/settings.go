@@ -7,15 +7,15 @@ import (
 )
 
 const (
-	defaultPort             = 80
-	defaultNetworkInterface = "any"
+	defaultPort = 80
+	defaultIP   = ""
 
 	defaultReplayAddress = "localhost:28020"
 )
 
 type ListenerSettings struct {
-	networkInterface string
-	port             int
+	IP   string
+	port int
 
 	replayAddress string
 
@@ -39,7 +39,7 @@ func init() {
 
 	flag.IntVar(&Settings.port, "p", defaultPort, "Specify the http server port whose traffic you want to capture")
 
-	flag.StringVar(&Settings.networkInterface, "i", defaultNetworkInterface, "By default it try to listen on all network interfaces.To get list of interfaces run `ifconfig`")
+	flag.StringVar(&Settings.IP, "ip", defaultIP, "By default it try to listen on all network interfaces.To get list of interfaces run `ifconfig`")
 
 	flag.StringVar(&Settings.replayAddress, "r", defaultReplayAddress, "Address of replay server.")
 
