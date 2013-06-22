@@ -1,10 +1,10 @@
 package replay
 
 import (
+	"flag"
+	"os"
 	"strconv"
 	"strings"
-	"os"
-	"flag"
 )
 
 type ForwardHost struct {
@@ -15,12 +15,12 @@ type ForwardHost struct {
 }
 
 type ReplaySettings struct {
-	port int
-	host string
+	Port int
+	Host string
 
-	forwardAddress string
+	ForwardAddress string
 
-	verbose bool
+	Verbose bool
 }
 
 // ForwardedHosts implements forwardAddress syntax support for multiple hosts (coma separated), and rate limiting by specifing "|maxRps" after host name.
@@ -30,7 +30,7 @@ type ReplaySettings struct {
 func (r *ReplaySettings) ForwardedHosts() (hosts []*ForwardHost) {
 	hosts = make([]*ForwardHost, 0, 10)
 
-	for _, address := range strings.Split(r.forwardAddress, ",") {
+	for _, address := range strings.Split(r.ForwardAddress, ",") {
 		host_info := strings.Split(address, "|")
 
 		if strings.Index(host_info[0], "http") == -1 {
@@ -52,11 +52,10 @@ func (r *ReplaySettings) ForwardedHosts() (hosts []*ForwardHost) {
 
 // Helper to return address with port, e.g.: 127.0.0.1:28020
 func (r *ReplaySettings) Address() string {
-	return r.host + ":" + strconv.Itoa(r.port)
+	return r.Host + ":" + strconv.Itoa(r.Port)
 }
 
 var Settings ReplaySettings = ReplaySettings{}
-
 
 func init() {
 	if len(os.Args) < 2 || os.Args[1] != "replay" {
@@ -70,11 +69,11 @@ func init() {
 		defaultAddress = "http://localhost:8080"
 	)
 
-	flag.IntVar(&Settings.port, "p", defaultPort, "specify port number")
+	flag.IntVar(&Settings.Port, "p", defaultPort, "specify port number")
 
-	flag.StringVar(&Settings.host, "ip", defaultHost, "ip addresses to listen on")
+	flag.StringVar(&Settings.Host, "ip", defaultHost, "ip addresses to listen on")
 
-	flag.StringVar(&Settings.forwardAddress, "f", defaultAddress, "http address to forward traffic.\n\tYou can limit requests per second by adding `|num` after address.\n\tIf you have multiple addresses with different limits. For example: http://staging.example.com|100,http://dev.example.com|10")
+	flag.StringVar(&Settings.ForwardAddress, "f", defaultAddress, "http address to forward traffic.\n\tYou can limit requests per second by adding `|num` after address.\n\tIf you have multiple addresses with different limits. For example: http://staging.example.com|100,http://dev.example.com|10")
 
-	flag.BoolVar(&Settings.verbose, "verbose", false, "Log requests")
+	flag.BoolVar(&Settings.Verbose, "verbose", false, "Log requests")
 }

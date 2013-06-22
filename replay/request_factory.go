@@ -47,9 +47,7 @@ func (f *RequestFactory) sendRequest(host *ForwardHost, request *http.Request) {
 	request.RequestURI = ""
 	request.URL, _ = url.ParseRequestURI(URL)
 
-	if Settings.verbose {
-		Debug("Sending request:", host.Url, request)
-	}
+	Debug("Sending request:", host.Url, request)
 
 	resp, err := client.Do(request)
 

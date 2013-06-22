@@ -46,8 +46,8 @@ func (t *RAWTCPListener) listen() {
 		select {
 		// If message ready for deletion it means that its also complete or expired by timeout
 		case message := <-t.c_del_message:
-			t.deleteMessage(message)
 			t.c_messages <- message
+			t.deleteMessage(message)
 
 		// We need to use channgels to process each packet to avoid data races
 		case packet := <-t.c_packets:
@@ -120,7 +120,6 @@ func (t *RAWTCPListener) readRAWSocket() {
 
 					// To avoid socket locking processing packet in new goroutine
 					go func(buf []byte) {
-						log.Println("Received packet", string(new_buf))
 						packet := NewTCPPacket(new_buf)
 						t.c_packets <- packet
 					}(new_buf)
@@ -147,7 +146,6 @@ func (t *RAWTCPListener) processTCPPacket(packet *TCPPacket) {
 	if message == nil {
 		// We sending c_del_message channel, so message object can communicate with Listener and notify it if message completed
 		message = NewTCPMessage(packet.Ack, t.c_del_message)
-		Debug("Adding message")
 
 		t.messages = append(t.messages, message)
 	}

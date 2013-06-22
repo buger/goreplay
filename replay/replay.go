@@ -27,16 +27,17 @@ package replay
 import (
 	"bufio"
 	"bytes"
+	"io"
 	"log"
 	"net"
 	"net/http"
 )
 
-const bufSize = 1024 * 10
+const bufSize = 4096
 
 // Enable debug logging only if "--verbose" flag passed
 func Debug(v ...interface{}) {
-	if Settings.verbose {
+	if Settings.Verbose {
 		log.Println(v...)
 	}
 }
@@ -53,21 +54,13 @@ func ParseRequest(data []byte) (request *http.Request, err error) {
 // Replay server listen to UDP traffic from Listeners
 // Each request processed by RequestFactory
 func Run() {
-	var buf [bufSize]byte
+	listener, err := net.Listen("tcp", Settings.Address())
 
-	addr, err := net.ResolveUDPAddr("udp", Settings.Address())
-	if err != nil {
-		log.Fatal("Can't start:", err)
-	}
-
-	conn, err := net.ListenUDP("udp", addr)
 	log.Println("Starting replay server at:", Settings.Address())
 
 	if err != nil {
 		log.Fatal("Can't start:", err)
 	}
-
-	defer conn.Close()
 
 	for _, host := range Settings.ForwardedHosts() {
 		log.Println("Forwarding requests to:", host.Url, "limit:", host.Limit)
@@ -76,23 +69,53 @@ func Run() {
 	requestFactory := NewRequestFactory()
 
 	for {
-		n, _, err := conn.ReadFromUDP(buf[0:])
+		conn, err := listener.Accept()
 
 		if err != nil {
+			log.Println("Error while Accept()", err)
 			continue
 		}
 
-		if n > 0 {
-			if n > bufSize {
-				Debug("Too large udp packet", bufSize)
-			}
+		go handleConnection(conn, requestFactory)
+	}
 
-			if request, err := ParseRequest(buf[0:n]); err != nil {
-				Debug("Error while parsing request", err, buf[0:n])
-			} else {
-				requestFactory.Add(request)
+}
+
+func handleConnection(conn net.Conn, rf *RequestFactory) error {
+	defer conn.Close()
+
+	var read = true
+	var response []byte
+	var buf []byte
+
+	buf = make([]byte, bufSize)
+
+	for read {
+		log.Println("Start reading")
+		n, err := conn.Read(buf)
+		log.Println("Reading", n, err)
+
+		switch err {
+		case io.EOF:
+			read = false
+		case nil:
+			response = append(response, buf[0:n]...)
+			if n < bufSize {
+				read = false
 			}
+		default:
+			read = false
 		}
 	}
 
+	log.Println("Response", string(response))
+
+	if request, err := ParseRequest(response); err != nil {
+		Debug("Error while parsing request", err, response)
+	} else {
+		Debug("Adding request", request)
+		rf.Add(request)
+	}
+
+	return nil
 }
