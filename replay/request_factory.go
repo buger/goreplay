@@ -1,15 +1,24 @@
 package replay
 
 import (
+	"github.com/buger/go-httpclient"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 type HttpResponse struct {
 	host *ForwardHost
-	req  *http.Request
+	req  *HttpRequest
 	resp *http.Response
 	err  error
+
+	created int64
+}
+
+type HttpRequest struct {
+	req     *http.Request
+	created int64
 }
 
 // Class for processing requests
@@ -38,18 +47,23 @@ func NewRequestFactory() (factory *RequestFactory) {
 }
 
 // Forward http request to given host
-func (f *RequestFactory) sendRequest(host *ForwardHost, request *http.Request) {
-	client := &http.Client{}
+func (f *RequestFactory) sendRequest(host *ForwardHost, request *HttpRequest) {
+	transport := &httpclient.Transport{
+		ConnectTimeout: 60 * time.Second,
+	}
+	defer transport.Close()
+
+	client := &http.Client{Transport: transport}
 
 	// Change HOST of original request
-	URL := host.Url + request.URL.Path + "?" + request.URL.RawQuery
+	URL := host.Url + request.req.URL.Path + "?" + request.req.URL.RawQuery
 
-	request.RequestURI = ""
-	request.URL, _ = url.ParseRequestURI(URL)
+	request.req.RequestURI = ""
+	request.req.URL, _ = url.ParseRequestURI(URL)
 
 	Debug("Sending request:", host.Url, request)
 
-	resp, err := client.Do(request)
+	resp, err := client.Do(request.req)
 
 	if err == nil {
 		defer resp.Body.Close()
@@ -57,7 +71,7 @@ func (f *RequestFactory) sendRequest(host *ForwardHost, request *http.Request) {
 		Debug("Request error:", err)
 	}
 
-	f.c_responses <- &HttpResponse{host, request, resp, err}
+	f.c_responses <- &HttpResponse{host, request, resp, err, time.Now().UnixNano()}
 }
 
 // Handle incoming requests, and they responses
@@ -68,14 +82,15 @@ func (f *RequestFactory) handleRequests() {
 		select {
 		case req := <-f.c_requests:
 			for _, host := range hosts {
-				// Ensure that we have actual stats for given timestamp
-				host.Stat.Touch()
+				if host.Limit == 0 || host.Stat.Count() < host.Limit {
+					request := &HttpRequest{}
+					request.req = req
+					request.created = time.Now().UnixNano()
 
-				if host.Limit == 0 || host.Stat.Count < host.Limit {
+					go f.sendRequest(host, request)
+
 					// Increment Stat.Count
-					host.Stat.IncReq()
-
-					go f.sendRequest(host, req)
+					host.Stat.IncReq(request)
 				}
 			}
 		case resp := <-f.c_responses:

@@ -11,7 +11,7 @@ type ForwardHost struct {
 	Url   string
 	Limit int
 
-	Stat *RequestStat
+	Stat *SiteStats
 }
 
 type ReplaySettings struct {
@@ -21,6 +21,10 @@ type ReplaySettings struct {
 	ForwardAddress string
 
 	Verbose bool
+
+	hosts []*ForwardHost
+
+	StatPath string
 }
 
 // ForwardedHosts implements forwardAddress syntax support for multiple hosts (coma separated), and rate limiting by specifing "|maxRps" after host name.
@@ -28,7 +32,10 @@ type ReplaySettings struct {
 //    -f "host1,http://host2|10,host3"
 //
 func (r *ReplaySettings) ForwardedHosts() (hosts []*ForwardHost) {
-	hosts = make([]*ForwardHost, 0, 10)
+	// If already parsed
+	if len(r.hosts) > 0 {
+		return r.hosts
+	}
 
 	for _, address := range strings.Split(r.ForwardAddress, ",") {
 		host_info := strings.Split(address, "|")
@@ -38,16 +45,16 @@ func (r *ReplaySettings) ForwardedHosts() (hosts []*ForwardHost) {
 		}
 
 		host := &ForwardHost{Url: host_info[0]}
-		host.Stat = NewRequestStats(host)
+		host.Stat = NewSiteStats()
 
 		if len(host_info) > 1 {
 			host.Limit, _ = strconv.Atoi(host_info[1])
 		}
 
-		hosts = append(hosts, host)
+		r.hosts = append(r.hosts, host)
 	}
 
-	return
+	return r.hosts
 }
 
 // Helper to return address with port, e.g.: 127.0.0.1:28020
@@ -72,6 +79,8 @@ func init() {
 	flag.IntVar(&Settings.Port, "p", defaultPort, "specify port number")
 
 	flag.StringVar(&Settings.Host, "ip", defaultHost, "ip addresses to listen on")
+
+	flag.StringVar(&Settings.StatPath, "stat", "", "Path for storing stats; If empty don't store")
 
 	flag.StringVar(&Settings.ForwardAddress, "f", defaultAddress, "http address to forward traffic.\n\tYou can limit requests per second by adding `|num` after address.\n\tIf you have multiple addresses with different limits. For example: http://staging.example.com|100,http://dev.example.com|10")
 

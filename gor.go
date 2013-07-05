@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"github.com/buger/gor/listener"
 	"github.com/buger/gor/replay"
+	"github.com/buger/gor/stats"
 	"log"
 	"os"
 	"runtime/pprof"
@@ -32,8 +33,8 @@ func main() {
 		mode = os.Args[1]
 	}
 
-	if mode != "listen" && mode != "replay" {
-		fmt.Println("Usage: \n\tgor listen -h\n\tgor replay -h")
+	if mode != "listen" && mode != "replay" && mode != "stats" {
+		fmt.Println("Usage: \n\tgor listen -h\n\tgor replay -h\n\tgor stats -h")
 		return
 	}
 
@@ -72,6 +73,8 @@ func main() {
 		listener.Run()
 	case "replay":
 		replay.Run()
+	case "stats":
+		stats.Run()
 	}
 
 }

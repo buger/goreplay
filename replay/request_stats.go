@@ -1,63 +1,158 @@
 package replay
 
 import (
+	"fmt"
+	"os"
+	"path"
+	"sync"
 	"time"
 )
 
-// Stats stores in context of current timestamp
-type RequestStat struct {
-	timestamp int64
+const STATS_BUF = 61
 
-	Codes map[int]int // { 200: 10, 404:2, 500:1 }
+// We store stats for last 60 seconds.
+// Number 60 used because http timeout limit is set to 60 seconds.
+// So stats older then 60 seconds is can't be changed.
+type SiteStats struct {
+	Start  int64
+	Update int64
 
-	Count  int // All requests including errors
-	Errors int // Rquests with errors (timeout or host not reachable). Not include 50x errors.
+	stats []*PeriodStats
 
-	host *ForwardHost
+	file *os.File
+
+	fileOffset int64
+
+	mutex sync.Mutex
 }
 
-// Ensure that current stats is actual (for current timestamp)
-func (s *RequestStat) Touch() {
-	if s.timestamp != time.Now().Unix() {
-		s.reset()
+var statsID int = 0
+
+func NewSiteStats() (stats *SiteStats) {
+	stats = &SiteStats{}
+	stats.Start = time.Now().Unix()
+	stats.Update = time.Now().Unix()
+	stats.stats = make([]*PeriodStats, STATS_BUF)
+
+	stats.stats[0] = &PeriodStats{}
+	stats.stats[0].Reset()
+
+	stats.RotateStats()
+
+	if Settings.StatPath != "" {
+		var err error
+
+		fileName := fmt.Sprint("stats-", time.Now().Format("2006-01-02T15:04:05"), ".", statsID, ".gor")
+		filePath := path.Join(Settings.StatPath, fileName)
+
+		stats.file, err = os.OpenFile(filePath, os.O_WRONLY|os.O_TRUNC|os.O_CREATE, 0666)
+
+		if err != nil {
+			fmt.Println("ERROR: Can't write stats to ", Settings.StatPath, err)
+		}
+
+		fmt.Println("Writing stats to:", filePath)
+	}
+
+	statsID++
+
+	return
+}
+
+func (s *SiteStats) GetCurrent() (rs *PeriodStats, idx int) {
+	idx = int(s.Update-s.Start) % STATS_BUF
+
+	if s.stats[idx] == nil {
+		s.stats[idx] = &PeriodStats{}
+		s.stats[idx].Reset()
+	}
+
+	return s.stats[idx], idx
+}
+
+func (s *SiteStats) FindByTime(ts int64) *PeriodStats {
+	for _, stat := range s.stats {
+		if stat != nil && stat.Timestamp == ts {
+			return stat
+		}
+	}
+
+	return nil
+}
+
+func (s *SiteStats) RotateStats() {
+	go func() {
+		for {
+			time.Sleep(1 * time.Second)
+
+			s.WriteStats()
+
+			s.UpdateCurrent()
+		}
+	}()
+}
+
+func (s *SiteStats) UpdateCurrent() {
+	if s.Update != time.Now().Unix() {
+		s.Update = time.Now().Unix()
+		rs, _ := s.GetCurrent()
+		rs.Reset()
 	}
 }
 
-// Called on request start
-func (s *RequestStat) IncReq() {
-	s.Count++
+func (s *SiteStats) IncReq(req *HttpRequest) {
+	s.UpdateCurrent()
+
+	ps, _ := s.GetCurrent()
+	ps.IncReq(req)
 }
 
-// Called after response
-func (s *RequestStat) IncResp(resp *HttpResponse) {
-	s.Touch()
+func (s *SiteStats) IncResp(resp *HttpResponse) {
+	ps := s.FindByTime(resp.req.created / int64(time.Second))
 
-	if resp.err != nil {
-		s.Errors++
+	ps.IncResp(resp)
+}
+
+func (s *SiteStats) Count() int {
+	ps, _ := s.GetCurrent()
+	return ps.Count()
+}
+
+// Every second flush stats to disk
+func (s *SiteStats) WriteStats() {
+	if s.file == nil {
 		return
 	}
 
-	s.Codes[resp.resp.StatusCode]++
-}
+	// On every write, we rewriting whole stats, except last expired element
+	_, err := s.file.Seek(-s.fileOffset, 2)
 
-// Updated stats timestamp to current time and reset to zero all stats values
-// TODO: Further on reset it should write stats to file
-func (s *RequestStat) reset() {
-	if s.timestamp != 0 {        
-	   Debug("Host:", s.host.Url, "Requests:", s.Count, "Errors:", s.Errors, "Status codes:", s.Codes)
+	// If file is too small (less then STATS_BUF records), just seek to start of the file
+	if err != nil {
+		s.file.Seek(0, 0)
 	}
 
-	s.timestamp = time.Now().Unix()
+	_, currIdx := s.GetCurrent()
 
-	s.Codes = make(map[int]int)
-	s.Count = 0
-	s.Errors = 0
-}
+	s.fileOffset = 0
 
-// RequestStat constructor
-func NewRequestStats(host *ForwardHost) (stat *RequestStat) {
-	stat = &RequestStat{host: host}
-	stat.reset()
+	for i := (STATS_BUF - 1); i >= 0; i-- {
+		idx := currIdx - i
 
-	return
+		if idx < 0 {
+			idx = STATS_BUF + idx
+		}
+
+		ps := s.stats[idx]
+
+		if ps != nil && ps.Count() > 0 {
+			bytes := ps.Encode()
+			n, _ := s.file.Write(bytes)
+
+			// We need length of stats records without expired element
+			if (s.Update - ps.Timestamp) < (STATS_BUF - 1) {
+				s.fileOffset += int64(n)
+			}
+		}
+	}
 }
