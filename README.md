@@ -42,7 +42,7 @@ gor replay -f "http://staging.server|10"
 
 ### Forward to multiple addresses
 
-You can forward traffic to multiple endpoints. Just separate the addresses by coma.
+You can forward traffic to multiple endpoints. Just separate the addresses by comma.
 ```
 gor replay -f "http://staging.server|10,http://dev.server|5"
 ```
