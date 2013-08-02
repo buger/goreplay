@@ -39,7 +39,7 @@ func NewRequestFactory() (factory *RequestFactory) {
 
 // Forward http request to given host
 func (f *RequestFactory) sendRequest(host *ForwardHost, request *http.Request) {
-	client := &http.Client{}
+	client := &http.Transport{}
 
 	// Change HOST of original request
 	URL := host.Url + request.URL.Path + "?" + request.URL.RawQuery
@@ -49,7 +49,7 @@ func (f *RequestFactory) sendRequest(host *ForwardHost, request *http.Request) {
 
 	Debug("Sending request:", host.Url, request)
 
-	resp, err := client.Do(request)
+	resp, err := client.RoundTrip(request)
 
 	if err == nil {
 		defer resp.Body.Close()
