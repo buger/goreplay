@@ -3,6 +3,8 @@ package listener
 import (
 	"flag"
 	"os"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -18,10 +20,22 @@ type ListenerSettings struct {
 
 	ReplayAddress string
 
+	ReplayLimit int
+
 	Verbose bool
 }
 
 var Settings ListenerSettings = ListenerSettings{}
+
+func (s *ListenerSettings) ReplayServer() string {
+	host_info := strings.Split(s.ReplayAddress, "|")
+
+	if len(host_info) > 1 {
+		s.ReplayLimit, _ = strconv.Atoi(host_info[1])
+	}
+
+	return host_info[0]
+}
 
 func init() {
 	if len(os.Args) < 2 || os.Args[1] != "listen" {

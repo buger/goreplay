@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 )
 
 // Enable debug logging only if "--verbose" flag passed
@@ -24,7 +25,7 @@ func Debug(v ...interface{}) {
 
 func ReplayServer() (conn net.Conn, err error) {
 	// Connection to reaplay server
-	conn, err = net.Dial("tcp", Settings.ReplayAddress)
+	conn, err = net.Dial("tcp", Settings.ReplayServer())
 
 	if err != nil {
 		log.Println("Connection error ", err, Settings.ReplayAddress)
@@ -42,14 +43,30 @@ func Run() {
 	}
 
 	fmt.Println("Listening for HTTP traffic on", Settings.Address+":"+strconv.Itoa(Settings.Port))
-	fmt.Println("Forwarding requests to replay server:", Settings.ReplayAddress)
+	fmt.Println("Forwarding requests to replay server:", Settings.ReplayServer(), "Limit:", Settings.ReplayLimit)
 
 	// Sniffing traffic from given address
 	listener := RAWTCPListen(Settings.Address, Settings.Port)
 
+	currentTime := time.Now().UnixNano()
+	currentRPS := 0
+
 	for {
 		// Receiving TCPMessage object
 		m := listener.Receive()
+
+		if Settings.ReplayLimit != 0 {
+			if (time.Now().UnixNano() - currentTime) > time.Second.Nanoseconds() {
+				currentTime = time.Now().UnixNano()
+				currentRPS = 0
+			}
+
+			if currentRPS >= Settings.ReplayLimit {
+				break
+			}
+
+			currentRPS++
+		}
 
 		go sendMessage(m)
 	}

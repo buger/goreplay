@@ -8,32 +8,79 @@ import (
 
 	"time"
 
+	"fmt"
 	"net/http"
 	"strconv"
+
+	"sync/atomic"
 )
 
-func startListener() {
-	listener.Settings.Verbose = true
+func isEqual(t *testing.T, a interface{}, b interface{}) {
+	if a != b {
+		t.Error("Original and Replayed request not match\n", a, "!=", b)
+	}
+}
+
+var envs int
+
+type Env struct {
+	Verbose bool
+
+	ListenHandler http.HandlerFunc
+	ReplayHandler http.HandlerFunc
+
+	ReplayLimit   int
+	ListenerLimit int
+}
+
+func (e *Env) start() (p int) {
+	p = 50000 + envs*10
+
+	go e.startHTTP(p, http.HandlerFunc(e.ListenHandler))
+	go e.startHTTP(p+2, http.HandlerFunc(e.ReplayHandler))
+	go e.startListener(p, p+1)
+	go e.startReplay(p+1, p+2)
+
+	// Time to start http and gor instances
+	time.Sleep(time.Millisecond * 100)
+
+	envs++
+
+	return
+}
+
+func (e *Env) startListener(port int, replayPort int) {
+	listener.Settings.Verbose = e.Verbose
 	listener.Settings.Address = "127.0.0.1"
-	listener.Settings.ReplayAddress = "127.0.0.1:50001"
-	listener.Settings.Port = 50000
-	go listener.Run()
+	listener.Settings.ReplayAddress = "127.0.0.1:" + strconv.Itoa(replayPort)
+	listener.Settings.Port = port
+
+	if e.ListenerLimit != 0 {
+		listener.Settings.ReplayAddress += "|" + strconv.Itoa(e.ListenerLimit)
+	}
+
+	listener.Run()
 }
 
-func startReplay() {
-	replay.Settings.Verbose = true
+func (e *Env) startReplay(port int, forwardPort int) {
+	replay.Settings.Verbose = e.Verbose
 	replay.Settings.Host = "127.0.0.1"
-	replay.Settings.ForwardAddress = "127.0.0.1:50002"
-	replay.Settings.Port = 50001
-	go replay.Run()
+	replay.Settings.ForwardAddress = "127.0.0.1:" + strconv.Itoa(forwardPort)
+	replay.Settings.Port = port
+
+	if e.ReplayLimit != 0 {
+		replay.Settings.ForwardAddress += "|" + strconv.Itoa(e.ReplayLimit)
+	}
+
+	replay.Run()
 }
 
-func startHTTP(port int, handler http.Handler) {
-	go http.ListenAndServe(":"+strconv.Itoa(port), handler)
+func (e *Env) startHTTP(port int, handler http.Handler) {
+	http.ListenAndServe(":"+strconv.Itoa(port), handler)
 }
 
-func getRequest() *http.Request {
-	req, _ := http.NewRequest("GET", "http://localhost:50000/test", nil)
+func getRequest(port int) *http.Request {
+	req, _ := http.NewRequest("GET", "http://localhost:"+strconv.Itoa(port)+"/test", nil)
 	ck1 := new(http.Cookie)
 	ck1.Name = "test"
 	ck1.Value = "value"
@@ -43,36 +90,35 @@ func getRequest() *http.Request {
 	return req
 }
 
-func TestIntegration(t *testing.T) {
-	request := getRequest()
-
-	listenHandler := func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "404 page not found", http.StatusNotFound)
-	}
-	startHTTP(50000, http.HandlerFunc(listenHandler))
-
-	startListener()
-	startReplay()
-
+func TestReplay(t *testing.T) {
+	var request *http.Request
 	received := make(chan int)
 
-	replayHandler := func(w http.ResponseWriter, r *http.Request) {
-		equal := func(a interface{}, b interface{}) {
-			if a != b {
-				t.Error("Original and Replayed request not match\n", a, "!=", b, "\nReplayed:", r, "\nOriginal:", request)
-			}
-		}
+	listenHandler := func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "OK", http.StatusNotFound)
+	}
 
-		equal(r.URL.Path, request.URL.Path)
-		equal(r.Cookies()[0].Value, request.Cookies()[0].Value)
+	replayHandler := func(w http.ResponseWriter, r *http.Request) {
+		isEqual(t, r.URL.Path, request.URL.Path)
+		isEqual(t, r.Cookies()[0].Value, request.Cookies()[0].Value)
 
 		http.Error(w, "404 page not found", http.StatusNotFound)
+
+		if t.Failed() {
+			fmt.Println("\nReplayed:", r, "\nOriginal:", request)
+		}
 
 		received <- 1
 	}
-	startHTTP(50002, http.HandlerFunc(replayHandler))
 
-	time.Sleep(time.Millisecond * 100)
+	env := &Env{
+		Verbose:       true,
+		ListenHandler: listenHandler,
+		ReplayHandler: replayHandler,
+	}
+	p := env.start()
+
+	request = getRequest(p)
 
 	_, err := http.DefaultClient.Do(request)
 
@@ -85,6 +131,59 @@ func TestIntegration(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Error("Timeout error")
 	}
+}
+
+func rateLimitEnv(replayLimit int, listenerLimit int) int32 {
+	var processed int32
+
+	listenHandler := func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "OK", http.StatusAccepted)
+	}
+
+	replayHandler := func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&processed, 1)
+		http.Error(w, "OK", http.StatusAccepted)
+	}
+
+	env := &Env{
+		ListenHandler: listenHandler,
+		ReplayHandler: replayHandler,
+		ReplayLimit:   replayLimit,
+		ListenerLimit: listenerLimit,
+	}
+
+	p := env.start()
+	req := getRequest(p)
+
+	for i := 0; i < 10; i++ {
+		http.DefaultClient.Do(req)
+	}
 
 	time.Sleep(time.Millisecond * 500)
+
+	return processed
+}
+
+func TestWithoutReplayRateLimit(t *testing.T) {
+	processed := rateLimitEnv(0, 0)
+
+	if processed != 10 {
+		t.Error("It should forward all requests without rate-limiting", processed)
+	}
+}
+
+func TestReplayRateLimit(t *testing.T) {
+	processed := rateLimitEnv(5, 0)
+
+	if processed != 5 {
+		t.Error("It should forward only 5 requests with rate-limiting", processed)
+	}
+}
+
+func TestListenerRateLimit(t *testing.T) {
+	processed := rateLimitEnv(0, 3)
+
+	if processed != 3 {
+		t.Error("It should forward only 3 requests with rate-limiting", processed)
+	}
 }

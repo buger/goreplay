@@ -32,7 +32,7 @@ gor replay -f http://staging.server -p 28020
 ## Advanced use
 
 ### Rate limiting
-The replay server supports rate limiting. It can be useful if you want
+Both replay and listener supports rate limiting. It can be useful if you want
 forward only part of production traffic and not overload your staging
 environment. You can specify your desired requests per second using the
 "|" operator after the server address:
@@ -40,6 +40,12 @@ environment. You can specify your desired requests per second using the
 ```
 # staging.server will not get more than 10 requests per second
 gor replay -f "http://staging.server|10"
+```
+
+```
+# replay server will not get more than 10 requests per second
+# useful for high-load environments
+gor listen -p 8080 -r "replay.server.local:28020|10"
 ```
 
 ### Forward to multiple addresses
