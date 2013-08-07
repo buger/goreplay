@@ -62,7 +62,7 @@ func Run() {
 			}
 
 			if currentRPS >= Settings.ReplayLimit {
-				break
+				continue
 			}
 
 			currentRPS++
