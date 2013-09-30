@@ -36,12 +36,11 @@ type TCPPacket struct {
 	Data []byte
 }
 
-// NewTCPPacket pointer from data in []byte
-func NewTCPPacket(b []byte) (t *TCPPacket) {
-	t = &TCPPacket{Data: b}
-	t.ParseBasic()
+func ParseTCPPacket(b []byte) (p *TCPPacket) {
+	p = &TCPPacket{Data: b}
+	p.ParseBasic()
 
-	return t
+	return p
 }
 
 // Parse TCP Packet, inspired by: https://github.com/miekg/pcap/blob/master/packet.go
