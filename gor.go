@@ -8,35 +8,35 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/buger/gor/listener"
-	"github.com/buger/gor/replay"
 	"log"
 	"os"
 	"runtime/pprof"
 	"time"
+
+	"github.com/buger/gor/listener"
+	"github.com/buger/gor/replay"
 )
 
 const (
 	VERSION = "0.3.5"
 )
 
-var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
-var memprofile = flag.String("memprofile", "", "write memory profile to this file")
+var (
+	mode       string
+	cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
+	memprofile = flag.String("memprofile", "", "write memory profile to this file")
+)
 
 func main() {
 	defer func() {
 		if r := recover(); r != nil {
-			var ok bool
-			_, ok = r.(error)
-			if !ok {
+			if _, ok := r.(error); !ok {
 				fmt.Errorf("pkg: %v", r)
 			}
 		}
 	}()
 
 	fmt.Println("Version:", VERSION)
-
-	mode := "unknown"
 
 	if len(os.Args) > 1 {
 		mode = os.Args[1]

@@ -40,6 +40,6 @@ func TestSendMessage(t *testing.T) {
 	buf = buf[0:n]
 
 	if bytes.Compare(buf, msg.Bytes()) != 0 {
-		t.Errorf("Original and reveived requests does not match")
+		t.Errorf("Original and received requests does not match")
 	}
 }

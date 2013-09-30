@@ -1,7 +1,7 @@
 // Listener capture TCP traffic using RAW SOCKETS.
 // Note: it requires sudo or root access.
 //
-// Rigt now it suport only HTTP
+// Right now it supports only HTTP
 package listener
 
 import (
@@ -16,16 +16,17 @@ import (
 	"time"
 )
 
-// Enable debug logging only if "--verbose" flag passed
+// Debug enables logging only if "--verbose" flag passed
 func Debug(v ...interface{}) {
 	if Settings.Verbose {
 		log.Println(v...)
 	}
 }
 
+// ReplayServer returns a connection to the replay server and error if some
 func ReplayServer() (conn net.Conn, err error) {
-	// Connection to reaplay server
-	conn, err = net.Dial("tcp", Settings.ReplayServer())
+	// Connection to replay server
+	conn, err = net.Dial("tcp", Settings.ReplayAddress)
 
 	if err != nil {
 		log.Println("Connection error ", err, Settings.ReplayAddress)
@@ -34,7 +35,7 @@ func ReplayServer() (conn net.Conn, err error) {
 	return
 }
 
-// Because its sub-program, Run acts as `main`
+// Run acts as `main` function of a listener
 func Run() {
 	if os.Getuid() != 0 {
 		fmt.Println("Please start the listener as root or sudo!")
@@ -43,7 +44,7 @@ func Run() {
 	}
 
 	fmt.Println("Listening for HTTP traffic on", Settings.Address+":"+strconv.Itoa(Settings.Port))
-	fmt.Println("Forwarding requests to replay server:", Settings.ReplayServer(), "Limit:", Settings.ReplayLimit)
+	fmt.Println("Forwarding requests to replay server:", Settings.ReplayAddress, "Limit:", Settings.ReplayLimit)
 
 	// Sniffing traffic from given address
 	listener := RAWTCPListen(Settings.Address, Settings.Port)

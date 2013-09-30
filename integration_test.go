@@ -1,18 +1,15 @@
 package main
 
 import (
-	"testing"
-
-	"github.com/buger/gor/listener"
-	"github.com/buger/gor/replay"
-
-	"time"
-
 	"fmt"
 	"net/http"
 	"strconv"
-
 	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/buger/gor/listener"
+	"github.com/buger/gor/replay"
 )
 
 func isEqual(t *testing.T, a interface{}, b interface{}) {
@@ -56,7 +53,7 @@ func (e *Env) startListener(port int, replayPort int) {
 	listener.Settings.Port = port
 
 	if e.ListenerLimit != 0 {
-		listener.Settings.ReplayAddress += "|" + strconv.Itoa(e.ListenerLimit)
+		listener.Settings.ReplayLimit = e.ListenerLimit
 	}
 
 	listener.Run()
@@ -65,6 +62,7 @@ func (e *Env) startListener(port int, replayPort int) {
 func (e *Env) startReplay(port int, forwardPort int) {
 	replay.Settings.Verbose = e.Verbose
 	replay.Settings.Host = "127.0.0.1"
+	replay.Settings.Address = "127.0.0.1:" + strconv.Itoa(port)
 	replay.Settings.ForwardAddress = "127.0.0.1:" + strconv.Itoa(forwardPort)
 	replay.Settings.Port = port
 

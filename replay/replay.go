@@ -35,13 +35,14 @@ import (
 
 const bufSize = 4096
 
-// Enable debug logging only if "--verbose" flag passed
+// Debug enables logging only if "--verbose" flag passed
 func Debug(v ...interface{}) {
 	if Settings.Verbose {
 		log.Println(v...)
 	}
 }
 
+// ParseRequest in []byte returns a http request or an error
 func ParseRequest(data []byte) (request *http.Request, err error) {
 	buf := bytes.NewBuffer(data)
 	reader := bufio.NewReader(buf)
@@ -50,13 +51,13 @@ func ParseRequest(data []byte) (request *http.Request, err error) {
 	return
 }
 
-// Because its sub-program, Run acts as `main`
+// Run acts as `main` function of replay
 // Replay server listen to UDP traffic from Listeners
 // Each request processed by RequestFactory
 func Run() {
-	listener, err := net.Listen("tcp", Settings.Address())
+	listener, err := net.Listen("tcp", Settings.Address)
 
-	log.Println("Starting replay server at:", Settings.Address())
+	log.Println("Starting replay server at:", Settings.Address)
 
 	if err != nil {
 		log.Fatal("Can't start:", err)
@@ -97,7 +98,7 @@ func handleConnection(conn net.Conn, rf *RequestFactory) error {
 		case io.EOF:
 			read = false
 		case nil:
-			response = append(response, buf[0:n]...)
+			response = append(response, buf[:n]...)
 			if n < bufSize {
 				read = false
 			}

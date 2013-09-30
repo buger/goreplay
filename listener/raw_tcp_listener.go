@@ -25,6 +25,7 @@ type RAWTCPListener struct {
 	port int    // Port to listen
 }
 
+// RAWTCPListen creates a listener to capture traffic from RAW_SOCKET
 func RAWTCPListen(addr string, port int) (listener *RAWTCPListener) {
 	listener = &RAWTCPListener{}
 
@@ -49,7 +50,7 @@ func (t *RAWTCPListener) listen() {
 			t.c_messages <- message
 			t.deleteMessage(message)
 
-		// We need to use channgels to process each packet to avoid data races
+		// We need to use channels to process each packet to avoid data races
 		case packet := <-t.c_packets:
 			t.processTCPPacket(packet)
 		}
@@ -58,7 +59,7 @@ func (t *RAWTCPListener) listen() {
 
 // Deleting messages that came from t.c_del_message channel
 func (t *RAWTCPListener) deleteMessage(message *TCPMessage) bool {
-	var idx int = -1
+	idx := -1
 
 	// Searching for given message in messages buffer
 	for i, m := range t.messages {
@@ -154,6 +155,7 @@ func (t *RAWTCPListener) processTCPPacket(packet *TCPPacket) {
 	message.c_packets <- packet
 }
 
+// Receive TCP messages from the listener channel
 func (t *RAWTCPListener) Receive() *TCPMessage {
 	return <-t.c_messages
 }

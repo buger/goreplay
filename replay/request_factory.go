@@ -6,6 +6,8 @@ import (
 	"net/url"
 )
 
+// HttpResponse contains a host, a http request,
+// a http response and an error
 type HttpResponse struct {
 	host *ForwardHost
 	req  *http.Request
@@ -13,7 +15,7 @@ type HttpResponse struct {
 	err  error
 }
 
-// Class for processing requests
+// RequestFactory processes requests
 //
 // Basic workflow:
 //
@@ -26,7 +28,7 @@ type RequestFactory struct {
 	c_requests  chan *http.Request
 }
 
-// RequestFactory contstuctor
+// NewRequestFactory returns a RequestFactory pointer
 // One created, it starts listening for incoming requests: requests channel
 func NewRequestFactory() (factory *RequestFactory) {
 	factory = &RequestFactory{}
@@ -38,7 +40,7 @@ func NewRequestFactory() (factory *RequestFactory) {
 	return
 }
 
-// Disable redirects https://github.com/buger/gor/pull/15
+// customCheckRedirect disables redirects https://github.com/buger/gor/pull/15
 func customCheckRedirect(req *http.Request, via []*http.Request) error {
 	if len(via) >= 0 {
 		return errors.New("stopped after 2 redirects")
@@ -46,7 +48,7 @@ func customCheckRedirect(req *http.Request, via []*http.Request) error {
 	return nil
 }
 
-// Forward http request to given host
+// sendRequest forwards http request to a given host
 func (f *RequestFactory) sendRequest(host *ForwardHost, request *http.Request) {
 	client := &http.Client{
 		CheckRedirect: customCheckRedirect,
@@ -71,7 +73,7 @@ func (f *RequestFactory) sendRequest(host *ForwardHost, request *http.Request) {
 	f.c_responses <- &HttpResponse{host, request, resp, err}
 }
 
-// Handle incoming requests, and they responses
+// handleRequests and their responses
 func (f *RequestFactory) handleRequests() {
 	hosts := Settings.ForwardedHosts()
 
