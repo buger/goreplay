@@ -4,15 +4,23 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"time"
 )
+
+// HttpTiming contains timestamps for http requests and responses
+type HttpTiming struct {
+	reqStart time.Time
+	respDone time.Time
+}
 
 // HttpResponse contains a host, a http request,
 // a http response and an error
 type HttpResponse struct {
-	host *ForwardHost
-	req  *http.Request
-	resp *http.Response
-	err  error
+	host   *ForwardHost
+	req    *http.Request
+	resp   *http.Response
+	err    error
+	timing *HttpTiming
 }
 
 // RequestFactory processes requests
@@ -62,7 +70,9 @@ func (f *RequestFactory) sendRequest(host *ForwardHost, request *http.Request) {
 
 	Debug("Sending request:", host.Url, request)
 
+	tstart := time.Now()
 	resp, err := client.Do(request)
+	tstop := time.Now()
 
 	if err == nil {
 		defer resp.Body.Close()
@@ -70,7 +80,7 @@ func (f *RequestFactory) sendRequest(host *ForwardHost, request *http.Request) {
 		Debug("Request error:", err)
 	}
 
-	f.c_responses <- &HttpResponse{host, request, resp, err}
+	f.c_responses <- &HttpResponse{host, request, resp, err, &HttpTiming{tstart, tstop}}
 }
 
 // handleRequests and their responses
@@ -94,6 +104,9 @@ func (f *RequestFactory) handleRequests() {
 		case resp := <-f.c_responses:
 			// Increment returned http code stats, and elapsed time
 			resp.host.Stat.IncResp(resp)
+			for _, rap := range activeRespAnalyzePlugins {
+				go rap.ResponseAnalyze(resp)
+			}
 		}
 	}
 }

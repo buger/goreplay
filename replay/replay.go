@@ -63,6 +63,13 @@ func Run() {
 		log.Fatal("Can't start:", err)
 	}
 
+	// Register Plugins
+	// Elasticsearch Plugin
+	if esp.Active {
+		esp.Init()
+		RegisterResponseAnalyzePlugin(&esp)
+	}
+
 	for _, host := range Settings.ForwardedHosts() {
 		log.Println("Forwarding requests to:", host.Url, "limit:", host.Limit)
 	}
