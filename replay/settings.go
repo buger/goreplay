@@ -23,6 +23,9 @@ type ReplaySettings struct {
 	Address        string
 	ForwardAddress string
 
+	BasicAuthUser     string
+	BasicAuthPassword string
+
 	Verbose bool
 }
 
@@ -78,6 +81,9 @@ func init() {
 
 	Settings.SetAddress()
 	flag.StringVar(&Settings.ForwardAddress, "f", defaultForwardAddress, "http address to forward traffic.\n\tYou can limit requests per second by adding `|num` after address.\n\tIf you have multiple addresses with different limits. For example: http://staging.example.com|100,http://dev.example.com|10")
+
+	flag.StringVar(&Settings.BasicAuthUser, "BasicAuth.User", "", "Inject Basic Auth Header in replay: Username")
+	flag.StringVar(&Settings.BasicAuthPassword, "BasicAuth.Password", "", "Inject Basic Auth Header in replay: Password")
 
 	flag.BoolVar(&Settings.Verbose, "verbose", false, "Log requests")
 }
