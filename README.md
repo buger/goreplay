@@ -2,17 +2,17 @@
 
 ## About
 
-Gor is a simple http traffic replication tool written in Go. 
+Gor is a simple http traffic replication tool written in Go.
 Its main goal is to replay traffic from production servers to staging and dev environments.
 
 
-Now you can test your code on real user sessions in an automated and repeatable fashion.  
+Now you can test your code on real user sessions in an automated and repeatable fashion.
 **No more falling down in production!**
 
 Gor consists of 2 parts: listener and replay servers.
 
 The listener server catches http traffic from a given port in real-time
-and sends it to the replay server. 
+and sends it to the replay server or saves to file.
 The replay server forwards traffic to a given address.
 
 
@@ -23,9 +23,9 @@ The replay server forwards traffic to a given address.
 
 ```bash
 # Run on servers where you want to catch traffic. You can run it on each `web` machine.
-sudo gor listen -p 80 -r replay.server.local:28020 
+sudo gor listen -p 80 -r replay.server.local:28020
 
-# Replay server (replay.server.local). 
+# Replay server (replay.server.local).
 gor replay -f http://staging.server -p 28020
 ```
 
@@ -54,6 +54,16 @@ You can forward traffic to multiple endpoints. Just separate the addresses by co
 ```
 gor replay -f "http://staging.server|10,http://dev.server|5"
 ```
+### Saving requests to file
+You can save request to save to file to replay multiple time, or in different network:
+```
+gor listen -p 8080 -file requests.gor
+```
+
+And replaying:
+```
+gor replay -f "http://staging.server" -file requests.gor
+```
 
 ## Additional help
 ```
@@ -80,7 +90,7 @@ https://github.com/buger/gor/releases
 
 ## Building from source
 1. Setup standard Go environment http://golang.org/doc/code.html and ensure that $GOPATH environment variable properly set.
-2. `go get github.com/buger/gor`. 
+2. `go get github.com/buger/gor`.
 3. `cd $GOPATH/src/github.com/buger/gor`
 4. `go build gor.go` to get binary, or `go run gor.go` to build and run (useful for development)
 

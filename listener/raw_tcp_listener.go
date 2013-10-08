@@ -26,19 +26,19 @@ type RAWTCPListener struct {
 }
 
 // RAWTCPListen creates a listener to capture traffic from RAW_SOCKET
-func RAWTCPListen(addr string, port int) (listener *RAWTCPListener) {
-	listener = &RAWTCPListener{}
+func RAWTCPListen(addr string, port int) (rawListener *RAWTCPListener) {
+	rawListener = &RAWTCPListener{}
 
-	listener.c_packets = make(chan *TCPPacket, 100)
-	listener.c_messages = make(chan *TCPMessage, 100)
-	listener.c_del_message = make(chan *TCPMessage, 100)
-	listener.messages = make(map[uint32]*TCPMessage)
+	rawListener.c_packets = make(chan *TCPPacket, 100)
+	rawListener.c_messages = make(chan *TCPMessage, 100)
+	rawListener.c_del_message = make(chan *TCPMessage, 100)
+	rawListener.messages = make(map[uint32]*TCPMessage)
 
-	listener.addr = addr
-	listener.port = port
+	rawListener.addr = addr
+	rawListener.port = port
 
-	go listener.listen()
-	go listener.readRAWSocket()
+	go rawListener.listen()
+	go rawListener.readRAWSocket()
 
 	return
 }

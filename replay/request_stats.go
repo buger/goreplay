@@ -4,6 +4,8 @@ import (
 	"time"
 )
 
+var TotalResponsesCount int
+
 // RequestStat stores in context of current timestamp
 type RequestStat struct {
 	timestamp int64
@@ -31,6 +33,7 @@ func (s *RequestStat) IncReq() {
 // IncResp is called after response
 func (s *RequestStat) IncResp(resp *HttpResponse) {
 	s.Touch()
+  TotalResponsesCount++
 
 	if resp.err != nil {
 		s.Errors++

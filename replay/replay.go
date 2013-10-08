@@ -25,64 +25,136 @@
 package replay
 
 import (
-	"bufio"
-	"bytes"
-	"io"
-	"log"
-	"net"
-	"net/http"
+  "bufio"
+  "bytes"
+  "io"
+  "log"
+  "net"
+  "net/http"
+  "time"
 )
+
 
 const bufSize = 4096
 
+type ReplayManager struct {
+  reqFactory *RequestFactory
+}
+
+func NewReplayManager() (rm *ReplayManager) {
+  rm = &ReplayManager{}
+  rm.reqFactory = NewRequestFactory()
+
+  return
+}
+
 // Debug enables logging only if "--verbose" flag passed
 func Debug(v ...interface{}) {
-	if Settings.Verbose {
-		log.Println(v...)
-	}
+  if Settings.Verbose {
+    log.Println(v...)
+  }
 }
 
 // ParseRequest in []byte returns a http request or an error
 func ParseRequest(data []byte) (request *http.Request, err error) {
-	buf := bytes.NewBuffer(data)
-	reader := bufio.NewReader(buf)
+  buf := bytes.NewBuffer(data)
+  reader := bufio.NewReader(buf)
 
-	request, err = http.ReadRequest(reader)
-	return
+  request, err = http.ReadRequest(reader)
+
+  if err != nil {
+    log.Fatal("Can not parse request", string(data), err)
+  }
+
+  return
 }
 
 // Run acts as `main` function of replay
 // Replay server listen to UDP traffic from Listeners
 // Each request processed by RequestFactory
 func Run() {
-	listener, err := net.Listen("tcp", Settings.Address)
+  rm := NewReplayManager()
 
-	log.Println("Starting replay server at:", Settings.Address)
+  if Settings.FileToReplyPath != "" {
+    rm.RunReplayFromFile()
+  } else {
+    rm.RunReplayFromNetwork()
+  }
+}
 
-	if err != nil {
-		log.Fatal("Can't start:", err)
-	}
+func (self *ReplayManager) RunReplayFromFile() {
+  TotalResponsesCount = 0
 
-	for _, host := range Settings.ForwardedHosts() {
-		log.Println("Forwarding requests to:", host.Url, "limit:", host.Limit)
-	}
+  log.Println("Starting file reply")
+  requests, err := parseReplyFile()
 
-	requestFactory := NewRequestFactory()
+  if err != nil {
+    log.Fatal("Can't parse request: ", err)
+  }
 
-	for {
-		conn, err := listener.Accept()
+  var lastTimestamp int64
 
-		if err != nil {
-			log.Println("Error while Accept()", err)
-			continue
-		}
+  if len(requests) > 0 {
+    lastTimestamp = requests[0].Timestamp
+  }
 
-		go handleConnection(conn, requestFactory)
-	}
+  requestsToReplay := 0
+
+	hosts := Settings.ForwardedHosts()
+  for _, host := range hosts {
+    if host.Limit > 0 {
+      requestsToReplay += host.Limit
+    } else {
+      requestsToReplay += len(requests)
+    }
+  }
+
+  for _, request := range requests {
+
+    parsedReq, err := ParseRequest(request.Request)
+
+    if err != nil {
+      log.Fatal("Can't parse request...:", err)
+    }
+
+    time.Sleep(time.Duration(request.Timestamp - lastTimestamp))
+
+    self.sendRequestToReplay(parsedReq)
+    lastTimestamp = request.Timestamp
+  }
+
+  for requestsToReplay > TotalResponsesCount {
+    time.Sleep(time.Second)
+  }
 
 }
 
-func handleConnection(conn net.Conn, rf *RequestFactory) error {
+func (self *ReplayManager) RunReplayFromNetwork() {
+  listener, err := net.Listen("tcp", Settings.Address)
+
+  log.Println("Starting replay server at:", Settings.Address)
+
+  if err != nil {
+    log.Fatal("Can't start:", err)
+  }
+
+  for _, host := range Settings.ForwardedHosts() {
+    log.Println("Forwarding requests to:", host.Url, "limit:", host.Limit)
+  }
+
+  for {
+    conn, err := listener.Accept()
+
+    if err != nil {
+      log.Println("Error while Accept()", err)
+      continue
+    }
+
+    go self.handleConnection(conn)
+  }
+}
+
+func (self *ReplayManager) handleConnection(conn net.Conn) error {
 	defer conn.Close()
 
 	var read = true
@@ -113,9 +185,13 @@ func handleConnection(conn net.Conn, rf *RequestFactory) error {
 		} else {
 			Debug("Adding request", request)
 
-			rf.Add(request)
+      self.sendRequestToReplay(request)
 		}
 	}()
 
 	return nil
+}
+
+func (self *ReplayManager) sendRequestToReplay(req *http.Request) {
+  self.reqFactory.Add(req)
 }
