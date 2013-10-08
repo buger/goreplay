@@ -60,6 +60,10 @@ func (f *RequestFactory) sendRequest(host *ForwardHost, request *http.Request) {
 	request.RequestURI = ""
 	request.URL, _ = url.ParseRequestURI(URL)
 
+	if len(Settings.BasicAuthUser) > 0 && len(Settings.BasicAuthPassword) > 0 {
+		request.SetBasicAuth(Settings.BasicAuthUser, Settings.BasicAuthPassword)
+	}
+
 	Debug("Sending request:", host.Url, request)
 
 	resp, err := client.Do(request)
