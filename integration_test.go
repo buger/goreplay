@@ -11,8 +11,6 @@ import (
 
 	"github.com/buger/gor/listener"
 	"github.com/buger/gor/replay"
-
-	"math/rand"
 )
 
 func isEqual(t *testing.T, a interface{}, b interface{}) {
@@ -88,13 +86,10 @@ func (e *Env) startHTTP(port int, handler http.Handler) {
 func getRequest(port int) *http.Request {
 	var req *http.Request
 
-	if rand.Int()%2 == 0 {
-		req, _ = http.NewRequest("GET", "http://localhost:"+strconv.Itoa(port)+"/test", nil)
-	} else {
-		buf := bytes.NewReader([]byte("a=b&c=d"))
+	buf := bytes.NewReader([]byte("a=b&c=d"))
 
-		req, _ = http.NewRequest("POST", "http://localhost:"+strconv.Itoa(port)+"/test", buf)
-	}
+	req, _ = http.NewRequest("POST", "http://localhost:"+strconv.Itoa(port)+"/test", buf)
+
 
 	ck1 := new(http.Cookie)
 	ck1.Name = "test"
@@ -174,10 +169,10 @@ func rateLimitEnv(replayLimit int, listenerLimit int, connCount int) int32 {
 	}
 
 	p := env.start()
-	req := getRequest(p)
 
 	for i := 0; i < connCount; i++ {
 		go func() {
+      req := getRequest(p)
 			http.DefaultClient.Do(req)
 		}()
 	}

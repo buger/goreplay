@@ -33,7 +33,7 @@ type HttpResponse struct {
 // 4. handleRequest() listen for `response` channel and updates stats
 type RequestFactory struct {
 	c_responses chan *HttpResponse
-	c_requests  chan *http.Request
+	c_requests  chan []byte
 }
 
 // NewRequestFactory returns a RequestFactory pointer
@@ -41,7 +41,7 @@ type RequestFactory struct {
 func NewRequestFactory() (factory *RequestFactory) {
 	factory = &RequestFactory{}
 	factory.c_responses = make(chan *HttpResponse)
-	factory.c_requests = make(chan *http.Request)
+	factory.c_requests = make(chan []byte)
 
 	go factory.handleRequests()
 
@@ -57,11 +57,12 @@ func customCheckRedirect(req *http.Request, via []*http.Request) error {
 }
 
 // sendRequest forwards http request to a given host
-func (f *RequestFactory) sendRequest(host *ForwardHost, request *http.Request) {
+func (f *RequestFactory) sendRequest(host *ForwardHost, requestBytes []byte) {
 	client := &http.Client{
 		CheckRedirect: customCheckRedirect,
 	}
 
+  request, _ := ParseRequest(requestBytes)
 	// Change HOST of original request
 	URL := host.Url + request.URL.Path + "?" + request.URL.RawQuery
 
@@ -115,6 +116,6 @@ func (f *RequestFactory) handleRequests() {
 }
 
 // Add request to channel for further processing
-func (f *RequestFactory) Add(request *http.Request) {
+func (f *RequestFactory) Add(request []byte) {
 	f.c_requests <- request
 }
