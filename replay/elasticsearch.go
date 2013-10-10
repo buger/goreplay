@@ -6,13 +6,19 @@ import (
 	"github.com/mattbaird/elastigo/core"
 	"log"
 	"net/http"
-	"strconv"
+	"regexp"
 	"time"
 )
 
+type ESUriErorr struct{}
+
+func (e *ESUriErorr) Error() string {
+	return "Wrong ElasticSearch URL format. Expected to be: host:port/index_name"
+}
+
 type ESPlugin struct {
 	Active  bool
-	ApiPort int
+	ApiPort string
 	Host    string
 	Index   string
 	indexor *core.BulkIndexor
@@ -44,13 +50,40 @@ type ESRequestResponse struct {
 	Timestamp            time.Time
 }
 
-func (p *ESPlugin) Init() {
-	// Start the Handler go routine
+// Parse ElasticSearch URI
+//
+// Proper format is: host:port/index_name
+func parseURI(URI string) (err error, host string, port string, index string) {
+	rURI := regexp.MustCompile("(.+):([0-9]+)/(.+)")
+	match := rURI.FindAllStringSubmatch(URI, -1)
+
+	if len(match) == 0 {
+		err = new(ESUriErorr)
+	} else {
+		host = match[0][1]
+		port = match[0][2]
+		index = match[0][3]
+	}
+
+	return
+}
+
+func (p *ESPlugin) Init(URI string) {
+	var err error
+
+	err, p.Host, p.ApiPort, p.Index = parseURI(URI)
+
+	if err != nil {
+		log.Fatal("Can't initialize ElasticSearch plugin.", err)
+	}
+
 	api.Domain = p.Host
-	api.Port = strconv.Itoa(p.ApiPort)
+	api.Port = p.ApiPort
+
 	p.indexor = core.NewBulkIndexorErrors(50, 60)
 	p.done = make(chan bool)
 	p.indexor.Run(p.done)
+
 	if Settings.Verbose {
 		// Only start the ErrorHandler goroutine when in verbose mode
 		// no need to burn ressources otherwise

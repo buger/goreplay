@@ -7,6 +7,10 @@ import (
 	"strings"
 )
 
+type ResponseAnalyzer interface {
+	ResponseAnalyze(*HttpResponse)
+}
+
 // ForwardHost where to forward requests
 type ForwardHost struct {
 	Url   string
@@ -27,19 +31,16 @@ type ReplaySettings struct {
 	FileToReplyPath string
 
 	Verbose bool
+
+	ElastiSearchURI string
+
+	ResponseAnalyzePlugins []ResponseAnalyzer
 }
 
 var Settings ReplaySettings = ReplaySettings{}
-var esp ESPlugin
 
-type ResponseAnalyzer interface {
-	ResponseAnalyze(*HttpResponse)
-}
-
-var activeRespAnalyzePlugins []ResponseAnalyzer
-
-func RegisterResponseAnalyzePlugin(f ResponseAnalyzer) {
-	activeRespAnalyzePlugins = append(activeRespAnalyzePlugins, f)
+func (r *ReplaySettings) RegisterResponseAnalyzePlugin(p ResponseAnalyzer) {
+	r.ResponseAnalyzePlugins = append(r.ResponseAnalyzePlugins, p)
 }
 
 // ForwardedHosts implements forwardAddress syntax support for multiple hosts (coma separated), and rate limiting by specifing "|maxRps" after host name.
@@ -74,9 +75,11 @@ func (r *ReplaySettings) Parse() {
 
 	// Register Plugins
 	// Elasticsearch Plugin
-	if esp.Active {
-		esp.Init()
-		RegisterResponseAnalyzePlugin(&esp)
+	if Settings.ElastiSearchURI != "" {
+		esp := &ESPlugin{}
+		esp.Init(Settings.ElastiSearchURI)
+
+		r.RegisterResponseAnalyzePlugin(esp)
 	}
 }
 
@@ -102,9 +105,5 @@ func init() {
 
 	flag.BoolVar(&Settings.Verbose, "verbose", false, "Log requests")
 
-	// ElasticSearch Plugin Settings
-	flag.BoolVar(&esp.Active, "es", false, "enable elasticsearch")
-	flag.StringVar(&esp.Host, "esh", "localhost", "specify elasticsearch host")
-	flag.IntVar(&esp.ApiPort, "esp", 9200, "specify elasticsearch port")
-	flag.StringVar(&esp.Index, "esi", "gor", "specify elasticsearch index name")
+	flag.StringVar(&Settings.ElastiSearchURI, "es", "", "enable elasticsearch\n\tformat: hostname:9200/index_name")
 }

@@ -54,8 +54,9 @@ You can forward traffic to multiple endpoints. Just separate the addresses by co
 ```
 gor replay -f "http://staging.server|10,http://dev.server|5"
 ```
+
 ### Saving requests to file
-You can save request to save to file to replay multiple time, or in different network:
+You can save request to file for replaying them later:
 ```
 gor listen -p 8080 -file requests.gor
 ```
@@ -64,6 +65,17 @@ And replaying:
 ```
 gor replay -f "http://staging.server" -file requests.gor
 ```
+
+## Stats 
+
+
+### ElasticSearch 
+For deep reponse analyze based on url, cookie, user-agent and etc. you can export response metadata to ElasticSearch. See https://github.com/buger/gor/pull/29#issuecomment-25773523 for more details.
+
+```
+gor replay -f "http://staging.server" -es "es_host:api_port/index_name"
+```
+
 
 ## Additional help
 ```

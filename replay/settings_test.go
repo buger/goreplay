@@ -40,3 +40,29 @@ func TestForwardAddress(t *testing.T) {
 		t.Error("Host should be host2:2 with 10 limit")
 	}
 }
+
+func TestElasticSearchSettings(t *testing.T) {
+	settings := &ReplaySettings{
+		Host:            "local",
+		Port:            2,
+		ForwardAddress:  "host1:1,host2:2|10",
+		ElastiSearchURI: "host:10/index_name",
+	}
+
+	settings.Parse()
+
+	esp := &ESPlugin{}
+	esp.Init(Settings.ElastiSearchURI)
+
+	if esp.ApiPort != "10" {
+		t.Error("Port not match")
+	}
+
+	if esp.Host != "host" {
+		t.Error("Host not match")
+	}
+
+	if esp.Index != "index_name" {
+		t.Error("Index not match")
+	}
+}
