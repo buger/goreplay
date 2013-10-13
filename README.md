@@ -70,7 +70,7 @@ gor replay -f "http://staging.server" -file requests.gor
 
 
 ### ElasticSearch 
-For deep reponse analyze based on url, cookie, user-agent and etc. you can export response metadata to ElasticSearch. See https://github.com/buger/gor/pull/29#issuecomment-25773523 for more details.
+For deep reponse analyze based on url, cookie, user-agent and etc. you can export response metadata to ElasticSearch. See [ELASTICSEARCH.md](ELASTICSEARCH.md) for more details.
 
 ```
 gor replay -f "http://staging.server" -es "es_host:api_port/index_name"
