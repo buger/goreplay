@@ -1,7 +1,6 @@
 package replay
 
 import (
-	"errors"
 	"net/http"
 	"net/url"
 	"time"
@@ -48,20 +47,8 @@ func NewRequestFactory() (factory *RequestFactory) {
 	return
 }
 
-// customCheckRedirect disables redirects https://github.com/buger/gor/pull/15
-func customCheckRedirect(req *http.Request, via []*http.Request) error {
-	if len(via) >= 0 {
-		return errors.New("stopped after 2 redirects")
-	}
-	return nil
-}
-
 // sendRequest forwards http request to a given host
 func (f *RequestFactory) sendRequest(host *ForwardHost, requestBytes []byte) {
-	client := &http.Client{
-		CheckRedirect: customCheckRedirect,
-	}
-
 	request, _ := ParseRequest(requestBytes)
 
 	// Change HOST of original request
@@ -72,8 +59,9 @@ func (f *RequestFactory) sendRequest(host *ForwardHost, requestBytes []byte) {
 
 	Debug("Sending request:", host.Url, request)
 
+	client := &http.Transport{}
 	tstart := time.Now()
-	resp, err := client.Do(request)
+	resp, err := client.RoundTrip(request)
 	tstop := time.Now()
 
 	if err == nil {
