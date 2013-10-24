@@ -1,6 +1,13 @@
 package replay
 
 import (
+	"bufio"
+	"bytes"
+	"container/ring"
+	"errors"
+	"fmt"
+	"log"
+
 	"net/http"
 	"net/url"
 	"time"
@@ -33,6 +40,9 @@ type HttpResponse struct {
 type RequestFactory struct {
 	c_responses chan *HttpResponse
 	c_requests  chan []byte
+
+	reqBuf        *ring.Ring
+	reqBufForSend *ring.Ring
 }
 
 // NewRequestFactory returns a RequestFactory pointer
@@ -40,9 +50,13 @@ type RequestFactory struct {
 func NewRequestFactory() (factory *RequestFactory) {
 	factory = &RequestFactory{}
 	factory.c_responses = make(chan *HttpResponse)
+
 	factory.c_requests = make(chan []byte)
+	factory.reqBuf = ring.New(1000)
+	factory.reqBufForSend = factory.reqBuf
 
 	go factory.handleRequests()
+	go factory.sendRequests()
 
 	return
 }
@@ -106,14 +120,11 @@ func (f *RequestFactory) handleRequests() {
 	for {
 		select {
 		case req := <-f.c_requests:
+			f.reqBuf.Value = req
+			f.reqBuf = f.reqBuf.Next()
+
 			for _, host := range hosts {
-				// Ensure that we have actual stats for given timestamp
-				host.Stat.Touch()
-
-				if host.Limit == 0 || host.Stat.Count < host.Limit {
-					// Increment Stat.Count
-					host.Stat.IncReq()
-
+				if host.Limit == 0 {
 					go f.sendRequest(host, req)
 				}
 			}
@@ -130,7 +141,65 @@ func (f *RequestFactory) handleRequests() {
 
 }
 
+func (f *RequestFactory) sendRequests() {
+	hosts := Settings.ForwardedHosts()
+
+	for _, host := range hosts {
+		// Ensure that we have actual stats for given timestamp
+		if host.Limit != 0 {
+			go func() {
+				for {
+					host.Stat.Touch()
+					// Increment Stat.Count
+					host.Stat.IncReq()
+
+					req, err := f.getReqFromBuf(0)
+
+					if err == nil {
+						go f.sendRequest(host, req)
+					} else {
+						fmt.Println(err)
+					}
+
+					delay := float64(1) / float64(host.Limit) * float64(time.Second)
+
+					fmt.Println(int(time.Duration(delay) / time.Millisecond))
+					time.Sleep(time.Duration(delay))
+				}
+			}()
+		}
+	}
+}
+
+func (f *RequestFactory) getReqFromBuf(retries int) ([]byte, error) {
+	f.reqBufForSend = f.reqBufForSend.Prev()
+
+	if f.reqBufForSend.Value != nil {
+		return f.reqBufForSend.Value.([]byte), nil
+	} else {
+		if retries <= f.reqBufForSend.Len() {
+			return f.getReqFromBuf(retries + 1)
+		} else {
+			return nil, errors.New("Requests not found")
+		}
+	}
+}
+
 // Add request to channel for further processing
 func (f *RequestFactory) Add(request []byte) {
 	f.c_requests <- request
+}
+
+// ParseRequest in []byte returns a http request or an error
+func ParseRequest(data []byte) (request *http.Request, err error) {
+	buf := bytes.NewBuffer(data)
+	reader := bufio.NewReader(buf)
+
+	request, err = http.ReadRequest(reader)
+
+	if err != nil {
+		log.Println("Can not parse request", string(data), err)
+	}
+
+	return
 }
