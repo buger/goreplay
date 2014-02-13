@@ -20,7 +20,7 @@ func TestRAWInput(t *testing.T) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
+	Plugins.Inputs = []Input{input}
 	Plugins.Outputs = []io.Writer{output}
 
 	address := strings.Replace(listener.Addr().String(), "[::]", "127.0.0.1", -1)

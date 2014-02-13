@@ -13,7 +13,7 @@ func TestFileOutput(t *testing.T) {
 	input := NewTestInput()
 	output := NewFileOutput("/tmp/test_requests.gor")
 
-	Plugins.Inputs = []io.Reader{input}
+	Plugins.Inputs = []Input{input}
 	Plugins.Outputs = []io.Writer{output}
 
 	go Start(quit)
@@ -32,7 +32,7 @@ func TestFileOutput(t *testing.T) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input2}
+	Plugins.Inputs = []Input{input2}
 	Plugins.Outputs = []io.Writer{output2}
 
 	go Start(quit)

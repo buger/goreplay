@@ -17,7 +17,7 @@ func TestTCPInput(t *testing.T) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
+	Plugins.Inputs = []Input{input}
 	Plugins.Outputs = []io.Writer{output}
 
 	go Start(quit)
@@ -56,7 +56,7 @@ func BenchmarkTCPInput(b *testing.B) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
+	Plugins.Inputs = []Input{input}
 	Plugins.Outputs = []io.Writer{output}
 
 	go Start(quit)

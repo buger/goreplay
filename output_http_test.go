@@ -44,7 +44,7 @@ func TestHTTPOutput(t *testing.T) {
 
 	output := NewHTTPOutput(listener.Addr().String(), headers, methods, "")
 
-	Plugins.Inputs = []io.Reader{input}
+	Plugins.Inputs = []Input{input}
 	Plugins.Outputs = []io.Writer{output}
 
 	go Start(quit)
@@ -77,7 +77,7 @@ func BenchmarkHTTPOutput(b *testing.B) {
 
 	output := NewHTTPOutput(listener.Addr().String(), headers, methods, "")
 
-	Plugins.Inputs = []io.Reader{input}
+	Plugins.Inputs = []Input{input}
 	Plugins.Outputs = []io.Writer{output}
 
 	go Start(quit)

@@ -17,11 +17,10 @@ func NewDummyInput(options string) (di *DummyInput) {
 	return
 }
 
-func (i *DummyInput) Read(data []byte) (int, error) {
-	buf := <-i.data
-	copy(data, buf)
+func (i *DummyInput) Read() ([]byte, bool) {
+	buf, ok := <-i.data
 
-	return len(buf), nil
+	return buf, ok
 }
 
 func (i *DummyInput) emit() {

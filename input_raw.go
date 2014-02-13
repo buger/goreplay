@@ -22,11 +22,10 @@ func NewRAWInput(address string) (i *RAWInput) {
 	return
 }
 
-func (i *RAWInput) Read(data []byte) (int, error) {
-	buf := <-i.data
-	copy(data, buf)
+func (i *RAWInput) Read() ([]byte, bool) {
+	buf, ok := <-i.data
 
-	return len(buf), nil
+	return buf, ok
 }
 
 func (i *RAWInput) listen(address string) {

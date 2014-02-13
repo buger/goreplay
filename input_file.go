@@ -34,11 +34,10 @@ func (i *FileInput) Init(path string) {
 	i.decoder = gob.NewDecoder(file)
 }
 
-func (i *FileInput) Read(data []byte) (int, error) {
-	buf := <-i.data
-	copy(data, buf)
+func (i *FileInput) Read() ([]byte, bool) {
+	buf, ok := <-i.data
 
-	return len(buf), nil
+	return buf, ok
 }
 
 func (i *FileInput) String() string {
