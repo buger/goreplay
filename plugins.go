@@ -4,8 +4,12 @@ import (
 	"io"
 )
 
+type Input interface {
+	Read() (buf []byte, ok bool)
+}
+
 type InOutPlugins struct {
-	Inputs  []io.Reader
+	Inputs  []Input
 	Outputs []io.Writer
 }
 

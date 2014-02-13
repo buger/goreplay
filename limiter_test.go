@@ -16,7 +16,7 @@ func TestLimiter(t *testing.T) {
 	}), 10)
 	wg.Add(10)
 
-	Plugins.Inputs = []io.Reader{input}
+	Plugins.Inputs = []Input{input}
 	Plugins.Outputs = []io.Writer{output}
 
 	go Start(quit)

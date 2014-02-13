@@ -16,18 +16,17 @@ func Start(stop chan int) {
 }
 
 // Copy from 1 reader to multiple writers
-func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
-	buf := make([]byte, 32*1024)
+func CopyMulty(src Input, writers ...io.Writer) {
 	wIndex := 0
 
 	for {
-		nr, er := src.Read(buf)
-		if nr > 0 {
-			Debug("Sending", src, ": ", string(buf[0:nr]))
+		buf, ok := src.Read()
+		if ok {
+			Debug("Sending", src, ": ", string(buf))
 
 			if Settings.splitOutput {
 				// Simple round robin
-				writers[wIndex].Write(buf[0:nr])
+				writers[wIndex].Write(buf)
 
 				wIndex++
 
@@ -36,18 +35,12 @@ func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
 				}
 			} else {
 				for _, dst := range writers {
-					dst.Write(buf[0:nr])
+					dst.Write(buf)
 				}
 			}
 
-		}
-		if er == io.EOF {
-			break
-		}
-		if er != nil {
-			err = er
+		} else {
 			break
 		}
 	}
-	return err
 }

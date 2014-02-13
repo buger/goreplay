@@ -11,11 +11,10 @@ func NewTestInput() (i *TestInput) {
 	return
 }
 
-func (i *TestInput) Read(data []byte) (int, error) {
-	buf := <-i.data
-	copy(data, buf)
+func (i *TestInput) Read() ([]byte, bool) {
+	buf, ok := <-i.data
 
-	return len(buf), nil
+	return buf, ok
 }
 
 func (i *TestInput) EmitGET() {

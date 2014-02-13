@@ -26,11 +26,10 @@ func NewTCPInput(address string) (i *TCPInput) {
 	return
 }
 
-func (i *TCPInput) Read(data []byte) (int, error) {
-	buf := <-i.data
-	copy(data, buf)
+func (i *TCPInput) Read() ([]byte, bool) {
+	buf, ok := <-i.data
 
-	return len(buf), nil
+	return buf, ok
 }
 
 func (i *TCPInput) listen(address string) {

@@ -67,7 +67,8 @@ func (t *Listener) readRAWSocket() {
 		log.Fatal(e)
 	}
 
-	buf := make([]byte, 4096*2)
+	// Ethernet MTU is 1500 bytes, local net MTU can be 16KB, so reserve a big buffer
+	buf := make([]byte, 4096*8)
 
 	for {
 		// Note: ReadFrom receive messages without IP header
