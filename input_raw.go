@@ -1,7 +1,7 @@
 package main
 
 import (
-	raw "github.com/buger/gor/raw_socket_listener"
+	raw "github.com/buger/joekiller/raw_socket_listener"
 	"log"
 	"net"
 	"strings"
@@ -12,12 +12,12 @@ type RAWInput struct {
 	address string
 }
 
-func NewRAWInput(address string) (i *RAWInput) {
+func NewRAWInput(address string, buffer_size int) (i *RAWInput) {
 	i = new(RAWInput)
 	i.data = make(chan []byte)
 	i.address = address
 
-	go i.listen(address)
+	go i.listen(address, buffer_size)
 
 	return
 }
@@ -29,7 +29,7 @@ func (i *RAWInput) Read(data []byte) (int, error) {
 	return len(buf), nil
 }
 
-func (i *RAWInput) listen(address string) {
+func (i *RAWInput) listen(address string, buffer_size int) {
 	address = strings.Replace(address, "[::]", "127.0.0.1", -1)
 
 	host, port, err := net.SplitHostPort(address)
@@ -38,7 +38,7 @@ func (i *RAWInput) listen(address string) {
 		log.Fatal("input-raw: error while parsing address", err)
 	}
 
-	listener := raw.NewListener(host, port)
+	listener := raw.NewListener(host, port, buffer_size)
 
 	for {
 		// Receiving TCPMessage object

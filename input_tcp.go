@@ -14,12 +14,14 @@ type TCPInput struct {
 	data     chan []byte
 	address  string
 	listener net.Listener
+	buffer_size int // maximum size buffer in KB for listener
 }
 
-func NewTCPInput(address string) (i *TCPInput) {
+func NewTCPInput(address string, buffer_size int) (i *TCPInput) {
 	i = new(TCPInput)
 	i.data = make(chan []byte)
 	i.address = address
+	i.buffer_size = buffer_size
 
 	i.listen(address)
 
@@ -58,7 +60,7 @@ func (i *TCPInput) listen(address string) {
 func (i *TCPInput) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	reader := bufio.NewReader(conn)
+	reader := bufio.NewReaderSize(conn,i.buffer_size * 1024 + 2)
 
 	for {
 		buf,err := reader.ReadBytes('¶')
