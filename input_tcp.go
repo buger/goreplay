@@ -71,6 +71,7 @@ func (i *TCPInput) handleConnection(conn net.Conn) {
 				new_buf := make([]byte, new_buf_len)
 				copy(new_buf, buf[:new_buf_len])
 				i.data <- new_buf
+				reader.Reset(conn)
 				if err != nil {
 					if err != io.EOF {
 						log.Printf("error: %s\n", err)
