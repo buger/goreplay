@@ -1,7 +1,7 @@
 package main
 
 import (
-	raw "github.com/buger/joekiller/raw_socket_listener"
+	raw "github.com/joekiller/gor/raw_socket_listener"
 	"log"
 	"net"
 	"strings"
