@@ -30,7 +30,7 @@ func customCheckRedirect(req *http.Request, via []*http.Request) error {
 // ParseRequest in []byte returns a http request or an error
 func ParseRequest(data []byte) (request *http.Request, err error) {
 	buf := bytes.NewBuffer(data)
-	reader := bufio.NewReaderSize(buf, len(buf))
+	reader := bufio.NewReaderSize(buf, len(data))
 
 	request, err = http.ReadRequest(reader)
 
