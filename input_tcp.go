@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"bytes"
+	"io"
 	"log"
 	"net"
 )
@@ -14,12 +14,14 @@ type TCPInput struct {
 	data     chan []byte
 	address  string
 	listener net.Listener
+	buffer_size int // maximum size buffer in KB for listener
 }
 
-func NewTCPInput(address string) (i *TCPInput) {
+func NewTCPInput(address string, buffer_size int) (i *TCPInput) {
 	i = new(TCPInput)
 	i.data = make(chan []byte)
 	i.address = address
+	i.buffer_size = buffer_size
 
 	i.listen(address)
 
@@ -55,35 +57,28 @@ func (i *TCPInput) listen(address string) {
 	}()
 }
 
-func scanBytes(data []byte, atEOF bool) (advance int, token []byte, err error) {
-	if atEOF && len(data) == 0 {
-		return 0, nil, nil
-	}
-
-	// Search for ¶ symbol
-	if i := bytes.IndexByte(data, 194); i >= 0 {
-		if len(data) > i+1 && data[i+1] == 182 {
-			// We have a full newline-terminated line.
-			return i + 2, data[0:i], nil
-		}
-	}
-	// If we're at EOF, we have a final, non-terminated line. Return it.
-	if atEOF {
-		return len(data), data, nil
-	}
-	// Request more data.
-	return 0, nil, nil
-}
-
 func (i *TCPInput) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	scanner := bufio.NewScanner(conn)
+	reader := bufio.NewReaderSize(conn,i.buffer_size * 1024 + 2)
 
-	scanner.Split(scanBytes)
-
-	for scanner.Scan() {
-		i.data <- scanner.Bytes()
+	for {
+		buf,err := reader.ReadBytes('¶')
+		buf_len := len(buf)
+		if buf_len > 0 {
+			new_buf_len := len(buf) - 2
+			if new_buf_len > 2 {
+				new_buf := make([]byte, new_buf_len)
+				copy(new_buf, buf[:new_buf_len])
+				i.data <- new_buf
+				reader.Reset(conn)
+				if err != nil {
+					if err != io.EOF {
+						log.Printf("error: %s\n", err)
+					}
+				}
+			}
+		}
 	}
 }
 

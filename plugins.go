@@ -21,11 +21,11 @@ func InitPlugins() {
 	}
 
 	for _, options := range Settings.inputRAW {
-		Plugins.Inputs = append(Plugins.Inputs, NewRAWInput(options))
+		Plugins.Inputs = append(Plugins.Inputs, NewRAWInput(options, Settings.bufferSize))
 	}
 
 	for _, options := range Settings.inputTCP {
-		Plugins.Inputs = append(Plugins.Inputs, NewTCPInput(options))
+		Plugins.Inputs = append(Plugins.Inputs, NewTCPInput(options, Settings.bufferSize))
 	}
 
 	for _, options := range Settings.outputTCP {

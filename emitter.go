@@ -17,12 +17,12 @@ func Start(stop chan int) {
 
 // Copy from 1 reader to multiple writers
 func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
-	buf := make([]byte, 32*1024)
+	buf := make([]byte, Settings.bufferSize*1024)
 	wIndex := 0
 
 	for {
 		nr, er := src.Read(buf)
-		if nr > 0 && len(buf) < nr {
+		if nr > 0 && len(buf) > nr{
 			Debug("Sending", src, ": ", string(buf[0:nr]))
 
 			if Settings.splitOutput {

@@ -30,7 +30,7 @@ func customCheckRedirect(req *http.Request, via []*http.Request) error {
 // ParseRequest in []byte returns a http request or an error
 func ParseRequest(data []byte) (request *http.Request, err error) {
 	buf := bytes.NewBuffer(data)
-	reader := bufio.NewReader(buf)
+	reader := bufio.NewReaderSize(buf, len(data))
 
 	request, err = http.ReadRequest(reader)
 
@@ -46,6 +46,7 @@ type HTTPOutput struct {
 	methods HTTPMethods
 
 	elasticSearch *es.ESPlugin
+	bufferSize int
 }
 
 func NewHTTPOutput(options string, headers HTTPHeaders, methods HTTPMethods, elasticSearchAddr string) io.Writer {

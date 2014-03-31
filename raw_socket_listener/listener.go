@@ -24,10 +24,12 @@ type Listener struct {
 
 	addr string // IP to listen
 	port int    // Port to listen
+
+	buffer_size int //default buffer size to match emitter
 }
 
 // RAWTCPListen creates a listener to capture traffic from RAW_SOCKET
-func NewListener(addr string, port string) (rawListener *Listener) {
+func NewListener(addr string, port string, buffer_size int) (rawListener *Listener) {
 	rawListener = &Listener{}
 
 	rawListener.c_packets = make(chan *TCPPacket, 100)
@@ -37,6 +39,8 @@ func NewListener(addr string, port string) (rawListener *Listener) {
 
 	rawListener.addr = addr
 	rawListener.port, _ = strconv.Atoi(port)
+
+	rawListener.buffer_size = buffer_size
 
 	go rawListener.listen()
 	go rawListener.readRAWSocket()
@@ -67,7 +71,7 @@ func (t *Listener) readRAWSocket() {
 		log.Fatal(e)
 	}
 
-	buf := make([]byte, 4096*2)
+	buf := make([]byte, t.buffer_size * 1024)
 
 	for {
 		// Note: ReadFrom receive messages without IP header

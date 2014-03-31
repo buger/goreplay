@@ -44,12 +44,14 @@ func (o *TCPOutput) worker() {
 
 	for {
 		conn.Write(<-o.buf)
-		conn.Write([]byte("¶"))
 	}
 }
 
 func (o *TCPOutput) Write(data []byte) (n int, err error) {
-	o.buf <- data
+	new_buf := make([]byte, len(data) + 2)
+	data = append(data,[]byte("¶")...)
+	copy(new_buf, data)
+	o.buf <- new_buf
 
 	return len(data), nil
 }
