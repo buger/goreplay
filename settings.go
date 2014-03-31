@@ -66,9 +66,9 @@ func init() {
 	flag.Var(&Settings.outputHTTPHeaders, "output-http-header", "Inject additional headers to http reqest:\n\tgor --input-raw :8080 --output-http staging.com --output-http-header 'User-Agent: Gor'")
 	flag.Var(&Settings.outputHTTPMethods, "output-http-method", "Whitelist of HTTP methods to replay. Anything else will be dropped:\n\tgor --input-raw :8080 --output-http staging.com --output-http-method GET --output-http-method OPTIONS")
 	flag.StringVar(&Settings.outputHTTPElasticSearch, "output-http-elasticsearch", "", "Send request and response stats to ElasticSearch:\n\tgor --input-raw :8080 --output-http staging.com --output-http-elasticsearch 'es_host:api_port/index_name'")
-	flag.IntVar(&Settings.bufferSize, "emitter-buffer-size", DEFAULT_EMITTER_BUFFER, string("Maximum request size in KB that gor can process. Default and minimum: ", DEFAULT_EMITTER_BUFFER))
-	if &Settings.bufferSize < &DEFAULT_EMITTER_BUFFER {
-		&Settings.bufferSize = &DEFAULT_EMITTER_BUFFER
+	flag.IntVar(&Settings.bufferSize, "emitter-buffer-size", DEFAULT_EMITTER_BUFFER, string("Maximum request size in KB that gor can process. Default and minimum: " + DEFAULT_EMITTER_BUFFER))
+	if Settings.bufferSize < DEFAULT_EMITTER_BUFFER {
+		Settings.bufferSize = DEFAULT_EMITTER_BUFFER
 	}
 }
 
