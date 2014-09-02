@@ -23,6 +23,8 @@ type TCPMessage struct {
 	c_packets chan *TCPPacket
 
 	c_del_message chan *TCPMessage
+
+	closed bool
 }
 
 // NewTCPMessage pointer created from a Acknowledgment number and a channel of messages readuy to be deleted
@@ -47,6 +49,7 @@ func (t *TCPMessage) listen() {
 			if more {
 				t.AddPacket(packet)
 			} else {
+				t.closed = true
 				// Stop loop if channel closed
 				return
 			}

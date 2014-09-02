@@ -131,6 +131,10 @@ func (t *Listener) processTCPPacket(packet *TCPPacket) {
 		t.messages[m_id] = message
 	}
 
+	if message.closed {
+		return
+	}
+
 	// Adding packet to message
 	message.c_packets <- packet
 }
