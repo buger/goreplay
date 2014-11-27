@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"io"
 	"reflect"
 	"regexp"
