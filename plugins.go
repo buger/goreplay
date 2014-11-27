@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"io"
 	"reflect"
+	"regexp"
 	"strings"
 )
 
@@ -15,13 +17,24 @@ type ReaderOrWriter interface{}
 
 var Plugins *InOutPlugins = new(InOutPlugins)
 
-func extractLimitOptions(options string) (string, string) {
+func extractLimitOptions(options string) (string, string, string) {
 	split := strings.Split(options, "|")
 
-	if len(split) > 1 {
-		return split[0], split[1]
+	// check if host object has |qps or |urlRewriteString or both
+	if len(split) == 2 {
+		valArr := strings.SplitN(split[1], ":", 2)
+		if len(valArr) < 2 {
+			// only |qps
+			return split[0], split[1], ""
+		} else {
+			// only |urlRewriteString
+			return split[0], "", split[1]
+		}
+	} else if len(split) == 3 {
+		// |qps and |urlRewriteString
+		return split[0], split[1], split[2]
 	} else {
-		return split[0], ""
+		return split[0], "", ""
 	}
 }
 
@@ -38,7 +51,19 @@ func registerPlugin(constructor interface{}, options ...interface{}) {
 	}
 
 	// Removing limit options from path
-	path, limit := extractLimitOptions(vo[0].String())
+	path, limit, urlRewriteString := extractLimitOptions(vo[0].String())
+
+	// Test regular expression and apply to path
+	if urlRewriteString != "" {
+
+		valArr := strings.SplitN(urlRewriteString, ":", 2)
+		regexp := regexp.MustCompile(valArr[0])
+
+		r := new(UrlRewriteMap)
+		*r = append(*r, urlRewrite{src: regexp, target: valArr[1]})
+
+		Settings.outputHTTPUrlRewrite = *r
+	}
 
 	// Writing value back without limiter "|" options
 	vo[0] = reflect.ValueOf(path)
