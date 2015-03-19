@@ -38,6 +38,13 @@ func ParseRequest(data []byte) (request *http.Request, err error) {
 		return
 	}
 
+	// preserve chunked encoding (see #136)
+	for _, encoding := range request.TransferEncoding {
+		if encoding == "chunked" {
+			return
+		}
+	}
+
 	if request.Method == "POST" {
 		body, _ := ioutil.ReadAll(reader)
 		bodyBuf := bytes.NewBuffer(body)
