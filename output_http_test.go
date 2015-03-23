@@ -67,7 +67,7 @@ func TestHTTPOutput(t *testing.T) {
 			defer req.Body.Close()
 			body, _ := ioutil.ReadAll(req.Body)
 
-			if string(body) != "a=1&b=2\r\n\r\n" {
+			if string(body) != "xyzxyzxyz" {
 				buf, _ := httputil.DumpRequest(req, true)
 				t.Error("Wrong POST body:", string(buf))
 			}
@@ -84,9 +84,10 @@ func TestHTTPOutput(t *testing.T) {
 	go Start(quit)
 
 	for i := 0; i < 100; i++ {
-		wg.Add(2)
+		wg.Add(3)
 		input.EmitPOST()
-		input.EmitOPTIONS()
+		input.EmitChunkedPOST()
+		input.EmitOPTIONS() // filtered out
 		input.EmitGET()
 	}
 
