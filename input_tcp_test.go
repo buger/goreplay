@@ -6,6 +6,7 @@ import (
 	"net"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestTCPInput(t *testing.T) {
@@ -45,6 +46,25 @@ func TestTCPInput(t *testing.T) {
 	}
 
 	wg.Wait()
+
+	if input.connections() != 1 {
+		log.Fatal("Incorrect number of connections, expected 1, got %d",
+			input.connections())
+	}
+
+	conn.Close()
+
+	i := 0
+	iterations := 10
+	for ; i < iterations; i++ {
+		if input.connections() == 0 {
+			break
+		}
+		time.Sleep(time.Second / time.Duration(iterations))
+	}
+	if i == iterations {
+		log.Fatal("Connection did not close cleanly")
+	}
 
 	close(quit)
 }
