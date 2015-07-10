@@ -91,7 +91,9 @@ func (c *HTTPClient) isAlive() bool {
 func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 	if c.conn == nil || !c.isAlive() {
 		Debug("Connecting:", c.baseURL)
-		c.Connect()
+		if err = c.Connect(); err != nil {
+			return
+		}
 	}
 
 	timeout := time.Now().Add(5 * time.Second)
