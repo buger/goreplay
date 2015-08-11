@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/buger/gor/requestfiles"
 	"io"
 	"testing"
 )
@@ -24,7 +25,7 @@ func TestPluginsRegistration(t *testing.T) {
 		t.Errorf("First input should be DummyInput")
 	}
 
-	if _, ok := Plugins.Inputs[1].(*FileInput); !ok {
+	if _, ok := Plugins.Inputs[1].(*requestfiles.FileInput); !ok {
 		t.Errorf("Second input should be FileInput")
 	}
 

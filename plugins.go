@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/buger/gor/requestfiles"
 	"io"
 	"reflect"
 	"strings"
@@ -87,11 +88,11 @@ func InitPlugins() {
 	}
 
 	for _, options := range Settings.inputFile {
-		registerPlugin(NewFileInput, options)
+		registerPlugin(requestfiles.NewFileInput, options)
 	}
 
 	for _, options := range Settings.outputFile {
-		registerPlugin(NewFileOutput, options)
+		registerPlugin(requestfiles.NewFileOutput, options)
 	}
 
 	for _, options := range Settings.inputHTTP {

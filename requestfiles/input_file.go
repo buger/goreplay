@@ -1,4 +1,4 @@
-package main
+package requestfiles
 
 import (
 	"encoding/gob"
@@ -12,7 +12,7 @@ type FileInput struct {
 	data        chan []byte
 	path        string
 	decoder     *gob.Decoder
-	speedFactor float64
+	SpeedFactor float64
 }
 
 // NewFileInput constructor for FileInput. Accepts file path as argument.
@@ -20,7 +20,7 @@ func NewFileInput(path string) (i *FileInput) {
 	i = new(FileInput)
 	i.data = make(chan []byte)
 	i.path = path
-	i.speedFactor = 1
+	i.SpeedFactor = 1
 	i.init(path)
 
 	go i.emit()
@@ -64,8 +64,8 @@ func (i *FileInput) emit() {
 			timeDiff := raw.Timestamp - lastTime
 
 			// We can speedup or slowdown execution based on speedFactor
-			if i.speedFactor != 1 {
-				timeDiff = int64(float64(raw.Timestamp-lastTime) / i.speedFactor)
+			if i.SpeedFactor != 1 {
+				timeDiff = int64(float64(raw.Timestamp-lastTime) / i.SpeedFactor)
 			}
 
 			time.Sleep(time.Duration(timeDiff))

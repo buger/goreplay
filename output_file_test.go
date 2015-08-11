@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/buger/gor/requestfiles"
 	"io"
 	"sync"
 	"testing"
@@ -11,7 +12,7 @@ func TestFileOutput(t *testing.T) {
 	quit := make(chan int)
 
 	input := NewTestInput()
-	output := NewFileOutput("/tmp/test_requests.gor")
+	output := requestfiles.NewFileOutput("/tmp/test_requests.gor")
 
 	Plugins.Inputs = []io.Reader{input}
 	Plugins.Outputs = []io.Writer{output}
@@ -27,7 +28,7 @@ func TestFileOutput(t *testing.T) {
 
 	quit = make(chan int)
 
-	input2 := NewFileInput("/tmp/test_requests.gor")
+	input2 := requestfiles.NewFileInput("/tmp/test_requests.gor")
 	output2 := NewTestOutput(func(data []byte) {
 		wg.Done()
 	})

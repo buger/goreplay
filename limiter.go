@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/buger/gor/requestfiles"
 	"io"
 	"math/rand"
 	"strconv"
@@ -40,8 +41,8 @@ func NewLimiter(plugin interface{}, options string) io.ReadWriter {
 	l.currentTime = time.Now().UnixNano()
 
 	// FileInput have its own rate limiting. Unlike other inputs we not just dropping requests, we can slow down or speed up request emittion.
-	if fi, ok := l.plugin.(*FileInput); ok && l.isPercent {
-		fi.speedFactor = float64(l.limit) / float64(100)
+	if fi, ok := l.plugin.(*requestfiles.FileInput); ok && l.isPercent {
+		fi.SpeedFactor = float64(l.limit) / float64(100)
 	}
 
 	return l
@@ -49,7 +50,7 @@ func NewLimiter(plugin interface{}, options string) io.ReadWriter {
 
 func (l *Limiter) isLimited() bool {
 	// File input have its own limiting algorithm
-	if _, ok := l.plugin.(*FileInput); ok && l.isPercent {
+	if _, ok := l.plugin.(*requestfiles.FileInput); ok && l.isPercent {
 		return false
 	}
 
