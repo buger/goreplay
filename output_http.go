@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/buger/gor/proto"
 	"io"
+	_ "log"
 	"sync/atomic"
 	"time"
 )
@@ -84,7 +85,7 @@ func NewHTTPOutput(address string, config *HTTPOutputConfig) io.Writer {
 		o.elasticSearch.Init(o.config.elasticSearch)
 	}
 
-	if len(Settings.middleware) > 0 {
+	if len(Middleware) > 0 {
 		o.config.TrackResponses = true
 	}
 

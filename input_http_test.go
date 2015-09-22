@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/buger/gor/proto"
-	"io"
 	"log"
 	"net/http"
 	"os/exec"
@@ -20,8 +19,7 @@ func TestHTTPInput(t *testing.T) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	testPlugins(input, output)
 
 	go Start(quit)
 
@@ -55,8 +53,8 @@ func TestInputHTTPLargePayload(t *testing.T) {
 		}
 		wg.Done()
 	})
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+
+	testPlugins(input, output)
 
 	go Start(quit)
 

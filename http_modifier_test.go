@@ -7,7 +7,8 @@ import (
 )
 
 func TestHTTPModifierWithoutConfig(t *testing.T) {
-	if NewHTTPModifier(&HTTPModifierConfig{}) != nil {
+	config := &HTTPModifierConfig{}
+	if !config.IsEmpty() {
 		t.Error("If no config specified should not be initialized")
 	}
 }
@@ -20,7 +21,7 @@ func TestHTTPModifierHeaderFilters(t *testing.T) {
 		headerFilters: filters,
 	})
 
-	payload := []byte("POST /post HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
+	payload := []byte("1 1 1\nPOST /post HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
 
 	if len(modifier.Rewrite(payload)) == 0 {
 		t.Error("Request should pass filters")
@@ -47,7 +48,7 @@ func TestHTTPModifierHeaderNegativeFilters(t *testing.T) {
 		headerNegativeFilters: filters,
 	})
 
-	payload := []byte("POST /post HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w4.org\r\n\r\na=1&b=2")
+	payload := []byte("1 1 1\nPOST /post HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w4.org\r\n\r\na=1&b=2")
 
 	if len(modifier.Rewrite(payload)) == 0 {
 		t.Error("Request should pass filters")
@@ -72,7 +73,7 @@ func TestHTTPModifierURLRewrite(t *testing.T) {
 	rewrites := UrlRewriteMap{}
 
 	payload := func(url []byte) []byte {
-		return []byte("POST " + string(url) + " HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
+		return []byte("1 1 1\nPOST " + string(url) + " HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
 	}
 
 	err := rewrites.Set("/v1/user/([^\\/]+)/ping:/v2/user/$1/ping")
@@ -85,12 +86,14 @@ func TestHTTPModifierURLRewrite(t *testing.T) {
 	})
 
 	url = []byte("/v1/user/joe/ping")
-	if newURL = proto.Path(modifier.Rewrite(payload(url))); bytes.Equal(newURL, url) {
+	newPayload := modifier.Rewrite(payload(url))
+	if newURL = proto.Path(payloadBody(newPayload)); bytes.Equal(newURL, url) {
 		t.Error("Request url should have been rewritten, wasn't", string(newURL))
 	}
 
 	url = []byte("/v1/user/ping")
-	if newURL = proto.Path(modifier.Rewrite(payload(url))); !bytes.Equal(newURL, url) {
+	newPayload = modifier.Rewrite(payload(url))
+	if newURL = proto.Path(payloadBody(newPayload)); !bytes.Equal(newURL, url) {
 		t.Error("Request url should have been rewritten, wasn't", string(newURL))
 	}
 }
@@ -104,7 +107,7 @@ func TestHTTPModifierHeaderHashFilters(t *testing.T) {
 	})
 
 	payload := func(header []byte) []byte {
-		return []byte("POST / HTTP/1.1\r\n" + string(header) + "Content-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
+		return []byte("1 1 1\nPOST / HTTP/1.1\r\n" + string(header) + "Content-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
 	}
 
 	if p := modifier.Rewrite(payload([]byte(""))); len(p) == 0 {
@@ -129,7 +132,7 @@ func TestHTTPModifierParamHashFilters(t *testing.T) {
 	})
 
 	payload := func(value []byte) []byte {
-		return []byte("POST /" + string(value) + " HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
+		return []byte("1 1 1\nPOST /" + string(value) + " HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
 	}
 
 	if p := modifier.Rewrite(payload([]byte(""))); len(p) == 0 {
@@ -154,8 +157,8 @@ func TestHTTPModifierHeaders(t *testing.T) {
 		headers: headers,
 	})
 
-	payload := []byte("POST /post HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
-	newPayload := []byte("POST /post HTTP/1.1\r\nHeader1: 1\r\nContent-Length: 7\r\nHost: localhost\r\n\r\na=1&b=2")
+	payload := []byte("1 1 1\nPOST /post HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
+	newPayload := []byte("1 1 1\nPOST /post HTTP/1.1\r\nHeader1: 1\r\nContent-Length: 7\r\nHost: localhost\r\n\r\na=1&b=2")
 
 	if payload = modifier.Rewrite(payload); !bytes.Equal(payload, newPayload) {
 		t.Error("Should update request headers", string(payload))
@@ -172,7 +175,7 @@ func TestHTTPModifierURLRegexp(t *testing.T) {
 	})
 
 	payload := func(url string) []byte {
-		return []byte("POST " + url + " HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
+		return []byte("1 1 1\nPOST " + url + " HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
 	}
 
 	if len(modifier.Rewrite(payload("/v1/app/test"))) == 0 {
@@ -198,7 +201,7 @@ func TestHTTPModifierURLNegativeRegexp(t *testing.T) {
 	})
 
 	payload := func(url string) []byte {
-		return []byte("POST " + url + " HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
+		return []byte("1 1 1\nPOST " + url + " HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
 	}
 
 	if len(modifier.Rewrite(payload("/v1/app/test"))) == 0 {
@@ -222,8 +225,8 @@ func TestHTTPModifierSetHeader(t *testing.T) {
 		headers: filters,
 	})
 
-	payload := []byte("POST /post HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
-	payloadAfter := []byte("POST /post HTTP/1.1\r\nUser-Agent: Gor\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
+	payload := []byte("1 1 1\nPOST /post HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
+	payloadAfter := []byte("1 1 1\nPOST /post HTTP/1.1\r\nUser-Agent: Gor\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
 
 	if payload = modifier.Rewrite(payload); !bytes.Equal(payloadAfter, payload) {
 		t.Error("Should add new header", string(payload))
@@ -238,8 +241,8 @@ func TestHTTPModifierSetParam(t *testing.T) {
 		params: filters,
 	})
 
-	payload := []byte("POST /post?api_key=1234 HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
-	payloadAfter := []byte("POST /post?api_key=1 HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
+	payload := []byte("1 1 1\nPOST /post?api_key=1234 HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
+	payloadAfter := []byte("1 1 1\nPOST /post?api_key=1 HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
 
 	if payload = modifier.Rewrite(payload); !bytes.Equal(payloadAfter, payload) {
 		t.Error("Should override param", string(payload))

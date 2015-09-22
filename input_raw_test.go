@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -45,8 +44,7 @@ func TestRAWInput(t *testing.T) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	testPlugins(input, output)
 
 	client := NewHTTPClient(origin.URL, &HTTPClientConfig{})
 
@@ -112,8 +110,7 @@ func TestInputRAW100Expect(t *testing.T) {
 
 	httpOutput := NewHTTPOutput(replay.URL, &HTTPOutputConfig{})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{testOutput, httpOutput}
+	testPlugins(input, testOutput, httpOutput)
 
 	go Start(quit)
 
@@ -162,8 +159,7 @@ func TestInputRAWChunkedEncoding(t *testing.T) {
 
 	httpOutput := NewHTTPOutput(replay.URL, &HTTPOutputConfig{Debug: true})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{httpOutput}
+	testPlugins(input, httpOutput)
 
 	go Start(quit)
 
@@ -222,8 +218,7 @@ func TestInputRAWLargePayload(t *testing.T) {
 
 	httpOutput := NewHTTPOutput(replay.URL, &HTTPOutputConfig{Debug: false})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{httpOutput}
+	testPlugins(input, httpOutput)
 
 	go Start(quit)
 

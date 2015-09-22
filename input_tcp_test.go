@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"log"
 	"net"
 	"sync"
@@ -17,8 +16,7 @@ func TestTCPInput(t *testing.T) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	testPlugins(input, output)
 
 	go Start(quit)
 
@@ -56,8 +54,7 @@ func BenchmarkTCPInput(b *testing.B) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	testPlugins(input, output)
 
 	go Start(quit)
 

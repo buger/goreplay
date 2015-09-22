@@ -12,10 +12,10 @@ import (
 	"sync"
 )
 
-type Middleware struct {
+type ExternalMiddleware struct {
 	command string
 
-	data chan []byte
+	output chan []byte
 
 	mu sync.Mutex
 
@@ -23,10 +23,11 @@ type Middleware struct {
 	Stdout io.Reader
 }
 
-func NewMiddleware(command string) *Middleware {
-	m := new(Middleware)
+func NewExternalMiddleware(command string) *ExternalMiddleware {
+	m := new(ExternalMiddleware)
 	m.command = command
-	m.data = make(chan []byte, 1000)
+
+	m.output = make(chan []byte, 1000)
 
 	commands := strings.Split(command, " ")
 	cmd := exec.Command(commands[0], commands[1:]...)
@@ -38,7 +39,7 @@ func NewMiddleware(command string) *Middleware {
 		cmd.Stderr = os.Stderr
 	}
 
-	go m.read(m.Stdout)
+	go m.read()
 
 	go func() {
 		err := cmd.Start()
@@ -53,35 +54,8 @@ func NewMiddleware(command string) *Middleware {
 	return m
 }
 
-func (m *Middleware) ReadFrom(plugin io.Reader) {
-	Debug("[MIDDLEWARE-MASTER] Starting reading from", plugin)
-	go m.copy(m.Stdin, plugin)
-}
-
-func (m *Middleware) copy(to io.Writer, from io.Reader) {
-	buf := make([]byte, 5*1024*1024)
-	dst := make([]byte, len(buf)*2)
-
-	for {
-		nr, _ := from.Read(buf)
-		if nr > 0 && len(buf) > nr {
-
-			hex.Encode(dst, buf[0:nr])
-			dst[nr*2] = '\n'
-
-			m.mu.Lock()
-			to.Write(dst[0 : nr*2+1])
-			m.mu.Unlock()
-
-			if Settings.debug {
-				Debug("[MIDDLEWARE-MASTER] Sending:", string(buf[0:nr]), "From:", from)
-			}
-		}
-	}
-}
-
-func (m *Middleware) read(from io.Reader) {
-	scanner := bufio.NewScanner(from)
+func (m *ExternalMiddleware) read() {
+	scanner := bufio.NewScanner(m.Stdout)
 
 	for scanner.Scan() {
 		bytes := scanner.Bytes()
@@ -94,7 +68,7 @@ func (m *Middleware) read(from io.Reader) {
 			Debug("[MIDDLEWARE-MASTER] Received:", string(buf))
 		}
 
-		m.data <- buf
+		m.output <- buf
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -104,13 +78,30 @@ func (m *Middleware) read(from io.Reader) {
 	return
 }
 
-func (m *Middleware) Read(data []byte) (int, error) {
-	buf := <-m.data
+func (m *ExternalMiddleware) Read(data []byte) (int, error) {
+	buf := <-m.output
 	copy(data, buf)
 
 	return len(buf), nil
 }
 
-func (m *Middleware) String() string {
+func (m *ExternalMiddleware) Write(data []byte) (int, error) {
+	dst := make([]byte, len(data)*2+1)
+
+	hex.Encode(dst, data)
+	dst[len(dst)-1] = '\n'
+
+	m.mu.Lock()
+	m.Stdin.Write(dst)
+	m.mu.Unlock()
+
+	if Settings.debug {
+		Debug("[MIDDLEWARE-MASTER] Sending:", string(data))
+	}
+
+	return len(data), nil
+}
+
+func (m *ExternalMiddleware) String() string {
 	return fmt.Sprintf("Modifying traffic using '%s' command", m.command)
 }

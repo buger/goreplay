@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -16,8 +15,7 @@ func TestEmitter(t *testing.T) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	testPlugins(input, output)
 
 	go Start(quit)
 
@@ -49,8 +47,7 @@ func TestEmitterRoundRobin(t *testing.T) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output1, output2}
+	testPlugins(input, output1, output2)
 
 	Settings.splitOutput = true
 
@@ -82,8 +79,7 @@ func BenchmarkEmitter(b *testing.B) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	testPlugins(input, output)
 
 	go Start(quit)
 

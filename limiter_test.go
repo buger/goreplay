@@ -3,7 +3,6 @@
 package main
 
 import (
-	"io"
 	"sync"
 	"testing"
 )
@@ -18,8 +17,7 @@ func TestOutputLimiter(t *testing.T) {
 	}), "10")
 	wg.Add(10)
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	testPlugins(input, output)
 
 	go Start(quit)
 
@@ -42,8 +40,7 @@ func TestInputLimiter(t *testing.T) {
 	})
 	wg.Add(10)
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	testPlugins(input, output)
 
 	go Start(quit)
 
@@ -66,8 +63,7 @@ func TestPercentLimiter1(t *testing.T) {
 		wg.Done()
 	}), "0%")
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	testPlugins(input, output)
 
 	go Start(quit)
 
@@ -91,8 +87,7 @@ func TestPercentLimiter2(t *testing.T) {
 	}), "100%")
 	wg.Add(100)
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	testPlugins(input, output)
 
 	go Start(quit)
 

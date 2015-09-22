@@ -41,12 +41,11 @@ func TestHTTPOutput(t *testing.T) {
 
 	headers := HTTPHeaders{HTTPHeader{"User-Agent", "Gor"}}
 	methods := HTTPMethods{[]byte("GET"), []byte("PUT"), []byte("POST")}
-	Settings.modifierConfig = HTTPModifierConfig{headers: headers, methods: methods}
+	Middleware = []io.ReadWriter{NewHTTPModifier(&HTTPModifierConfig{headers: headers, methods: methods})}
 
 	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{Debug: true})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	testPlugins(input, output)
 
 	go Start(quit)
 
@@ -61,7 +60,7 @@ func TestHTTPOutput(t *testing.T) {
 
 	close(quit)
 
-	Settings.modifierConfig = HTTPModifierConfig{}
+	Middleware = []io.ReadWriter{}
 }
 
 func TestHTTPOutputKeepOriginalHost(t *testing.T) {
@@ -80,12 +79,11 @@ func TestHTTPOutputKeepOriginalHost(t *testing.T) {
 	defer server.Close()
 
 	headers := HTTPHeaders{HTTPHeader{"Host", "custom-host.com"}}
-	Settings.modifierConfig = HTTPModifierConfig{headers: headers}
+	Middleware = []io.ReadWriter{NewHTTPModifier(&HTTPModifierConfig{headers: headers})}
 
 	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{Debug: false, OriginalHost: true})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	testPlugins(input, output)
 
 	go Start(quit)
 
@@ -96,7 +94,7 @@ func TestHTTPOutputKeepOriginalHost(t *testing.T) {
 
 	close(quit)
 
-	Settings.modifierConfig = HTTPModifierConfig{}
+	Middleware = []io.ReadWriter{}
 }
 
 func TestOutputHTTPSSL(t *testing.T) {
@@ -111,8 +109,7 @@ func TestOutputHTTPSSL(t *testing.T) {
 	input := NewTestInput()
 	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	testPlugins(input, output)
 
 	go Start(quit)
 
@@ -138,8 +135,7 @@ func BenchmarkHTTPOutput(b *testing.B) {
 	input := NewTestInput()
 	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	testPlugins(input, output)
 
 	go Start(quit)
 

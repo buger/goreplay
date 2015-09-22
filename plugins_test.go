@@ -1,42 +1,36 @@
 package main
 
 import (
-	"io"
 	"testing"
 )
 
 func TestPluginsRegistration(t *testing.T) {
-	Plugins.Inputs = []io.Reader{}
-	Plugins.Outputs = []io.Writer{}
+	Plugins = make([]interface{}, 0)
 
 	Settings.inputDummy = MultiOption{"[]"}
 	Settings.outputDummy = MultiOption{"[]"}
-	Settings.outputHTTP = MultiOption{"www.example.com|10"}
 	Settings.inputFile = MultiOption{"/dev/null"}
+	Settings.outputHTTP = MultiOption{"www.example.com|10"}
 
 	InitPlugins()
 
-	if len(Plugins.Inputs) != 2 {
-		t.Errorf("Should be 2 inputs %d", len(Plugins.Inputs))
+	if len(Plugins) != 4 {
+		t.Errorf("Should be 2 inputs and 2 outputs %d", len(Plugins))
 	}
 
-	if _, ok := Plugins.Inputs[0].(*DummyInput); !ok {
+	if _, ok := Plugins[0].(*DummyInput); !ok {
 		t.Errorf("First input should be DummyInput")
 	}
 
-	if _, ok := Plugins.Inputs[1].(*FileInput); !ok {
-		t.Errorf("Second input should be FileInput")
-	}
-
-	if len(Plugins.Outputs) != 2 {
-		t.Errorf("Should be 2 output %d", len(Plugins.Outputs))
-	}
-
-	if _, ok := Plugins.Outputs[0].(*DummyOutput); !ok {
+	if _, ok := Plugins[1].(*DummyOutput); !ok {
 		t.Errorf("First output should be DummyOutput")
 	}
 
-	if l, ok := Plugins.Outputs[1].(*Limiter); ok {
+	if _, ok := Plugins[2].(*FileInput); !ok {
+		t.Errorf("Second input should be FileInput")
+	}
+
+	if l, ok := Plugins[3].(*Limiter); ok {
 		if _, ok := l.plugin.(*HTTPOutput); !ok {
 			t.Errorf("HTTPOutput should be wrapped in limiter")
 		}

@@ -7,14 +7,9 @@ import (
 	"time"
 )
 
-// InOutPlugins struct for holding references to plugins
-type InOutPlugins struct {
-	Inputs  []io.Reader
-	Outputs []io.Writer
-}
-
 // Plugins holds all the plugin objects
-var Plugins *InOutPlugins = new(InOutPlugins)
+var Plugins []interface{}
+var Middleware []io.ReadWriter
 
 // extractLimitOptions detects if plugin get called with limiter support
 // Returns address and limit
@@ -56,17 +51,7 @@ func registerPlugin(constructor interface{}, options ...interface{}) {
 		pluginWrapper = plugin
 	}
 
-	_, isR := plugin.(io.Reader)
-	_, isW := plugin.(io.Writer)
-
-	// Some of the output can be Readers as well because return responses
-	if isR && !isW {
-		Plugins.Inputs = append(Plugins.Inputs, pluginWrapper.(io.Reader))
-	}
-
-	if isW {
-		Plugins.Outputs = append(Plugins.Outputs, pluginWrapper.(io.Writer))
-	}
+	Plugins = append(Plugins, pluginWrapper)
 }
 
 // InitPlugins specify and initialize all available plugins
@@ -115,4 +100,28 @@ func InitPlugins() {
 	for _, options := range Settings.outputHTTP {
 		registerPlugin(NewHTTPOutput, options, &Settings.outputHTTPConfig)
 	}
+
+	if !Settings.modifierConfig.IsEmpty() {
+		Middleware = append(Middleware, NewHTTPModifier(&Settings.modifierConfig))
+	}
+
+	for _, cmd := range Settings.middleware {
+		Middleware = append(Middleware, NewExternalMiddleware(cmd))
+	}
+}
+
+func testPlugins(plugins ...interface{}) {
+	resetPlugins()
+
+	Plugins = plugins
+}
+
+func resetPlugins() {
+	for _, plugin := range Plugins {
+		if c, isC := plugin.(io.Closer); isC {
+			c.Close()
+		}
+	}
+
+	Plugins = make([]interface{}, 0)
 }

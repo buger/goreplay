@@ -10,5 +10,6 @@
 *.class
 
 *.test
+.idea
 
 gor

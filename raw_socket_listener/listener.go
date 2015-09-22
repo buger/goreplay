@@ -99,7 +99,7 @@ func (t *Listener) listen() {
 		case packet := <-t.packetsChan:
 			t.processTCPPacket(packet)
 
-		case <- gcTicker:
+		case <-gcTicker:
 			now := time.Now()
 
 			for _, message := range t.messages {

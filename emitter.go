@@ -1,31 +1,49 @@
 package main
 
 import (
-	"bytes"
 	"io"
 	"time"
 )
 
 // Start initialize loop for sending data from inputs to outputs
 func Start(stop chan int) {
-	if Settings.middleware != "" {
-		middleware := NewMiddleware(Settings.middleware)
+	var readers []io.Reader
+	var writers []io.Writer
 
-		for _, in := range Plugins.Inputs {
-			middleware.ReadFrom(in)
+	for _, plugin := range Plugins {
+		pluginWrapper := plugin
+
+		if l, ok := plugin.(*Limiter); ok {
+			plugin = l.plugin
 		}
 
-		// We going only to read responses, so using same ReadFrom method
-		for _, out := range Plugins.Outputs {
-			if r, ok := out.(io.Reader); ok {
-				middleware.ReadFrom(r)
+		if _, isR := plugin.(io.Reader); isR {
+			readers = append(readers, pluginWrapper.(io.Reader))
+		}
+
+		if _, isW := plugin.(io.Writer); isW {
+			writers = append(writers, pluginWrapper.(io.Writer))
+		}
+	}
+
+	if len(Middleware) > 0 {
+		// All readers report to first middleware in pipeline
+		for _, reader := range readers {
+			go CopyMulty(reader, Middleware[0])
+		}
+
+		// Middleware pipeline
+		for i, mw := range Middleware {
+			if i < len(Middleware)-1 {
+				go CopyMulty(mw, Middleware[i+1])
 			}
 		}
 
-		go CopyMulty(middleware, Plugins.Outputs...)
+		// Last middleware in pipeline report to writers
+		go CopyMulty(Middleware[len(Middleware)-1], writers...)
 	} else {
-		for _, in := range Plugins.Inputs {
-			go CopyMulty(in, Plugins.Outputs...)
+		for _, in := range readers {
+			go CopyMulty(in, writers...)
 		}
 	}
 
@@ -42,7 +60,6 @@ func Start(stop chan int) {
 func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
 	buf := make([]byte, 5*1024*1024)
 	wIndex := 0
-	modifier := NewHTTPModifier(&Settings.modifierConfig)
 
 	for {
 		nr, er := src.Read(buf)
@@ -50,36 +67,11 @@ func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
 		if nr > 0 && len(buf) > nr {
 			payload := buf[:nr]
 
-			_maxN := nr
-			if nr > 500 {
-				_maxN = 500
-			}
-
 			if Settings.debug {
-				Debug("[EMITTER] input:", string(payload[0:_maxN]), nr, "from:", src)
+				Debug("[EMITTER] input:", stringLimit(payload), nr, "from:", src)
 			}
 
-			if modifier != nil && isRequestPayload(payload) {
-				headSize := bytes.IndexByte(payload, '\n') + 1
-				body := payload[headSize:]
-				originalBodyLen := len(body)
-				body = modifier.Rewrite(body)
-
-				// If modifier tells to skip request
-				if len(body) == 0 {
-					continue
-				}
-
-				if originalBodyLen != len(body) {
-					payload = append(payload[:headSize], body...)
-				}
-
-				if Settings.debug {
-					Debug("[EMITTER] Rewrittern input:", len(payload), "First 500 bytes:", string(payload[0:_maxN]))
-				}
-			}
-
-			if Settings.splitOutput {
+			if Settings.splitOutput && len(writers) > 1 {
 				// Simple round robin
 				writers[wIndex].Write(payload)
 
@@ -93,8 +85,8 @@ func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
 					dst.Write(payload)
 				}
 			}
-
 		}
+
 		if er == io.EOF {
 			break
 		}

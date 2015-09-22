@@ -14,7 +14,7 @@ type TestInput struct {
 // NewTestInput constructor for TestInput
 func NewTestInput() (i *TestInput) {
 	i = new(TestInput)
-	i.data = make(chan []byte, 100)
+	i.data = make(chan []byte, 1)
 
 	return
 }

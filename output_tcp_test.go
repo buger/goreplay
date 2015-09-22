@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"io"
 	"log"
 	"net"
 	"sync"
@@ -19,8 +18,7 @@ func TestTCPOutput(t *testing.T) {
 	input := NewTestInput()
 	output := NewTCPOutput(listener.Addr().String())
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	testPlugins(input, output)
 
 	go Start(quit)
 
@@ -71,8 +69,7 @@ func BenchmarkTCPOutput(b *testing.B) {
 	input := NewTestInput()
 	output := NewTCPOutput(listener.Addr().String())
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	testPlugins(input, output)
 
 	go Start(quit)
 

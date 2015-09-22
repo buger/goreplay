@@ -23,6 +23,23 @@ type HTTPModifierConfig struct {
 	methods HTTPMethods
 }
 
+func (config *HTTPModifierConfig) IsEmpty() bool {
+	if len(config.urlRegexp) == 0 &&
+		len(config.urlNegativeRegexp) == 0 &&
+		len(config.urlRewrite) == 0 &&
+		len(config.headerFilters) == 0 &&
+		len(config.headerNegativeFilters) == 0 &&
+		len(config.headerHashFilters) == 0 &&
+		len(config.paramHashFilters) == 0 &&
+		len(config.params) == 0 &&
+		len(config.headers) == 0 &&
+		len(config.methods) == 0 {
+		return true
+	}
+
+	return false
+}
+
 //
 // Handling of --http-allow-header, --http-disallow-header options
 //

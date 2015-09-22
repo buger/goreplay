@@ -43,7 +43,7 @@ type AppSettings struct {
 
 	inputRAW MultiOption
 
-	middleware string
+	middleware MultiOption
 
 	inputHTTP  MultiOption
 	outputHTTP MultiOption
@@ -82,7 +82,7 @@ func init() {
 
 	flag.Var(&Settings.inputRAW, "input-raw", "Capture traffic from given port (use RAW sockets and require *sudo* access):\n\t# Capture traffic from 8080 port\n\tgor --input-raw :8080 --output-http staging.com")
 
-	flag.StringVar(&Settings.middleware, "middleware", "", "Used for modifying traffic using external command")
+	flag.Var(&Settings.middleware, "middleware", "Used for modifying traffic using external command")
 
 	flag.Var(&Settings.inputHTTP, "input-http", "Read requests from HTTP, should be explicitly sent from your application:\n\t# Listen for http on 9000\n\tgor --input-http :9000 --output-http staging.com")
 
@@ -138,4 +138,12 @@ func Debug(args ...interface{}) {
 		fmt.Printf("[DEBUG][PID %d][%d][%fms] ", os.Getpid(), now.UnixNano(), diff)
 		fmt.Println(args...)
 	}
+}
+
+func stringLimit(buf []byte) string {
+	if len(buf) > 500 {
+		return string(buf[:500])
+	}
+
+	return string(buf)
 }

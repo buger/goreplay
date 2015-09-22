@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"sync"
 	"testing"
 )
@@ -13,8 +12,7 @@ func TestFileOutput(t *testing.T) {
 	input := NewTestInput()
 	output := NewFileOutput("/tmp/test_requests.gor")
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	testPlugins(input, output)
 
 	go Start(quit)
 
@@ -32,8 +30,7 @@ func TestFileOutput(t *testing.T) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input2}
-	Plugins.Outputs = []io.Writer{output2}
+	testPlugins(input2, output2)
 
 	go Start(quit)
 
