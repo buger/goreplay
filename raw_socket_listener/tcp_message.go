@@ -93,13 +93,13 @@ func (t *TCPMessage) IsMultipart() bool {
 
 	payload := t.packets[0].Data
 
+	if len(payload) < 4 {
+		return false
+	}
+
+	m := payload[:4]
+
 	if t.IsIncoming {
-		m := payload[:]
-
-		if len(payload) >= 4 {
-			m = payload[:4]
-		}
-
 		// If one GET, OPTIONS, or HEAD request
 		if bytes.Equal(m, []byte("GET ")) || bytes.Equal(m, []byte("OPTI")) || bytes.Equal(m, []byte("HEAD")) {
 			return false
