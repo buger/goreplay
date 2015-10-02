@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"github.com/buger/gor/proto"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/url"
@@ -158,6 +159,12 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 	//
 	// See https://github.com/buger/gor/issues/184
 	if n == len(c.respBuf) {
+
+		_, errBody := ioutil.ReadAll(c.conn)
+		if errBody != nil {
+			Debug("[HTTPClient] Read the whole body error:", errBody, c.baseURL)
+		}
+
 		c.Disconnect()
 	}
 
