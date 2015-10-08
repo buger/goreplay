@@ -40,7 +40,7 @@ func (rtc readTimeOutConn) Read(b []byte) (int, error) {
 	for {
 		nextRead := readPieceSize
 
-		if nextRead > (shouldRead - n) {
+		if nextRead+n > shouldRead {
 			nextRead = shouldRead - n
 		}
 
@@ -51,6 +51,10 @@ func (rtc readTimeOutConn) Read(b []byte) (int, error) {
 
 		if err != nil {
 			return n, err
+		}
+
+		if n >= shouldRead {
+			return n, nil
 		}
 
 	}
