@@ -13,9 +13,49 @@ import (
 	"time"
 )
 
+const (
+	readPieceSize   = 16384
+	maxSizeFromBody = 1073741824
+)
+
 var defaultPorts = map[string]string{
 	"http":  "80",
 	"https": "443",
+}
+
+// readTimeOutConn implements a net.Conn which has a timeout as opposed to hard
+// deadline. This is accomplished by making every succesful Read call move the deadline
+// of the actual connection further ahead with readTimeout.
+type readTimeOutConn struct {
+	net.Conn
+
+	// Every Read call will have a timeout of this duration
+	readTimeout time.Duration
+}
+
+func (rtc readTimeOutConn) Read(b []byte) (int, error) {
+	shouldRead := len(b)
+	n := 0
+
+	for {
+		nextRead := readPieceSize
+
+		if nextRead > (shouldRead - n) {
+			nextRead = shouldRead - n
+		}
+
+		rtc.Conn.SetReadDeadline(time.Now().Add(rtc.readTimeout))
+		in, err := rtc.Conn.Read(b[n : n+nextRead])
+
+		n += in
+
+		if err != nil {
+			return n, err
+		}
+
+	}
+
+	return n, io.EOF
 }
 
 type HTTPClientConfig struct {
@@ -74,6 +114,10 @@ func (c *HTTPClient) Connect() (err error) {
 		c.conn, err = net.DialTimeout("tcp", c.host+":80", c.config.ConnectionTimeout)
 	} else {
 		c.conn, err = net.DialTimeout("tcp", c.host, c.config.ConnectionTimeout)
+	}
+
+	if err != nil {
+		return
 	}
 
 	if c.scheme == "https" {
@@ -160,9 +204,28 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 	// See https://github.com/buger/gor/issues/184
 	if n == len(c.respBuf) {
 
-		_, errBody := ioutil.ReadAll(c.conn)
-		if errBody != nil {
-			Debug("[HTTPClient] Read the whole body error:", errBody, c.baseURL)
+		toConn := readTimeOutConn{
+			Conn: c.conn,
+		}
+		toConn.readTimeout = c.config.Timeout
+
+		var readBytes int64 = 0
+
+		for {
+			if n, err := io.CopyN(ioutil.Discard, toConn, readPieceSize); err == io.EOF {
+				break
+			} else if err != nil {
+				Debug("[HTTPClient] Read the whole body error:", err, c.baseURL)
+				break
+			} else {
+				readBytes += n
+			}
+
+			if readBytes >= maxSizeFromBody {
+				Debug("[HTTPClient] Body is more than the max size", maxSizeFromBody,
+					c.baseURL)
+				break
+			}
 		}
 
 		c.Disconnect()
