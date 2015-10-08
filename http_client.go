@@ -58,8 +58,6 @@ func (rtc readTimeOutConn) Read(b []byte) (int, error) {
 		}
 
 	}
-
-	return n, io.EOF
 }
 
 type HTTPClientConfig struct {
@@ -213,7 +211,7 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 		}
 		toConn.readTimeout = c.config.Timeout
 
-		var readBytes int64 = 0
+		var readBytes int64
 
 		for {
 			if n, err := io.CopyN(ioutil.Discard, toConn, readPieceSize); err == io.EOF {
