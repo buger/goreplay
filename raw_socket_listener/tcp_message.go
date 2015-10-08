@@ -92,6 +92,11 @@ func (t *TCPMessage) IsMultipart() bool {
 	}
 
 	payload := t.packets[0].Data
+
+	if len(payload) < 4 {
+		return false
+	}
+
 	m := payload[:4]
 
 	if t.IsIncoming {
