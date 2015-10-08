@@ -184,6 +184,12 @@ func (o *HTTPOutput) Read(data []byte) (int, error) {
 
 func (o *HTTPOutput) sendRequest(client *HTTPClient, request []byte) {
 	meta := payloadMeta(request)
+
+	if len(meta) < 2 {
+		// Malformed request
+		return
+	}
+
 	uuid := meta[1]
 
 	body := payloadBody(request)
