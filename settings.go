@@ -43,6 +43,8 @@ type AppSettings struct {
 
 	inputRAW MultiOption
 
+	inputPcap MultiOption
+
 	middleware string
 
 	inputHTTP  MultiOption
@@ -81,6 +83,8 @@ func init() {
 	flag.Var(&Settings.outputFile, "output-file", "Write incoming requests to file: \n\tgor --input-raw :80 --output-file ./requests.gor")
 
 	flag.Var(&Settings.inputRAW, "input-raw", "Capture traffic from given port (use RAW sockets and require *sudo* access):\n\t# Capture traffic from 8080 port\n\tgor --input-raw :8080 --output-http staging.com")
+
+	flag.Var(&Settings.inputPcap, "input-pcap", "Capture traffic using pcap on given iterface port (requires *sudo* access):\n\t# Capture traffic from 8080 port\n\tgor --input-pcap eht0:8080 --output-http staging.com")
 
 	flag.StringVar(&Settings.middleware, "middleware", "", "Used for modifying traffic using external command")
 

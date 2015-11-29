@@ -83,6 +83,10 @@ func InitPlugins() {
 		registerPlugin(NewRAWInput, options, time.Duration(0))
 	}
 
+	for _, options := range Settings.inputPcap {
+		registerPlugin(NewPcapInput, options, true)
+	}
+
 	for _, options := range Settings.inputTCP {
 		registerPlugin(NewTCPInput, options)
 	}
