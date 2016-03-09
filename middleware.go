@@ -84,7 +84,7 @@ func (m *Middleware) copy(to io.Writer, from io.Reader) {
 	}
 }
 
-func (m *Middleware) read(from io.Reader) {
+func (m *Middleware) readData(from io.Reader) (err error) {
 	scanner := bufio.NewScanner(from)
 
 	for scanner.Scan() {
@@ -103,9 +103,19 @@ func (m *Middleware) read(from io.Reader) {
 
 	if err := scanner.Err(); err != nil {
 		fmt.Fprintln(os.Stderr, "Traffic modifier command failed:", err)
+		return err
 	}
 
-	return
+	return nil
+}
+
+func (m *Middleware) read(from io.Reader) {
+	for {
+		err := m.readData(from)
+		if err != nil {
+			continue
+		}
+	}
 }
 
 func (m *Middleware) Read(data []byte) (int, error) {
