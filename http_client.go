@@ -1,8 +1,8 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
-	"github.com/buger/gor/proto"
 	"io"
 	"log"
 	"net"
@@ -10,6 +10,8 @@ import (
 	"runtime/debug"
 	"strings"
 	"time"
+
+	"github.com/buger/gor/proto"
 )
 
 var defaultPorts = map[string]string{
@@ -149,8 +151,29 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 	}
 
 	c.conn.SetReadDeadline(timeout)
-	n, err := c.conn.Read(c.respBuf)
+	n := 0
 
+	// The first bytes doesn't ensure we read at least the size of the buffer
+	// So we must check there for more bytes otherwise the connection becomes corrupted
+	for {
+		var n0 int
+		n0, err = c.conn.Read(c.respBuf[n:])
+		if err == nil {
+			n += n0
+			if n >= 1024 || bytes.Contains(c.respBuf[:n], proto.EmptyLine) { // headers already sent
+				// Wait no more than 0.1 secs otherwise it can be blocked up to the original timeout
+				c.conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+			}
+		} else {
+			// Check as best as posible we had no errors
+			if err == io.EOF ||
+				n == c.config.ResponseBufferSize ||
+				bytes.Contains(c.respBuf[:n], proto.EmptyLine) {
+				err = nil // Let assume there were no errors
+			}
+			break
+		}
+	}
 	// If response large then our buffer, we need to read all response buffer
 	// Otherwise it will corrupt response of next request
 	// Parsing response body is non trivial thing, especially with keep-alive
