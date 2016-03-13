@@ -91,6 +91,10 @@ func init() {
 	flag.IntVar(&Settings.outputHTTPConfig.redirectLimit, "output-http-redirects", 0, "Enable how often redirects should be followed.")
 	flag.DurationVar(&Settings.outputHTTPConfig.Timeout, "output-http-timeout", 0, "Specify HTTP request/response timeout. By default 5s. Example: --output-http-timeout 30s")
 
+	// Configuration for dynamic workers
+	flag.IntVar(&Settings.outputHTTPConfig.idleWorkers, "output-http-idle", 0, "Specify the number of the minimum number of idle workers, the max idle workers will be the double. Example: --output-http-idle 100")
+	flag.IntVar(&Settings.outputHTTPConfig.recycle, "output-http-recycle", 0, "Specify the max number of iterations of every workers, useful when redirecting to load balancers with variable IPs. Example: --output-http-recycle 100")
+
 	flag.BoolVar(&Settings.outputHTTPConfig.stats, "output-http-stats", false, "Report http output queue stats to console every 5 seconds.")
 	flag.BoolVar(&Settings.outputHTTPConfig.OriginalHost, "http-original-host", false, "Normally gor replaces the Host http header with the host supplied with --output-http.  This option disables that behavior, preserving the original Host header.")
 

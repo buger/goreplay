@@ -1,10 +1,12 @@
 package main
 
 import (
-	"github.com/buger/gor/proto"
+	"fmt"
 	"io"
 	"sync/atomic"
 	"time"
+
+	"github.com/buger/gor/proto"
 )
 
 const initialDynamicWorkers = 10
@@ -30,6 +32,9 @@ type HTTPOutputConfig struct {
 	Debug bool
 
 	TrackResponses bool
+
+	idleWorkers int
+	recycle     int
 }
 
 // HTTPOutput plugin manage pool of workers which send request to replayed server
@@ -40,6 +45,7 @@ type HTTPOutput struct {
 	// alignment. atomic.* functions crash on 32bit machines if operand is not
 	// aligned at 64bit. See https://github.com/golang/go/issues/599
 	activeWorkers int64
+	idleWorkers   int32
 
 	address string
 	limit   int
@@ -74,7 +80,11 @@ func NewHTTPOutput(address string, config *HTTPOutputConfig) io.Writer {
 
 	// Initial workers count
 	if o.config.workers == 0 {
-		o.needWorker <- initialDynamicWorkers
+		if o.config.idleWorkers > 0 {
+			o.needWorker <- o.config.idleWorkers * 3 / 2 // 1.5 min idle workers
+		} else {
+			o.needWorker <- initialDynamicWorkers
+		}
 	} else {
 		o.needWorker <- o.config.workers
 	}
@@ -96,6 +106,19 @@ func NewHTTPOutput(address string, config *HTTPOutputConfig) io.Writer {
 func (o *HTTPOutput) workerMaster() {
 	for {
 		newWorkers := <-o.needWorker
+
+		// Must calculate the number of new workers if it's dynamic
+		if o.config.workers != 0 && newWorkers == 0 && o.config.idleWorkers > 0 {
+			idleCount := int(atomic.LoadInt32(&o.idleWorkers)) // Current idle workers
+			fmt.Println("Idle/active", idleCount, atomic.LoadInt64(&o.activeWorkers))
+
+			if idleCount >= o.config.idleWorkers {
+				continue // Not new workers needed
+			}
+			newWorkers = o.config.idleWorkers*3/2 - idleCount // Total number of idle workers = 1.5 + min idle
+
+		}
+		fmt.Println("New workers required", newWorkers, atomic.LoadInt64(&o.activeWorkers))
 		for i := 0; i < newWorkers; i++ {
 			go o.startWorker()
 		}
@@ -116,31 +139,43 @@ func (o *HTTPOutput) startWorker() {
 	})
 
 	deathCount := 0
+	iterations := 0
 
 	atomic.AddInt64(&o.activeWorkers, 1)
+	defer atomic.AddInt64(&o.activeWorkers, -1)
 
 	for {
+		atomic.AddInt32(&o.idleWorkers, 1)
 		select {
 		case data := <-o.queue:
+			atomic.AddInt32(&o.idleWorkers, -1)
 			o.sendRequest(client, data)
 			deathCount = 0
 		case <-time.After(time.Millisecond * 100):
+			atomic.AddInt32(&o.idleWorkers, -1)
 			// When dynamic scaling enabled workers die after 2s of inactivity
-			if o.config.workers == 0 {
+			if o.config.workers == 0 && o.config.idleWorkers == 0 {
 				deathCount++
+				// If too many timeouts
+				if deathCount > 20 {
+					workersCount := atomic.LoadInt64(&o.activeWorkers)
+
+					// At least 1 startWorker should be alive
+					if workersCount != 1 {
+						o.needWorker <- 0 // Signal 0 to calculate the number of workers to create
+						return
+					}
+				}
 			} else {
 				continue
 			}
+		}
+		iterations++
 
-			if deathCount > 20 {
-				workersCount := atomic.LoadInt64(&o.activeWorkers)
-
-				// At least 1 startWorker should be alive
-				if workersCount != 1 {
-					atomic.AddInt64(&o.activeWorkers, -1)
-					return
-				}
-			}
+		if (o.config.recycle > 0 && iterations > o.config.recycle) || // If it reached the maximum number of operations
+			(o.config.idleWorkers > 0 && int(atomic.LoadInt32(&o.idleWorkers)) > o.config.idleWorkers*2) { // Too many idle process
+			o.needWorker <- 0 // Signal 0 to calculate the number of workers to create
+			return
 		}
 	}
 }
