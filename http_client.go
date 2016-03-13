@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/tls"
 	"io"
 	"log"
@@ -155,29 +156,24 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 	// The first bytes doesn't ensure we read at least the size of the buffer
 	// So we must check there for more bytes otherwise the connection becomes corrupted
 	for {
-		toCopy := 0
-		tmp := make([]byte, c.config.ResponseBufferSize)
-
-		if n >= 4096 { // For servers that send first bytes very fast
-			// Wait no more than 0.1 secs otherwise it can be blocked up to the timeout
-			c.conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
-		}
-		nPartial, err := c.conn.Read(tmp)
-		if err != nil {
-			break
-		}
-		if n+nPartial > c.config.ResponseBufferSize {
-			toCopy = c.config.ResponseBufferSize - n
+		var n0 int
+		n0, err = c.conn.Read(c.respBuf[n:])
+		if err == nil {
+			n += n0
+			if n >= 1024 || bytes.Contains(c.respBuf[:n], proto.EmptyLine) { // headers already sent
+				// Wait no more than 0.1 secs otherwise it can be blocked up to the original timeout
+				c.conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+			}
 		} else {
-			toCopy = nPartial
-		}
-		copy(c.respBuf[n:], tmp[:toCopy])
-		n += toCopy
-		if toCopy < nPartial {
+			// Check as best as posible we had no errors
+			if err == io.EOF ||
+				n == c.config.ResponseBufferSize ||
+				bytes.Contains(c.respBuf[:n], proto.EmptyLine) {
+				err = nil // Let assume there were no errors
+			}
 			break
 		}
 	}
-
 	// If response large then our buffer, we need to read all response buffer
 	// Otherwise it will corrupt response of next request
 	// Parsing response body is non trivial thing, especially with keep-alive
