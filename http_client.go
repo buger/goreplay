@@ -151,11 +151,17 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 
 	c.conn.SetReadDeadline(timeout)
 	n := 0
+
+	// The first bytes doesn't ensure we read at least the size of the buffer
+	// So we must check there for more bytes otherwise the connection becomes corrupted
 	for {
 		toCopy := 0
-		bufferSize := c.config.ResponseBufferSize
-		tmp := make([]byte, bufferSize)
+		tmp := make([]byte, c.config.ResponseBufferSize)
 
+		if n >= 4096 { // For servers that send first bytes very fast
+			// Wait no more than 0.1 secs otherwise it can be blocked up to the timeout
+			c.conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+		}
 		nPartial, err := c.conn.Read(tmp)
 		if err != nil {
 			break
