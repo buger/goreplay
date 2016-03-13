@@ -1,9 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"crypto/tls"
-	"fmt"
+	"github.com/buger/gor/proto"
 	"io"
 	"log"
 	"net"
@@ -11,8 +10,6 @@ import (
 	"runtime/debug"
 	"strings"
 	"time"
-
-	"github.com/buger/gor/proto"
 )
 
 var defaultPorts = map[string]string{
@@ -152,12 +149,7 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 	}
 
 	c.conn.SetReadDeadline(timeout)
-	reader := bufio.NewReaderSize(c.conn, len(c.respBuf))
-	fmt.Println("Len", len(c.respBuf))
-	//bytes := reader.Buffered()
-	n, err := reader.Read(c.respBuf)
-
-	//n, err := c.conn.Read(c.respBuf)
+	n, err := c.conn.Read(c.respBuf)
 
 	// If response large then our buffer, we need to read all response buffer
 	// Otherwise it will corrupt response of next request
@@ -165,26 +157,8 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 	// Simples case is to to close connection if response too large
 	//
 	// See https://github.com/buger/gor/issues/184
-
-	if err == nil {
-
-		//	if n == len(c.respBuf) {
-		t := n
-		tmp := make([]byte, 4096)
-		for {
-			n2, e := reader.Read(tmp)
-			t += n2
-			fmt.Println("Read", n, t, reader.Buffered(), err)
-			if e != nil || n == 0 {
-				break
-			}
-
-		}
-
-		// fmt.Println("Disconnecting", n, err)
-		//c.Disconnect()
-	} else {
-		fmt.Println("Received", n, err)
+	if n == len(c.respBuf) {
+		c.Disconnect()
 	}
 
 	if err != nil {
