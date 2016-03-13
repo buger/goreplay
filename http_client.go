@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"github.com/buger/gor/proto"
 	"io"
 	"log"
 	"net"
@@ -10,6 +9,8 @@ import (
 	"runtime/debug"
 	"strings"
 	"time"
+
+	"github.com/buger/gor/proto"
 )
 
 var defaultPorts = map[string]string{

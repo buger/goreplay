@@ -1,10 +1,11 @@
 package main
 
 import (
-	"github.com/buger/gor/proto"
 	"io"
 	"sync/atomic"
 	"time"
+
+	"github.com/buger/gor/proto"
 )
 
 const initialDynamicWorkers = 10
@@ -26,6 +27,7 @@ type HTTPOutputConfig struct {
 
 	Timeout      time.Duration
 	OriginalHost bool
+	BufferSize   int
 
 	Debug bool
 
@@ -109,10 +111,11 @@ func (o *HTTPOutput) workerMaster() {
 
 func (o *HTTPOutput) startWorker() {
 	client := NewHTTPClient(o.address, &HTTPClientConfig{
-		FollowRedirects: o.config.redirectLimit,
-		Debug:           o.config.Debug,
-		OriginalHost:    o.config.OriginalHost,
-		Timeout:         o.config.Timeout,
+		FollowRedirects:    o.config.redirectLimit,
+		Debug:              o.config.Debug,
+		OriginalHost:       o.config.OriginalHost,
+		Timeout:            o.config.Timeout,
+		ResponseBufferSize: o.config.BufferSize,
 	})
 
 	deathCount := 0

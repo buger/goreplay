@@ -87,6 +87,7 @@ func init() {
 	flag.Var(&Settings.inputHTTP, "input-http", "Read requests from HTTP, should be explicitly sent from your application:\n\t# Listen for http on 9000\n\tgor --input-http :9000 --output-http staging.com")
 
 	flag.Var(&Settings.outputHTTP, "output-http", "Forwards incoming requests to given http address.\n\t# Redirect all incoming requests to staging.com address \n\tgor --input-raw :80 --output-http http://staging.com")
+	flag.IntVar(&Settings.outputHTTPConfig.BufferSize, "output-http-buffer", 0, "HTTP response buffer size, all data after this size will be discarded.")
 	flag.IntVar(&Settings.outputHTTPConfig.workers, "output-http-workers", 0, "Gor uses dynamic worker scaling by default.  Enter a number to run a set number of workers.")
 	flag.IntVar(&Settings.outputHTTPConfig.redirectLimit, "output-http-redirects", 0, "Enable how often redirects should be followed.")
 	flag.DurationVar(&Settings.outputHTTPConfig.Timeout, "output-http-timeout", 0, "Specify HTTP request/response timeout. By default 5s. Example: --output-http-timeout 30s")
