@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"sync/atomic"
 	"time"
@@ -108,17 +107,18 @@ func (o *HTTPOutput) workerMaster() {
 		newWorkers := <-o.needWorker
 
 		// Must calculate the number of new workers if it's dynamic
-		if o.config.workers != 0 && newWorkers == 0 && o.config.idleWorkers > 0 {
+		if o.config.workers == 0 && o.config.idleWorkers > 0 {
 			idleCount := int(atomic.LoadInt32(&o.idleWorkers)) // Current idle workers
-			fmt.Println("Idle/active", idleCount, atomic.LoadInt64(&o.activeWorkers))
 
 			if idleCount >= o.config.idleWorkers {
 				continue // Not new workers needed
 			}
-			newWorkers = o.config.idleWorkers*3/2 - idleCount // Total number of idle workers = 1.5 + min idle
+			minForIdle := o.config.idleWorkers*3/2 - idleCount // Total number of idle workers = 1.5 + min idle
+			if minForIdle > newWorkers {
+				newWorkers = minForIdle
+			}
 
 		}
-		fmt.Println("New workers required", newWorkers, atomic.LoadInt64(&o.activeWorkers))
 		for i := 0; i < newWorkers; i++ {
 			go o.startWorker()
 		}
@@ -162,7 +162,6 @@ func (o *HTTPOutput) startWorker() {
 
 					// At least 1 startWorker should be alive
 					if workersCount != 1 {
-						o.needWorker <- 0 // Signal 0 to calculate the number of workers to create
 						return
 					}
 				}
