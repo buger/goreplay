@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -48,7 +47,6 @@ func (i *HTTPInput) handler(w http.ResponseWriter, r *http.Request) {
 	select {
 	case i.data <- buf:
 	default:
-		fmt.Println("[INPUT-HTTP] Dropping requests because output can't process them fast enough")
 		Debug("[INPUT-HTTP] Dropping requests because output can't process them fast enough")
 	}
 }
