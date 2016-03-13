@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"github.com/buger/gor/proto"
 	"io"
 	"log"
 	"net"
@@ -10,6 +9,8 @@ import (
 	"runtime/debug"
 	"strings"
 	"time"
+
+	"github.com/buger/gor/proto"
 )
 
 var defaultPorts = map[string]string{
@@ -149,7 +150,27 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 	}
 
 	c.conn.SetReadDeadline(timeout)
-	n, err := c.conn.Read(c.respBuf)
+	n := 0
+	for {
+		toCopy := 0
+		bufferSize := c.config.ResponseBufferSize
+		tmp := make([]byte, bufferSize)
+
+		nPartial, err := c.conn.Read(tmp)
+		if err != nil {
+			break
+		}
+		if n+nPartial > c.config.ResponseBufferSize {
+			toCopy = c.config.ResponseBufferSize - n
+		} else {
+			toCopy = nPartial
+		}
+		copy(c.respBuf[n:], tmp[:toCopy])
+		n += toCopy
+		if toCopy < nPartial {
+			break
+		}
+	}
 
 	// If response large then our buffer, we need to read all response buffer
 	// Otherwise it will corrupt response of next request
