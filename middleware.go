@@ -86,11 +86,13 @@ func (m *Middleware) copy(to io.Writer, from io.Reader) {
 
 func (m *Middleware) read(from io.Reader) {
 	scanner := bufio.NewScanner(from)
-
-	for scanner.Scan() {
-		bytes := scanner.Bytes()
+	reader := bufio.NewReader(from)
+        var bytes []byte
+	var e error
+	bytes, e = reader.ReadBytes('\n')
+	for e == nil {
 		buf := make([]byte, len(bytes)/2)
-		if _, err := hex.Decode(buf, bytes); err != nil {
+		if _, err := hex.Decode(buf, bytes[:len(bytes)-1]); err != nil {
 			fmt.Fprintln(os.Stderr, "Failed to decode input payload", err, len(bytes))
 		}
 
@@ -99,6 +101,7 @@ func (m *Middleware) read(from io.Reader) {
 		}
 
 		m.data <- buf
+		bytes, e = reader.ReadBytes('\n')
 	}
 
 	if err := scanner.Err(); err != nil {
