@@ -46,7 +46,8 @@ type AppSettings struct {
 	inputRAWEngine        string
 	inputRAWTrackResponse bool
 
-	middleware string
+	middleware     string
+	outputFirehose MultiOption
 
 	inputHTTP  MultiOption
 	outputHTTP MultiOption
@@ -84,6 +85,8 @@ func init() {
 
 	flag.Var(&Settings.inputFile, "input-file", "Read requests from file: \n\tgor --input-file ./requests.gor --output-http staging.com")
 	flag.Var(&Settings.outputFile, "output-file", "Write incoming requests to file: \n\tgor --input-raw :80 --output-file ./requests.gor")
+
+	flag.Var(&Settings.outputFirehose, "output-firehose", "Write incoming requests to firehose stream: \n\tgor --input-raw :80 --output-firehose stream-name")
 
 	flag.Var(&Settings.inputRAW, "input-raw", "Capture traffic from given port (use RAW sockets and require *sudo* access):\n\t# Capture traffic from 8080 port\n\tgor --input-raw :8080 --output-http staging.com")
 
