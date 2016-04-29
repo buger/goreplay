@@ -102,7 +102,14 @@ func (c *HTTPClient) isAlive() bool {
 
 	// Ready 1 byte from socket without timeout to check if it not closed
 	c.conn.SetReadDeadline(time.Now().Add(time.Millisecond))
-	if _, err := c.conn.Read(one); err == io.EOF {
+	_, err := c.conn.Read(one)
+
+	if err == nil {
+		return true
+	} else if err == io.EOF {
+		return false
+	} else if strings.Contains(err.Error(), "connection reset by peer") {
+		Debug("Detected broken pipe.", err)
 		return false
 	}
 
