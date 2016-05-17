@@ -5,7 +5,7 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"encoding/hex"
-	"github.com/buger/gor/proto"
+	"github.com/Clever/gor/proto"
 	"log"
 	"strconv"
 	"time"

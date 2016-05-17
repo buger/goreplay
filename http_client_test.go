@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
-	"github.com/buger/gor/proto"
+	"github.com/Clever/gor/proto"
 	"io/ioutil"
 	_ "log"
 	"net"

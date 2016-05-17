@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"github.com/buger/elastigo/api"
 	"github.com/buger/elastigo/core"
-	"github.com/buger/gor/proto"
+	"github.com/Clever/gor/proto"
 	"log"
 	"regexp"
 	"time"
