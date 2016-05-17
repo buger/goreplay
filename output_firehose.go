@@ -32,8 +32,7 @@ func (f *FirehoseOutput) Write(data []byte) (n int, err error) {
 
 	data = append(data, []byte(payloadSeparator)...)
 
-	// Gor will ignore errors here
-	f.fh.PutRecord(
+	_, err = f.fh.PutRecord(
 		&firehose.PutRecordInput{
 			DeliveryStreamName: aws.String(f.streamName),
 			Record: &firehose.Record{
@@ -41,6 +40,9 @@ func (f *FirehoseOutput) Write(data []byte) (n int, err error) {
 			},
 		},
 	)
+	if err != nil {
+		KV.Error("gor-firehose-put-failed")
+	}
 	return len(data), nil
 }
 
