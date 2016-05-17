@@ -24,7 +24,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/buger/gor/proto"
+	"github.com/Clever/gor/proto"
 	"os"
 )
 

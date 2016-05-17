@@ -2,7 +2,7 @@ package main
 
 import (
 	"crypto/tls"
-	"github.com/buger/gor/proto"
+	"github.com/Clever/gor/proto"
 	"io"
 	"log"
 	"net"

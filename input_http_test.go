@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/buger/gor/proto"
+	"github.com/Clever/gor/proto"
 	"io"
 	"log"
 	"net/http"

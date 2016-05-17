@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/hex"
-	"github.com/buger/gor/proto"
+	"github.com/Clever/gor/proto"
 	"io"
 	"net/http"
 	"net/http/httptest"

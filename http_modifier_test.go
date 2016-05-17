@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-	"github.com/buger/gor/proto"
+	"github.com/Clever/gor/proto"
 	"testing"
 )
 
