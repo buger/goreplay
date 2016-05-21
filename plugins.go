@@ -84,8 +84,12 @@ func InitPlugins() {
 		registerPlugin(NewDummyInput, options)
 	}
 
-	for _, options := range Settings.outputDummy {
-		registerPlugin(NewDummyOutput, options)
+	for range Settings.outputDummy {
+		registerPlugin(NewDummyOutput)
+	}
+
+	if Settings.outputStdout {
+		registerPlugin(NewDummyOutput)
 	}
 
 	engine := EnginePcap

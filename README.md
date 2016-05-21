@@ -16,7 +16,7 @@ Download latest binary from https://github.com/buger/gor/releases or (compile by
 
 ## Getting started
 
-The most basic setup will be `sudo ./gor --input-raw :8000 --output-dummy=""` which acts like tcpdump.
+The most basic setup will be `sudo ./gor --input-raw :8000 --output-stdout` which acts like tcpdump.
 If you already have test environment you can start replaying: `sudo ./gor --input-raw :8000 --output-http http://staging.env`.
 
 See the our wiki and especially [Getting started](https://github.com/buger/gor/wiki/Getting-Started) wiki page for more info. 

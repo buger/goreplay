@@ -9,14 +9,14 @@ type DummyOutput struct {
 }
 
 // NewDummyOutput constructor for DummyOutput
-func NewDummyOutput(options string) (di *DummyOutput) {
+func NewDummyOutput() (di *DummyOutput) {
 	di = new(DummyOutput)
 
 	return
 }
 
 func (i *DummyOutput) Write(data []byte) (int, error) {
-	fmt.Println("Writing message: ", string(data))
+	fmt.Println(string(data))
 
 	return len(data), nil
 }
