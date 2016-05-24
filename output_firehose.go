@@ -14,7 +14,11 @@ import (
 type FirehoseOutput struct {
 	fh         *firehose.Firehose
 	streamName string
+	buffer     []*firehose.Record
 }
+
+// number of records batched before being sent through firehose
+var batchSize = 50
 
 // NewFirehoseOutput constructor for FirehoseOutput, accepts firehose stream name
 func NewFirehoseOutput(streamName string) io.Writer {
@@ -31,17 +35,19 @@ func (f *FirehoseOutput) Write(data []byte) (n int, err error) {
 	}
 
 	data = append(data, []byte(payloadSeparator)...)
+	f.buffer = append(f.buffer, &firehose.Record{Data: data})
 
-	_, err = f.fh.PutRecord(
-		&firehose.PutRecordInput{
-			DeliveryStreamName: aws.String(f.streamName),
-			Record: &firehose.Record{
-				Data: data,
+	if len(f.buffer) == batchSize {
+		_, err := f.fh.PutRecordBatch(
+			&firehose.PutRecordBatchInput{
+				DeliveryStreamName: &f.streamName,
+				Records:            f.buffer,
 			},
-		},
-	)
-	if err != nil {
-		KV.Error("gor-firehose-put-failed")
+		)
+		if err != nil {
+			KV.Error("gor-firehose-put-failed")
+		}
+		f.buffer = []*firehose.Record{}
 	}
 	return len(data), nil
 }
