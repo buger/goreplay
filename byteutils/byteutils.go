@@ -38,3 +38,17 @@ func Replace(a []byte, from, to int, new []byte) []byte {
 		return a
 	}
 }
+
+// SwitchFirstCharCase changes the case of the first character in the array if
+// it is in a-zA-Z
+func SwitchFirstCharCase(a []byte) []byte {
+	if len(a) == 0 {
+		return a
+	}
+	if a[0] >= 97 && a[0] <= 122 {
+		a[0] -= 32
+	} else if a[0] >= 65 && a[0] <= 90 {
+		a[0] += 32
+	}
+	return a
+}

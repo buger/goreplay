@@ -77,11 +77,15 @@ func Header(payload, name []byte) []byte {
 // SetHeader sets header value. If header not found it creates new one.
 // Returns modified request payload
 func SetHeader(payload, name, value []byte) []byte {
-	_, hs, vs, he := header(payload, name)
+	// Try both "Header" and "header". If we find neither AddHeader with the original
+	for i := 0; i < 2; i++ {
+		_, hs, vs, he := header(payload, name)
 
-	if hs != -1 {
-		// If header found we just repace its value
-		return byteutils.Replace(payload, vs, he, value)
+		if hs != -1 {
+			// If header found we just repace its value
+			return byteutils.Replace(payload, vs, he, value)
+		}
+		byteutils.SwitchFirstCharCase(name)
 	}
 
 	return AddHeader(payload, name, value)

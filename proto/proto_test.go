@@ -82,6 +82,13 @@ func TestSetHeader(t *testing.T) {
 	if payload = SetHeader(payload, []byte("User-Agent"), []byte("Gor")); !bytes.Equal(payload, payloadAfter) {
 		t.Error("Should add header if not found", string(payload))
 	}
+
+	payload = []byte("POST /post HTTP/1.1\r\nContent-Length: 7\r\nhost: www.w3.org\r\n\r\na=1&b=2")
+	payloadAfter = []byte("POST /post HTTP/1.1\r\nContent-Length: 14\r\nhost: www.example.com\r\n\r\na=1&b=2")
+
+	if payload = SetHeader(payload, []byte("Host"), []byte("www.example.com")); !bytes.Equal(payload, payloadAfter) {
+		t.Error("Should update header even if capitalization is wrong", string(payload))
+	}
 }
 
 func TestPath(t *testing.T) {
