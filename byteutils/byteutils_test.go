@@ -30,3 +30,18 @@ func TestReplace(t *testing.T) {
 		t.Error("Should replace when replacement length bigger")
 	}
 }
+
+func TestSwitchFirstCharCase(t *testing.T) {
+	if !bytes.Equal([]byte("abc"), SwitchFirstCharCase([]byte("Abc"))) {
+		t.Error("Should uppercase first character")
+	}
+	if !bytes.Equal([]byte("Abc"), SwitchFirstCharCase([]byte("abc"))) {
+		t.Error("Should lowercase first character")
+	}
+	if !bytes.Equal([]byte("@bc"), SwitchFirstCharCase([]byte("@bc"))) {
+		t.Error("Should ignore first character if not in a-zA-Z")
+	}
+	if !bytes.Equal([]byte(""), SwitchFirstCharCase([]byte(""))) {
+		t.Error("Should do nothing if byte slice is empty")
+	}
+}
