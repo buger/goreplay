@@ -14,7 +14,7 @@ Here is basic workflow: The listener server catches http traffic and sends it to
 ![Diagram](http://i.imgur.com/9mqj2SK.png)
 
 ## Installation
-Download latest binary from https://github.com/buger/gor/releases or (compile by yourself)[Compilation].
+Download latest binary from https://github.com/buger/gor/releases or [compile by yourself](https://github.com/buger/gor/wiki/Compilation).
 
 ## Getting started
 
