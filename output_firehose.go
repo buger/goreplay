@@ -23,10 +23,11 @@ var batchSize = 50
 // NewFirehoseOutput constructor for FirehoseOutput, accepts firehose stream name
 func NewFirehoseOutput(streamName string) io.Writer {
 	fatalUnlessCredentials()
-	f := new(FirehoseOutput)
-	f.fh = firehose.New(session.New(), aws.NewConfig().WithRegion(os.Getenv("AWS_REGION")))
-	f.streamName = streamName
-	return f
+	return &FirehoseOutput{
+		fh:         firehose.New(session.New(), aws.NewConfig().WithRegion(os.Getenv("AWS_REGION"))),
+		streamName: streamName,
+		buffer:     []*firehose.Record{},
+	}
 }
 
 func (f *FirehoseOutput) Write(data []byte) (n int, err error) {
@@ -34,10 +35,13 @@ func (f *FirehoseOutput) Write(data []byte) (n int, err error) {
 		return len(data), nil
 	}
 
-	data = append(data, []byte(payloadSeparator)...)
-	f.buffer = append(f.buffer, &firehose.Record{Data: data})
+	dataCopy := make([]byte, len(data)+len(payloadSeparator))
 
-	if len(f.buffer) == batchSize {
+	copy(dataCopy, data)
+	dataCopy = append(dataCopy, []byte(payloadSeparator)...)
+	f.buffer = append(f.buffer, &firehose.Record{Data: dataCopy})
+
+	if len(f.buffer) >= batchSize {
 		_, err := f.fh.PutRecordBatch(
 			&firehose.PutRecordBatchInput{
 				DeliveryStreamName: &f.streamName,
@@ -49,7 +53,7 @@ func (f *FirehoseOutput) Write(data []byte) (n int, err error) {
 		}
 		f.buffer = []*firehose.Record{}
 	}
-	return len(data), nil
+	return len(dataCopy), nil
 }
 
 // fatalUnlessCredentials logs and exits unless required env vars are present
