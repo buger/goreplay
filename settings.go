@@ -31,16 +31,18 @@ type AppSettings struct {
 
 	splitOutput bool
 
-	inputDummy  MultiOption
-	outputDummy MultiOption
+	inputDummy   MultiOption
+	outputDummy  MultiOption
 	outputStdout bool
 
 	inputTCP       MultiOption
 	outputTCP      MultiOption
 	outputTCPStats bool
 
-	inputFile  MultiOption
-	outputFile MultiOption
+	inputFile               MultiOption
+	inputFileLoop           bool
+	outputFile              MultiOption
+	outputFileFlushInterval time.Duration
 
 	inputRAW              MultiOption
 	inputRAWEngine        string
@@ -84,7 +86,10 @@ func init() {
 	flag.BoolVar(&Settings.outputTCPStats, "output-tcp-stats", false, "Report TCP output queue stats to console every 5 seconds.")
 
 	flag.Var(&Settings.inputFile, "input-file", "Read requests from file: \n\tgor --input-file ./requests.gor --output-http staging.com")
+	flag.BoolVar(&Settings.inputFileLoop, "input-file-loop", false, "Loop input files, useful for performance testing.")
+
 	flag.Var(&Settings.outputFile, "output-file", "Write incoming requests to file: \n\tgor --input-raw :80 --output-file ./requests.gor")
+	flag.DurationVar(&Settings.outputFileFlushInterval, "output-file-flush-interval", time.Minute, "Interval for forcing buffer flush to the file, default: 60s.")
 
 	flag.Var(&Settings.outputFirehose, "output-firehose", "Write incoming requests to firehose stream: \n\tgor --input-raw :80 --output-firehose stream-name")
 

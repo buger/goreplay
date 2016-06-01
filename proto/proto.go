@@ -41,11 +41,90 @@ func MIMEHeadersStartPos(payload []byte) int {
 	return bytes.Index(payload, CLRF) + 2 // Find first line end
 }
 
+func isLower(b byte) bool {
+	if 'a' <= b && b <= 'z' {
+		return true
+	}
+
+	return false
+}
+
+func toUpper(b byte) byte {
+	if 'a' <= b && b <= 'z' {
+		b -= 'a' - 'A'
+	}
+	return b
+}
+
+func toLower(b byte) byte {
+	if 'A' <= b && b <= 'Z' {
+		b += 'a' - 'A'
+	}
+	return b
+}
+
+func headerIndex(payload []byte, name []byte) int {
+	isLower := isLower(name[0])
+	i := 0
+
+	for {
+		if i >= len(payload) {
+			return -1
+		}
+
+		if payload[i] == '\n' {
+			i++
+
+			// We are at the end
+			if i == len(payload) {
+				return -1
+			}
+
+			if payload[i] == name[0] ||
+				(!isLower && payload[i] == toLower(name[0])) ||
+				(isLower && payload[i] == toUpper(name[0])) {
+
+				i++
+				j := 1
+				for {
+					if j == len(name) {
+						// Matched, and return start of the header
+						return i - len(name)
+					}
+
+					if payload[i] != name[j] {
+						break
+					}
+
+					// If compound header name do one more case check: Content-Length or Transfer-Encoding
+					if name[j] == '-' {
+						i++
+						j++
+
+						if !(payload[i] == name[j] ||
+							(!isLower && payload[i] == toLower(name[j])) ||
+							(isLower && payload[i] == toUpper(name[j]))) {
+							break
+						}
+					}
+
+					j++
+					i++
+				}
+			}
+		}
+
+		i++
+	}
+
+	return -1
+}
+
 // header return value and positions of header/value start/end.
 // If not found, value will be blank, and headerStart will be -1
 // Do not support multi-line headers.
 func header(payload []byte, name []byte) (value []byte, headerStart, valueStart, headerEnd int) {
-	headerStart = bytes.Index(payload, name)
+	headerStart = headerIndex(payload, name)
 
 	if headerStart == -1 {
 		return

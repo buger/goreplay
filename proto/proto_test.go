@@ -41,6 +41,19 @@ func TestHeader(t *testing.T) {
 	if _, headerStart, _, _ = header(payload, []byte("Not-Found")); headerStart != -1 {
 		t.Error("Should not found header")
 	}
+
+	// Lower case headers
+	payload = []byte("POST /post HTTP/1.1\r\ncontent-length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
+
+	if val = Header(payload, []byte("Content-Length")); !bytes.Equal(val, []byte("7")) {
+		t.Error("Should find lower case 2 word header")
+	}
+
+	payload = []byte("POST /post HTTP/1.1\r\ncontent-length: 7\r\nhost: www.w3.org\r\n\r\na=1&b=2")
+
+	if val = Header(payload, []byte("host")); !bytes.Equal(val, []byte("www.w3.org")) {
+		t.Error("Should find lower case 1 word header")
+	}
 }
 
 func TestMIMEHeadersEndPos(t *testing.T) {

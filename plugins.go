@@ -113,11 +113,11 @@ func InitPlugins() {
 	}
 
 	for _, options := range Settings.inputFile {
-		registerPlugin(NewFileInput, options)
+		registerPlugin(NewFileInput, options, Settings.inputFileLoop)
 	}
 
 	for _, options := range Settings.outputFile {
-		registerPlugin(NewFileOutput, options)
+		registerPlugin(NewFileOutput, options, Settings.outputFileFlushInterval)
 	}
 
 	for _, options := range Settings.outputFirehose {

@@ -130,12 +130,12 @@ func (t *TCPMessage) isSeqMissing() bool {
 
 	for i, p := range t.packets {
 		// If final packet
-		if len(t.packets) == i + 1 {
+		if len(t.packets) == i+1 {
 			return false
 		}
-		np := t.packets[i + 1]
+		np := t.packets[i+1]
 
-		if np.Seq != p.Seq + uint32(len(p.Data)) {
+		if np.Seq != p.Seq+uint32(len(p.Data)) {
 			return true
 		}
 	}
@@ -216,7 +216,7 @@ func (t *TCPMessage) IsFinished() bool {
 			if enc := proto.Header(payload, []byte("Transfer-Encoding")); len(enc) == 0 {
 				return true
 			} else {
-				if len(t.packets) > 1 && bytes.LastIndex(t.packets[len(t.packets) - 1].Data, ChunkEnd) != -1 {
+				if len(t.packets) > 1 && bytes.LastIndex(t.packets[len(t.packets)-1].Data, ChunkEnd) != -1 {
 					return true
 				}
 			}

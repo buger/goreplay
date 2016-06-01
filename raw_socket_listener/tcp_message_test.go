@@ -156,8 +156,8 @@ func TestTCPMessageIsFinished(t *testing.T) {
 
 func TestTCPMessageIsSeqMissing(t *testing.T) {
 	p1 := buildPacket(false, 1, 1, []byte("HTTP/1.1 200 OK\r\n"))
-	p2 := buildPacket(false, 1, p1.Seq + uint32(len(p1.Data)), []byte("Content-Length: 10\r\n\r\n"))
-	p3 := buildPacket(false, 1, p2.Seq + uint32(len(p2.Data)), []byte("a"))
+	p2 := buildPacket(false, 1, p1.Seq+uint32(len(p1.Data)), []byte("Content-Length: 10\r\n\r\n"))
+	p3 := buildPacket(false, 1, p2.Seq+uint32(len(p2.Data)), []byte("a"))
 
 	msg := buildMessage(p1)
 	if msg.isSeqMissing() {
@@ -177,7 +177,7 @@ func TestTCPMessageIsSeqMissing(t *testing.T) {
 
 func TestTCPMessageIsHeadersReceived(t *testing.T) {
 	p1 := buildPacket(false, 1, 1, []byte("HTTP/1.1 200 OK\r\n"))
-	p2 := buildPacket(false, 1, p1.Seq + uint32(len(p1.Data)), []byte("Content-Length: 10\r\n\r\n"))
+	p2 := buildPacket(false, 1, p1.Seq+uint32(len(p1.Data)), []byte("Content-Length: 10\r\n\r\n"))
 
 	msg := buildMessage(p1)
 	if msg.isHeadersReceived() {

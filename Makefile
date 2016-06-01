@@ -32,7 +32,7 @@ race:
 	$(RUN) go test ./... $(ARGS) -v -race -timeout 15s
 
 test:
-	$(RUN) go test ./. -race -timeout 60s $(LDFLAGS) $(ARGS)  -v
+	$(RUN) go test ./. -timeout 60s $(LDFLAGS) $(ARGS)  -v
 
 test_all:
 	$(RUN) go test ./... -timeout 60s $(LDFLAGS) $(ARGS) -v
