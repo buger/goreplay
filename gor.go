@@ -52,8 +52,6 @@ func main() {
 		profileCPU(*cpuprofile)
 	}
 
-	Start(nil)
-
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -67,6 +65,8 @@ func main() {
 
 		os.Exit(1)
 	}()
+
+	Start(nil)
 }
 
 func profileCPU(cpuprofile string) {
