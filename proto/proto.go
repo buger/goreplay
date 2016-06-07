@@ -18,7 +18,6 @@ package proto
 
 import (
 	"bytes"
-
 	"github.com/buger/gor/byteutils"
 )
 
@@ -142,7 +141,7 @@ func header(payload []byte, name []byte) (value []byte, headerStart, valueStart,
 	} else {
 		headerEnd = valueStart + lineEnd
 		if payload[headerEnd-1] == '\r' {
-			headerEnd -= 1
+			headerEnd--
 		}
 	}
 
@@ -300,7 +299,7 @@ func Status(payload []byte) []byte {
 }
 
 var httpMethods []string = []string{
-	"GET ", "OPTI", "HEAD", "POST", "PUT ", "DELE", "TRAC", "CONN", /* custom methods */"BAN", "PURG",
+	"GET ", "OPTI", "HEAD", "POST", "PUT ", "DELE", "TRAC", "CONN" /* custom methods */, "BAN", "PURG",
 }
 
 func IsHTTPPayload(payload []byte) bool {
