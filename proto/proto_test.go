@@ -37,6 +37,16 @@ func TestHeader(t *testing.T) {
 		t.Error("Should handle wrong header delimeter")
 	}
 
+	// Header as the last part of the payload
+	payload = []byte("GET /p HTTP/1.1\r\nCookie: 123")
+	if val = Header(payload, []byte("Cookie")); !bytes.Equal(val, []byte("123")) {
+		t.Error("Should handle header as the last part of the payload")
+	}
+
+	if val = Header(payload, []byte("Cookie")); !bytes.Equal(val, []byte("123")) {
+		t.Error("Should handle wrong header delimeter")
+	}
+
 	// Header not found
 	if _, headerStart, _, _ = header(payload, []byte("Not-Found")); headerStart != -1 {
 		t.Error("Should not found header")
