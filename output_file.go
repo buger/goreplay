@@ -228,7 +228,7 @@ func (o *FileOutput) String() string {
 	return "File output: " + o.file.Name()
 }
 
-func (o *FileOutput) Close() {
+func (o *FileOutput) Close() error {
 	if o.file != nil {
 		if strings.HasSuffix(o.currentName, ".gz") {
 			o.writer.(*gzip.Writer).Close()
@@ -237,4 +237,5 @@ func (o *FileOutput) Close() {
 		}
 		o.file.Close()
 	}
+	return nil
 }

@@ -97,7 +97,8 @@ func (i *RAWInput) String() string {
 	return "Intercepting traffic from: " + i.address
 }
 
-func (i *RAWInput) Close() {
+func (i *RAWInput) Close() error {
 	i.listener.Close()
 	close(i.quit)
+	return nil
 }

@@ -189,6 +189,7 @@ func (i *FileInput) emit() {
 	log.Printf("FileInput: end of file '%s'\n", i.path)
 }
 
-func (i *FileInput) Close() {
+func (i *FileInput) Close() error {
 	i.currentFile.Close()
+	return nil
 }
