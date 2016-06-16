@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 	"sync"
+	"time"
 )
 
 var dateFileNameFuncs = map[string]func() string{
@@ -170,7 +170,7 @@ func (o *FileOutput) filename() string {
 }
 
 func (o *FileOutput) updateName() {
-	o.currentName = o.filename()
+	o.currentName = filepath.Clean(o.filename())
 }
 
 func (o *FileOutput) Write(data []byte) (n int, err error) {

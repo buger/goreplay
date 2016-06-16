@@ -53,6 +53,17 @@ func TestFileOutput(t *testing.T) {
 	close(quit)
 }
 
+func TestFileOutputWithNameCleaning(t *testing.T) {
+	output := &FileOutput{pathTemplate: "./test_requests.gor", config: &FileOutputConfig{flushInterval: time.Minute, append: false}}
+	expectedFileName := "test_requests_0.gor"
+	output.updateName()
+
+	if expectedFileName != output.currentName {
+		t.Errorf("Expected path %s but got %s", expectedFileName, output.currentName)
+	}
+
+}
+
 func TestFileOutputPathTemplate(t *testing.T) {
 	output := &FileOutput{pathTemplate: "/tmp/log-%Y-%m-%d-%S", config: &FileOutputConfig{flushInterval: time.Minute, append: true}}
 	now := time.Now()
