@@ -356,6 +356,8 @@ func (t *Listener) readPcap() {
 					data = packet.Data()[14:]
 				} else if decoder == layers.LinkTypeNull || decoder == layers.LinkTypeLoop {
 					data = packet.Data()[4:]
+				} else if decoder == layers.LinkTypeLinuxSLL {
+					data = packet.Data()[16:]
 				} else {
 					log.Println("Unknown packet layer", packet)
 					break
