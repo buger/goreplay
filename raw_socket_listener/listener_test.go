@@ -178,7 +178,7 @@ func testRawListener100Continue(t *testing.T, listener *Listener, result []byte,
 	case req = <-listener.messagesChan:
 		break
 	case <-time.After(11 * time.Millisecond):
-		t.Error("Should return request after expire time")
+		t.Error("Should return response after expire time")
 		return
 	}
 
