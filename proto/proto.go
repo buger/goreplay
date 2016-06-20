@@ -144,12 +144,12 @@ func header(payload []byte, name []byte) (value []byte, headerStart, headerEnd, 
 	valueEnd = valueStart + bytes.IndexByte(payload[valueStart:], '\n')
 
 	if payload[headerEnd-1] == '\r' {
-		valueEnd -= 1
+		valueEnd--
 	}
 
 	for valueStart < valueEnd  {	// ignore empty space at end of header value
 		if payload[valueEnd-1] == ' ' {
-			valueEnd -= 1
+			valueEnd--
 		} else {
 			break
 		}
