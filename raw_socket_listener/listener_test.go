@@ -108,9 +108,7 @@ func TestRawListenerResponse(t *testing.T) {
 	}
 }
 
-func TestRawListener100Continue(t *testing.T) {
-	var req, resp *TCPMessage
-
+func TestShort100Continue(t *testing.T) {
 	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond)
 	defer listener.Close()
 
@@ -124,12 +122,36 @@ func TestRawListener100Continue(t *testing.T) {
 	// panic(int(uint32(len(reqPacket1.Data)) + uint32(len(reqPacket2.Data)) + uint32(len(reqPacket3.Data))))
 	respPacket2 := buildPacket(false, reqPacket3.Seq+1 /* len of data */, 2, []byte("HTTP/1.1 200 OK\r\n"))
 
-	listener.packetsChan <- reqPacket1.Dump()
-	listener.packetsChan <- reqPacket2.Dump()
-	listener.packetsChan <- reqPacket3.Dump()
+	result := []byte("POST / HTTP/1.1\r\nContent-Length: 2\r\n\r\nab")
 
-	listener.packetsChan <- respPacket1.Dump()
-	listener.packetsChan <- respPacket2.Dump()
+	testRawListener100Continue(t, listener, result, reqPacket1, reqPacket2, reqPacket3, respPacket1, respPacket2)
+}
+
+// Response comes before Request
+func Test100ContinueWrongOrder(t *testing.T) {
+	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond)
+	defer listener.Close()
+
+	reqPacket1 := buildPacket(true, 1, 1, []byte("POST / HTTP/1.1\r\nContent-Length: 2\r\nExpect: 100-continue\r\n\r\n"))
+	// Packet with data have different Seq
+	reqPacket2 := buildPacket(true, 2, reqPacket1.Seq+uint32(len(reqPacket1.Data)), []byte("a"))
+	reqPacket3 := buildPacket(true, 2, reqPacket2.Seq+1, []byte("b"))
+
+	respPacket1 := buildPacket(false, 10, 3, []byte("HTTP/1.1 100 Continue\r\n"))
+
+	// panic(int(uint32(len(reqPacket1.Data)) + uint32(len(reqPacket2.Data)) + uint32(len(reqPacket3.Data))))
+	respPacket2 := buildPacket(false, reqPacket3.Seq+1 /* len of data */, 2, []byte("HTTP/1.1 200 OK\r\n"))
+
+	result := []byte("POST / HTTP/1.1\r\nContent-Length: 2\r\n\r\nab")
+
+	testRawListener100Continue(t, listener, result, respPacket1, respPacket2, reqPacket1, reqPacket2, reqPacket3)
+}
+
+func testRawListener100Continue(t *testing.T, listener *Listener, result []byte, packets ...*TCPPacket) {
+	var req, resp *TCPMessage
+	for _, p := range packets {
+		listener.packetsChan <- p.Dump()
+	}
 
 	select {
 	case req = <-listener.messagesChan:
@@ -139,64 +161,7 @@ func TestRawListener100Continue(t *testing.T) {
 		return
 	}
 
-	if !bytes.Equal(req.Bytes(), []byte("POST / HTTP/1.1\r\nContent-Length: 2\r\n\r\nab")) {
-		t.Error("Should receive full message", string(req.Bytes()))
-	}
-
-	if !req.IsIncoming {
-		t.Error("Should be request")
-	}
-
-	select {
-	case resp = <-listener.messagesChan:
-		break
-	case <-time.After(21 * time.Millisecond):
-		t.Error("Should return response after expire time")
-		return
-	}
-
-	if resp.IsIncoming {
-		t.Error("Should be response")
-	}
-
-	if !bytes.Equal(resp.UUID(), req.UUID()) {
-		t.Error("Resp and Req UUID should be equal")
-	}
-}
-
-// Response comes before Request
-func TestRawListener100ContinueWrongOrder(t *testing.T) {
-	var req, resp *TCPMessage
-
-	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond)
-	defer listener.Close()
-
-	reqPacket1 := buildPacket(true, 1, 1, []byte("POST / HTTP/1.1\r\nContent-Length: 2\r\nExpect: 100-continue\r\n\r\n"))
-	// Packet with data have different Seq
-	reqPacket2 := buildPacket(true, 2, reqPacket1.Seq+uint32(len(reqPacket1.Data)), []byte("a"))
-	reqPacket3 := buildPacket(true, 2, reqPacket2.Seq+1, []byte("b"))
-
-	respPacket1 := buildPacket(false, 10, 3, []byte("HTTP/1.1 100 Continue\r\n"))
-
-	// panic(int(uint32(len(reqPacket1.Data)) + uint32(len(reqPacket2.Data)) + uint32(len(reqPacket3.Data))))
-	respPacket2 := buildPacket(false, reqPacket3.Seq+1 /* len of data */, 2, []byte("HTTP/1.1 200 OK\r\n"))
-
-	listener.packetsChan <- respPacket1.Dump()
-	listener.packetsChan <- respPacket2.Dump()
-
-	listener.packetsChan <- reqPacket1.Dump()
-	listener.packetsChan <- reqPacket2.Dump()
-	listener.packetsChan <- reqPacket3.Dump()
-
-	select {
-	case req = <-listener.messagesChan:
-		break
-	case <-time.After(11 * time.Millisecond):
-		t.Error("Should return response after expire time")
-		return
-	}
-
-	if !bytes.Equal(req.Bytes(), []byte("POST / HTTP/1.1\r\nContent-Length: 2\r\n\r\nab")) {
+	if !bytes.Equal(req.Bytes(), result) {
 		t.Error("Should receive full message", string(req.Bytes()))
 	}
 
