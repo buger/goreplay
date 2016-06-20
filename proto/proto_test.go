@@ -7,7 +7,7 @@ import (
 
 func TestHeader(t *testing.T) {
 	var payload, val []byte
-	var headerStart int
+	var headerStart, headerEnd int
 
 	// Value with space at start
 	payload = []byte("POST /post HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\na=1&b=2")
@@ -40,6 +40,12 @@ func TestHeader(t *testing.T) {
 	// Header not found
 	if _, headerStart, _, _ = header(payload, []byte("Not-Found")); headerStart != -1 {
 		t.Error("Should not found header")
+	}
+
+	// Header as the last part of the payload
+	payload = []byte("GET /p HTTP/1.1\r\nCookie: 123")
+	if _, _, _, headerEnd = header(payload, []byte("Cookie")); headerEnd != -1 {
+		t.Error("Should handle invalid header")
 	}
 
 	// Lower case headers
