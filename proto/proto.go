@@ -123,7 +123,7 @@ func headerIndex(payload []byte, name []byte) int {
 // header return value and positions of header/value start/end.
 // If not found, value will be blank, and headerStart will be -1
 // Do not support multi-line headers.
-func header(payload []byte, name []byte) (value []byte, headerStart, valueStart, headerEnd int) {
+func header(payload []byte, name []byte) (value []byte, headerStart, headerEnd, valueStart, valueEnd int) {
 	headerStart = headerIndex(payload, name)
 
 	if headerStart == -1 {
@@ -131,24 +131,37 @@ func header(payload []byte, name []byte) (value []byte, headerStart, valueStart,
 	}
 
 	valueStart = headerStart + len(name) + 1 // Skip ":" after header name
-	if payload[valueStart] == ' ' {          // Ignore empty space after ':'
-		valueStart++
-	}
-
 	headerEnd = valueStart + bytes.IndexByte(payload[valueStart:], '\n')
 
-	if payload[headerEnd-1] == '\r' {
-		headerEnd -= 1
+	for valueStart < headerEnd {          // Ignore empty space after ':'
+		if payload[valueStart] == ' ' {
+			valueStart++
+		} else {
+			break
+		}
 	}
 
-	value = payload[valueStart:headerEnd]
+	valueEnd = valueStart + bytes.IndexByte(payload[valueStart:], '\n')
+
+	if payload[headerEnd-1] == '\r' {
+		valueEnd -= 1
+	}
+
+	for valueStart < valueEnd  {	// ignore empty space at end of header value
+		if payload[valueEnd-1] == ' ' {
+			valueEnd -= 1
+		} else {
+			break
+		}
+	}
+	value = payload[valueStart:valueEnd]
 
 	return
 }
 
 // Header returns header value, if header not found, value will be blank
 func Header(payload, name []byte) []byte {
-	val, _, _, _ := header(payload, name)
+	val, _, _, _, _ := header(payload, name)
 
 	return val
 }
@@ -156,11 +169,11 @@ func Header(payload, name []byte) []byte {
 // SetHeader sets header value. If header not found it creates new one.
 // Returns modified request payload
 func SetHeader(payload, name, value []byte) []byte {
-	_, hs, vs, he := header(payload, name)
+	_, hs, _, vs, ve  := header(payload, name)
 
 	if hs != -1 {
-		// If header found we just repace its value
-		return byteutils.Replace(payload, vs, he, value)
+		// If header found we just replace its value
+		return byteutils.Replace(payload, vs, ve, value)
 	}
 
 	return AddHeader(payload, name, value)
@@ -178,6 +191,19 @@ func AddHeader(payload, name, value []byte) []byte {
 	mimeStart := MIMEHeadersStartPos(payload)
 
 	return byteutils.Insert(payload, mimeStart, header)
+}
+
+// DelHeader takes http payload and removes header name from headers section
+// Returns modified request payload
+func DelHeader(payload, name[]byte) []byte {
+	_, hs, he, _, _ := header(payload, name)
+	if hs != -1 {
+		newHeader := make([]byte, len(payload) - (he - hs) - 1)
+		copy(newHeader[:hs], payload[:hs])
+		copy(newHeader[hs:], payload[he + 1:])
+		return newHeader
+	}
+	return payload
 }
 
 // Body returns request/response body
