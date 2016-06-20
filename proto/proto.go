@@ -18,6 +18,7 @@ package proto
 
 import (
 	"bytes"
+
 	"github.com/buger/gor/byteutils"
 )
 
@@ -135,14 +136,15 @@ func header(payload []byte, name []byte) (value []byte, headerStart, valueStart,
 		valueStart++
 	}
 
-	lineEnd := bytes.IndexByte(payload[valueStart:], '\n')
-	if lineEnd == -1 {
-		headerEnd = len(payload)
-	} else {
-		headerEnd = valueStart + lineEnd
-		if payload[headerEnd-1] == '\r' {
-			headerEnd--
-		}
+	headerEnd = bytes.IndexByte(payload[valueStart:], '\n')
+	if headerEnd == -1 {
+		return
+	}
+
+	headerEnd += valueStart
+
+	if payload[headerEnd-1] == '\r' {
+		headerEnd -= 1
 	}
 
 	value = payload[valueStart:headerEnd]
