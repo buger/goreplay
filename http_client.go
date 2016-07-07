@@ -293,9 +293,10 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 	if c.config.Debug {
 		Debug("[HTTPClient] Received:", string(payload))
 	}
+	status := payload[9:12]
+	Debug("[HTTPClient] Response status: " + string(status))
 
 	if c.config.FollowRedirects > 0 && c.redirectsCount < c.config.FollowRedirects {
-		status := payload[9:12]
 
 		// 3xx requests
 		if status[0] == '3' {
