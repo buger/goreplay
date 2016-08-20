@@ -2,8 +2,25 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
-public class echo {
-    public static void main(String[] args) {
+import org.apache.commons.codec.DecoderException;
+import org.apache.commons.codec.binary.Hex;
+
+
+public class Echo {
+        public static String decodeHexString(String s) throws DecoderException {
+            return new String(Hex.decodeHex(s.toCharArray()));
+        }
+
+        public static String encodeHexString(String s) {
+            return new String(Hex.encodeHex(s.getBytes()));
+        }
+
+        public static String transformHTTPMessage(String req) {
+            // do actual transformations here
+            return req;
+        }
+
+    public static void main(String[] args) throws DecoderException {
         if(args != null){
             for(String arg : args){
                 System.out.println(arg);
@@ -17,8 +34,12 @@ public class echo {
 
         try {
             while ((line = stdin.readLine()) != null) {
+                String decodedLine = decodeHexString(line);
 
-                System.out.println(line);
+                String transformedLine = transformHTTPMessage(decodedLine);
+
+                String encodedLine = encodeHexString(transformedLine);
+                System.out.println(encodedLine);
 
             }
         } catch (IOException e) {
