@@ -10,3 +10,6 @@
 [submodule "vendor/github.com/bmizerany/assert"]
 	path = vendor/github.com/bmizerany/assert
 	url = https://github.com/bmizerany/assert
+[submodule "vendor/github.com/google/gopacket"]
+	path = vendor/github.com/google/gopacket
+	url = https://github.com/google/gopacket
