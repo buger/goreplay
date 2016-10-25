@@ -33,7 +33,6 @@ type HTTPOutputConfig struct {
 	Debug bool
 
 	TrackResponses bool
-	CloseConnectionOnResponseStatus int
 }
 
 // HTTPOutput plugin manage pool of workers which send request to replayed server
@@ -113,12 +112,11 @@ func (o *HTTPOutput) workerMaster() {
 
 func (o *HTTPOutput) startWorker() {
 	client := NewHTTPClient(o.address, &HTTPClientConfig{
-		FollowRedirects:                 o.config.redirectLimit,
-		Debug:                           o.config.Debug,
-		OriginalHost:                    o.config.OriginalHost,
-		Timeout:                         o.config.Timeout,
-		ResponseBufferSize:              o.config.BufferSize,
-		CloseConnectionOnResponseStatus: o.config.CloseConnectionOnResponseStatus,
+		FollowRedirects:    o.config.redirectLimit,
+		Debug:              o.config.Debug,
+		OriginalHost:       o.config.OriginalHost,
+		Timeout:            o.config.Timeout,
+		ResponseBufferSize: o.config.BufferSize,
 	})
 
 	deathCount := 0

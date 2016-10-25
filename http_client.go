@@ -33,13 +33,12 @@ var defaultPorts = map[string]string{
 }
 
 type HTTPClientConfig struct {
-	FollowRedirects                 int
-	Debug                           bool
-	OriginalHost                    bool
-	ConnectionTimeout               time.Duration
-	Timeout                         time.Duration
-	ResponseBufferSize              int
-	CloseConnectionOnResponseStatus int
+	FollowRedirects    int
+	Debug              bool
+	OriginalHost       bool
+	ConnectionTimeout  time.Duration
+	Timeout            time.Duration
+	ResponseBufferSize int
 }
 
 type HTTPClient struct {
@@ -319,12 +318,9 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 		}
 	}
 
-	if (c.config.CloseConnectionOnResponseStatus > 0) {
-		responseStatus, atoiErr := strconv.Atoi(string(payload[9:12]))
-		if atoiErr == nil && responseStatus == c.config.CloseConnectionOnResponseStatus {
-			c.Disconnect()
-			Debug("[HTTPClient] Closed connection as configured for response code " + strconv.Itoa(responseStatus))
-		}
+	if bytes.Equal(proto.Status(payload), []byte("400")) {
+		c.Disconnect()
+		Debug("[HTTPClient] Closed connection on 400 response")
 	}
 
 	c.redirectsCount = 0

@@ -118,7 +118,6 @@ func init() {
 	flag.IntVar(&Settings.outputHTTPConfig.BufferSize, "output-http-response-buffer", 0, "HTTP response buffer size, all data after this size will be discarded.")
 	flag.IntVar(&Settings.outputHTTPConfig.workers, "output-http-workers", 0, "Gor uses dynamic worker scaling by default.  Enter a number to run a set number of workers.")
 	flag.IntVar(&Settings.outputHTTPConfig.redirectLimit, "output-http-redirects", 0, "Enable how often redirects should be followed.")
-	flag.IntVar(&Settings.outputHTTPConfig.CloseConnectionOnResponseStatus, "output-http-close-connection-on-status", 0, "Close output connection on response status.")
 	flag.DurationVar(&Settings.outputHTTPConfig.Timeout, "output-http-timeout", 5 * time.Second, "Specify HTTP request/response timeout. By default 5s. Example: --output-http-timeout 30s")
 
 	flag.BoolVar(&Settings.outputHTTPConfig.stats, "output-http-stats", false, "Report http output queue stats to console every 5 seconds.")
