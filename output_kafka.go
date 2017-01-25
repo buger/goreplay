@@ -26,7 +26,7 @@ func NewKafkaOutput(address string, config *KafkaConfig) io.Writer {
 
 	var producer sarama.AsyncProducer
 
-	if config.producer.(*mocks.AsyncProducer) != nil {
+	if mock, ok := config.producer.(*mocks.AsyncProducer); ok && mock != nil {
 		producer = config.producer
 	} else {
 		c.Producer.RequiredAcks = sarama.WaitForLocal

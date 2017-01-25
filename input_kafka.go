@@ -22,7 +22,7 @@ func NewKafkaInput(address string, config *KafkaConfig) *KafkaInput {
 
 	var con sarama.Consumer
 
-	if config.consumer.(*mocks.Consumer) != nil {
+	if mock, ok := config.consumer.(*mocks.Consumer); ok && mock != nil {
 		con = config.consumer
 	} else {
 		var err error
