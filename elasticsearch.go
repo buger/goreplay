@@ -12,7 +12,7 @@ import (
 type ESUriErorr struct{}
 
 func (e *ESUriErorr) Error() string {
-	return "Wrong ElasticSearch URL format. Expected to be: host:port/index_name"
+	return "Wrong ElasticSearch URL format. Expected to be: scheme://host:port/index_name"
 }
 
 type ESPlugin struct {
@@ -52,17 +52,29 @@ type ESRequestResponse struct {
 
 // Parse ElasticSearch URI
 //
-// Proper format is: host:port/index_name
+// Proper format is: scheme://[userinfo@]host/index_name
+// userinfo is: user[:password]
+// net/url.Parse() does not fail if scheme is not provided but actualy does not
+// handle URI properly.
+// So we must 'validate' URI format to match requirements to use net/url.Parse()
+//
+// regexp clarification :
+// ^(https?:\/\/)? : start with http or https - required. No oher scheme allowed for elastic connexion.
+// (([\da-z]+):([\da-z]+)@)? : user info - not required.
+// (([a-z0-9]+(([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5})?):([0-9]+) : host and port.
+// ((/.+)?/(.+)))$ : path. At least one, index is last part
 func parseURI(URI string) (err error, host string, port string, index string) {
-	rURI := regexp.MustCompile("(.+):([0-9]+)/(.+)")
+	uriRegExp := `^(https?:\/\/){1}(([\da-z]+):([\da-z]+)@)?(([a-z0-9]+(([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5})?):([0-9]+)((/.+)?/(.+)))$`
+	rURI := regexp.MustCompile(uriRegExp)
 	match := rURI.FindAllStringSubmatch(URI, -1)
 
 	if len(match) == 0 {
 		err = new(ESUriErorr)
 	} else {
-		host = match[0][1]
-		port = match[0][2]
-		index = match[0][3]
+		//	scheme + host.domain
+		host = match[0][1] + match[0][6]
+		port = match[0][9]
+		index = match[0][12]
 	}
 
 	return
@@ -71,14 +83,15 @@ func parseURI(URI string) (err error, host string, port string, index string) {
 func (p *ESPlugin) Init(URI string) {
 	var err error
 
-	err, p.Host, p.ApiPort, p.Index = parseURI(URI)
+	err, _, _, p.Index = parseURI(URI)
 
 	if err != nil {
 		log.Fatal("Can't initialize ElasticSearch plugin.", err)
 	}
+
 	p.eConn = elastigo.NewConn()
-	p.eConn.SetPort(p.ApiPort)
-	p.eConn.SetHosts([]string{p.Host})
+
+	p.eConn.SetFromUrl(URI)
 
 	p.indexor = p.eConn.NewBulkIndexerErrors(50, 60)
 	p.done = make(chan bool)
