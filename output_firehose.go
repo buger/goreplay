@@ -59,12 +59,6 @@ func (f *FirehoseOutput) Write(data []byte) (n int, err error) {
 // fatalUnlessCredentials logs and exits unless required env vars are present
 // There are other ways of providing AWS authentication but we don't support them at present
 func fatalUnlessCredentials() {
-	if os.Getenv("AWS_ACCESS_KEY_ID") == "" && os.Getenv("AWS_ACCESS_KEY") == "" {
-		log.Fatal("Required env var: AWS_ACCESS_KEY or AWS_ACCESS_KEY_ID not found")
-	}
-	if os.Getenv("AWS_SECRET_ACCESS_KEY") == "" && os.Getenv("AWS_SECRET_KEY") == "" {
-		log.Fatal("Required env var: AWS_SECRET_KEY or AWS_SECRET_ACCESS_KEY not found")
-	}
 	if os.Getenv("AWS_REGION") == "" {
 		log.Fatal("Required env var: AWS_REGION")
 	}
