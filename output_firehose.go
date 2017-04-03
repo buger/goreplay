@@ -49,7 +49,9 @@ func (f *FirehoseOutput) Write(data []byte) (n int, err error) {
 			},
 		)
 		if err != nil {
-			KV.Error("gor-firehose-put-failed")
+			KV.ErrorD("gor-firehose-put-failed", map[string]interface{}{
+				"error": err.Error(),
+			})
 		}
 		f.buffer = []*firehose.Record{}
 	}
