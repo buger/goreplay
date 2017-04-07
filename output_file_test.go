@@ -312,3 +312,37 @@ func TestFileOutputSort(t *testing.T) {
 		t.Error("Should properly sort file names using indexes", files, expected)
 	}
 }
+
+func TestFileOutputAppendSizeLimitOverflow(t *testing.T) {
+	rnd := rand.Int63()
+	name := fmt.Sprintf("/tmp/%d", rnd)
+
+	message := []byte("1 1 1\r\ntest")
+
+	messageSize := len(message) + len(payloadSeparator)
+
+	output := NewFileOutput(name, &FileOutputConfig{append: false, flushInterval: time.Minute, sizeLimit: unitSizeVar(2 * messageSize) })
+
+	output.Write([]byte("1 1 1\r\ntest"))
+	name1 := output.file.Name()
+
+	output.Write([]byte("1 1 1\r\ntest"))
+	name2 := output.file.Name()
+
+	output.flush()
+	output.updateName()
+
+	output.Write([]byte("1 1 1\r\ntest"))
+	name3 := output.file.Name()
+
+	if name2 != name1 || name1 != fmt.Sprintf("/tmp/%d_0", rnd) {
+		t.Error("Fast changes should happen in same file:", name1, name2, name3)
+	}
+
+	if name3 == name1 || name3 != fmt.Sprintf("/tmp/%d_1", rnd) {
+		t.Error("File name should change:", name1, name2, name3)
+	}
+
+	os.Remove(name1)
+	os.Remove(name3)
+}

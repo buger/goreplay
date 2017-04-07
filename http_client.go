@@ -8,7 +8,7 @@ import (
 	"log"
 	"net"
 	"net/url"
-	_ "runtime/debug"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"

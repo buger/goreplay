@@ -235,7 +235,7 @@ func (o *FileOutput) flush() {
 			o.writer.(*bufio.Writer).Flush()
 		}
 
-		if stat, err := o.file.Stat(); err != nil {
+		if stat, err := o.file.Stat(); err == nil {
 			o.chunkSize = int(stat.Size())
 		}
 	}
