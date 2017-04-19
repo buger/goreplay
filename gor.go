@@ -84,7 +84,7 @@ func main() {
 
 	if Settings.exitAfter > 0 {
 		log.Println("Running gor for a duration of", Settings.exitAfter)
-		closeCh := make(chan int)
+		closeCh := make(chan struct{}, 0)
 
 		time.AfterFunc(Settings.exitAfter, func() {
 			log.Println("Stopping gor after", Settings.exitAfter)

@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -14,6 +15,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+)
+
+var (
+	// output bytes reach max size
+	ErrOutputFull = errors.New("output is full")
 )
 
 var dateFileNameFuncs = map[string]func(*FileOutput) string{
@@ -29,10 +35,11 @@ var dateFileNameFuncs = map[string]func(*FileOutput) string{
 }
 
 type FileOutputConfig struct {
-	flushInterval time.Duration
-	sizeLimit     unitSizeVar
-	queueLimit    int
-	append        bool
+	outputFileMaxSize unitSizeVar
+	flushInterval     time.Duration
+	sizeLimit         unitSizeVar
+	queueLimit        int
+	append            bool
 }
 
 // FileOutput output plugin
@@ -48,6 +55,7 @@ type FileOutput struct {
 	currentID      []byte
 	payloadType    []byte
 	closed         bool
+	totalFileSize  int64
 
 	config *FileOutputConfig
 }
@@ -212,7 +220,12 @@ func (o *FileOutput) Write(data []byte) (n int, err error) {
 	o.writer.Write(data)
 	o.writer.Write([]byte(payloadSeparator))
 
+	o.totalFileSize += int64(len(data))
 	o.queueLength++
+
+	if Settings.outputFileConfig.outputFileMaxSize > 0 && o.totalFileSize >= int64(Settings.outputFileConfig.outputFileMaxSize) {
+		return len(data), ErrOutputFull
+	}
 
 	return len(data), nil
 }

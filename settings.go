@@ -104,6 +104,9 @@ func init() {
 	flag.BoolVar(&Settings.outputFileConfig.append, "output-file-append", false, "The flushed chunk is appended to existence file or not. ")
 
 	// Set default
+	Settings.outputFileConfig.outputFileMaxSize.Set("-1")
+	flag.Var(&Settings.outputFileConfig.outputFileMaxSize, "output-file-max-size-limit", "Max size of output file, Default: 1TB")
+
 	Settings.outputFileConfig.sizeLimit.Set("32mb")
 	flag.Var(&Settings.outputFileConfig.sizeLimit, "output-file-size-limit", "Size of each chunk. Default: 32mb")
 	flag.IntVar(&Settings.outputFileConfig.queueLimit, "output-file-queue-limit", 256, "The length of the chunk queue. Default: 256")

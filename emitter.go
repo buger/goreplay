@@ -3,11 +3,24 @@ package main
 import (
 	"bytes"
 	"io"
+	"log"
+	"sync"
 	"time"
 )
 
 // Start initialize loop for sending data from inputs to outputs
-func Start(stop chan int) {
+func Start(stop chan struct{}) {
+	waitGroup := sync.WaitGroup{}
+	outputClose := make(chan struct{}, 0)
+
+	copyFunc := func(src io.Reader, writers ...io.Writer) {
+		err := CopyMulty(src, writers...)
+		if err != nil {
+			log.Println(err)
+		}
+		waitGroup.Done()
+	}
+
 	if Settings.middleware != "" {
 		middleware := NewMiddleware(Settings.middleware)
 
@@ -21,11 +34,12 @@ func Start(stop chan int) {
 				middleware.ReadFrom(r)
 			}
 		}
-
-		go CopyMulty(middleware, Plugins.Outputs...)
+		waitGroup.Add(1)
+		go copyFunc(middleware, Plugins.Outputs...)
 	} else {
 		for _, in := range Plugins.Inputs {
-			go CopyMulty(in, Plugins.Outputs...)
+			waitGroup.Add(1)
+			go copyFunc(in, Plugins.Outputs...)
 		}
 
 		for _, out := range Plugins.Outputs {
@@ -35,10 +49,17 @@ func Start(stop chan int) {
 		}
 	}
 
+	go func() {
+		waitGroup.Wait()
+		close(outputClose)
+	}()
+
+	defer finalize()
 	for {
 		select {
+		case <-outputClose:
+			return
 		case <-stop:
-			finalize()
 			return
 		case <-time.After(100 * time.Millisecond):
 		}
@@ -106,7 +127,10 @@ func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
 
 			if Settings.splitOutput {
 				// Simple round robin
-				writers[wIndex].Write(payload)
+				_, err = writers[wIndex].Write(payload)
+				if err != nil {
+					return
+				}
 
 				wIndex++
 
@@ -115,7 +139,10 @@ func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
 				}
 			} else {
 				for _, dst := range writers {
-					dst.Write(payload)
+					_, err = dst.Write(payload)
+					if err != nil {
+						return
+					}
 				}
 			}
 
