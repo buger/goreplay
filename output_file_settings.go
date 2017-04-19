@@ -33,7 +33,8 @@ func (u unitSizeVar) String() string {
 	return strconv.Itoa(int(u))
 }
 
-func (u unitSizeVar) Set(s string) error {
-	u = unitSizeVar(parseDataUnit(s))
+func (u *unitSizeVar) Set(s string) error {
+	*u = unitSizeVar(parseDataUnit(s))
 	return nil
 }
+
