@@ -5,7 +5,6 @@ import (
 	"reflect"
 	"strings"
 	"sync"
-	"time"
 )
 
 // InOutPlugins struct for holding references to plugins
@@ -107,7 +106,7 @@ func InitPlugins() {
 	}
 
 	for _, options := range Settings.inputRAW {
-		registerPlugin(NewRAWInput, options, engine, Settings.inputRAWTrackResponse, time.Duration(0), Settings.inputRAWRealIPHeader)
+		registerPlugin(NewRAWInput, options, engine, Settings.inputRAWTrackResponse, Settings.inputRAWExpire, Settings.inputRAWRealIPHeader)
 	}
 
 	for _, options := range Settings.inputTCP {
@@ -141,5 +140,13 @@ func InitPlugins() {
 
 	for _, options := range Settings.outputHTTP {
 		registerPlugin(NewHTTPOutput, options, &Settings.outputHTTPConfig)
+	}
+
+	if Settings.outputKafkaConfig.host != "" && Settings.outputKafkaConfig.topic != "" {
+		registerPlugin(NewKafkaOutput, "", &Settings.outputKafkaConfig)
+	}
+
+	if Settings.inputKafkaConfig.host != "" && Settings.inputKafkaConfig.topic != "" {
+		registerPlugin(NewKafkaInput, "", &Settings.inputKafkaConfig)
 	}
 }

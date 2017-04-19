@@ -43,7 +43,8 @@ func (h *HTTPHeaderFilters) Set(value string) error {
 	if len(valArr) < 2 {
 		return errors.New("need both header and value, colon-delimited (ex. user_id:^169$).")
 	}
-	r, err := regexp.Compile(valArr[1])
+	val := strings.TrimSpace(valArr[1])
+	r, err := regexp.Compile(val)
 	if err != nil {
 		return err
 	}
@@ -75,14 +76,16 @@ func (h *HTTPHashFilters) Set(value string) error {
 
 	f := hashFilter{name: []byte(valArr[0])}
 
-	if strings.Contains(valArr[1], "%") {
-		p, _ := strconv.ParseInt(valArr[1][:len(valArr[1])-1], 0, 0)
+	val := strings.TrimSpace(valArr[1])
+
+	if strings.Contains(val, "%") {
+		p, _ := strconv.ParseInt(val[:len(val)-1], 0, 0)
 		f.percent = uint32(p)
-	} else if strings.Contains(valArr[1], "/") {
+	} else if strings.Contains(val, "/") {
 		// DEPRECATED format
 		var num, den uint64
 
-		fracArr := strings.Split(valArr[1], "/")
+		fracArr := strings.Split(val, "/")
 		num, _ = strconv.ParseUint(fracArr[0], 10, 64)
 		den, _ = strconv.ParseUint(fracArr[1], 10, 64)
 

@@ -65,9 +65,10 @@ func TestFileOutputWithNameCleaning(t *testing.T) {
 }
 
 func TestFileOutputPathTemplate(t *testing.T) {
-	output := &FileOutput{pathTemplate: "/tmp/log-%Y-%m-%d-%S", config: &FileOutputConfig{flushInterval: time.Minute, append: true}}
+	output := &FileOutput{pathTemplate: "/tmp/log-%Y-%m-%d-%S-%t", config: &FileOutputConfig{flushInterval: time.Minute, append: true}}
 	now := time.Now()
-	expectedPath := fmt.Sprintf("/tmp/log-%s-%s-%s-%s", now.Format("2006"), now.Format("01"), now.Format("02"), now.Format("05"))
+	output.payloadType = []byte("3")
+	expectedPath := fmt.Sprintf("/tmp/log-%s-%s-%s-%s-3", now.Format("2006"), now.Format("01"), now.Format("02"), now.Format("05"))
 	path := output.filename()
 
 	if expectedPath != path {
@@ -103,6 +104,34 @@ func TestFileOutputMultipleFiles(t *testing.T) {
 	}
 
 	os.Remove(name1)
+	os.Remove(name3)
+}
+
+func TestFileOutputFilePerRequest(t *testing.T) {
+	output := NewFileOutput("/tmp/log-%Y-%m-%d-%S-%r", &FileOutputConfig{append: true})
+
+	if output.file != nil {
+		t.Error("Should not initialize file if no writes")
+	}
+
+	output.Write([]byte("1 1 1\ntest"))
+	name1 := output.file.Name()
+
+	output.Write([]byte("1 2 1\ntest"))
+	name2 := output.file.Name()
+
+	time.Sleep(time.Second)
+	output.updateName()
+
+	output.Write([]byte("1 3 1\ntest"))
+	name3 := output.file.Name()
+
+	if name3 == name2 || name2 == name1 || name3 == name1 {
+		t.Error("File name should change:", name1, name2, name3)
+	}
+
+	os.Remove(name1)
+	os.Remove(name2)
 	os.Remove(name3)
 }
 
@@ -282,4 +311,38 @@ func TestFileOutputSort(t *testing.T) {
 	if !reflect.DeepEqual(files, expected) {
 		t.Error("Should properly sort file names using indexes", files, expected)
 	}
+}
+
+func TestFileOutputAppendSizeLimitOverflow(t *testing.T) {
+	rnd := rand.Int63()
+	name := fmt.Sprintf("/tmp/%d", rnd)
+
+	message := []byte("1 1 1\r\ntest")
+
+	messageSize := len(message) + len(payloadSeparator)
+
+	output := NewFileOutput(name, &FileOutputConfig{append: false, flushInterval: time.Minute, sizeLimit: unitSizeVar(2 * messageSize) })
+
+	output.Write([]byte("1 1 1\r\ntest"))
+	name1 := output.file.Name()
+
+	output.Write([]byte("1 1 1\r\ntest"))
+	name2 := output.file.Name()
+
+	output.flush()
+	output.updateName()
+
+	output.Write([]byte("1 1 1\r\ntest"))
+	name3 := output.file.Name()
+
+	if name2 != name1 || name1 != fmt.Sprintf("/tmp/%d_0", rnd) {
+		t.Error("Fast changes should happen in same file:", name1, name2, name3)
+	}
+
+	if name3 == name1 || name3 != fmt.Sprintf("/tmp/%d_1", rnd) {
+		t.Error("File name should change:", name1, name2, name3)
+	}
+
+	os.Remove(name1)
+	os.Remove(name3)
 }

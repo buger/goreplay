@@ -43,15 +43,19 @@ func TestHTTPOutput(t *testing.T) {
 	methods := HTTPMethods{[]byte("GET"), []byte("PUT"), []byte("POST")}
 	Settings.modifierConfig = HTTPModifierConfig{headers: headers, methods: methods}
 
-	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{Debug: true})
+	http_output := NewHTTPOutput(server.URL, &HTTPOutputConfig{Debug: true, TrackResponses: true})
+	output := NewTestOutput(func(data []byte) {
+		wg.Done()
+	})
 
 	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	Plugins.Outputs = []io.Writer{http_output, output}
 
 	go Start(quit)
 
-	for i := 0; i < 100; i++ {
-		wg.Add(2) // OPTIONS should be ignored
+	for i := 0; i < 1; i++ {
+		// 2 http-output, 2 - test output request, 2 - test output http response
+		wg.Add(6) // OPTIONS should be ignored
 		input.EmitPOST()
 		input.EmitOPTIONS()
 		input.EmitGET()

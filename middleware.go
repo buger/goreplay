@@ -34,9 +34,7 @@ func NewMiddleware(command string) *Middleware {
 	m.Stdout, _ = cmd.StdoutPipe()
 	m.Stdin, _ = cmd.StdinPipe()
 
-	if Settings.verbose {
-		cmd.Stderr = os.Stderr
-	}
+    cmd.Stderr = os.Stderr
 
 	go m.read(m.Stdout)
 
@@ -69,8 +67,14 @@ func (m *Middleware) copy(to io.Writer, from io.Reader) {
 	for {
 		nr, _ := from.Read(buf)
 		if nr > 0 && len(buf) > nr {
+            payload := buf[0: nr]
 
-			hex.Encode(dst, buf[0:nr])
+			if Settings.prettifyHTTP {
+				payload = prettifyHTTP(payload)
+                nr = len(payload)
+			}
+
+			hex.Encode(dst, payload)
 			dst[nr*2] = '\n'
 
 			m.mu.Lock()

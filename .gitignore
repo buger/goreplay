@@ -20,3 +20,7 @@ gor
 *.pcap
 
 .DS_Store
+
+corpus
+crashers
+suppressions

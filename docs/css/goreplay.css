@@ -1,0 +1,171 @@
+code {
+  font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace !important;
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+  border-top-left-radius: 3px;
+  border-top-right-radius: 3px;
+  background-color: #f7f7f7 !important;
+  color: #333 !important;
+  font-size: 14px !important;
+  border: none !important;
+  padding: 5px !important;
+}
+
+pre > code {
+  line-height: 20px;
+  padding: 16px !important;
+}
+
+blockquote {
+  color: #777 !important;
+  border-left: 4px solid rgb(221, 221, 221);
+  padding-left: 16px;
+  padding-right: 16px;
+  margin-left: 0px !important;
+}
+
+/* Visited links purple is not a good idea */
+a:visited {
+  color: #008BF3;
+}
+
+a {
+  color: #008BF3;
+}
+
+h3, h4, h5, h6 {
+  color: #333 !important;
+}
+
+.rst-versions {
+  display: none !important;
+}
+
+/* The next and previous button we don't need */
+.rst-footer-buttons {
+  display: none;
+}
+
+/* Foldable parts */
+details > * {
+  margin-left: 20px;
+}
+details > summary {
+  margin-left: 0px; /* To overwrite the margin from above */
+
+  font-size: 120%;
+  cursor: pointer
+}
+
+/* Fix the design not having the correct spacing */
+.wy-menu-vertical .subnav li.current > a {
+  padding: 0.4045em 2.427em;
+}
+
+.toctree-l3 {
+  padding-left: 1.0em;
+}
+
+footer .fastlane {
+  margin: 20px 0;
+}
+
+footer .fastlane iframe {
+  vertical-align: middle;
+}
+
+/* Custom Syntax highlighting to look more like GitHub.com */
+.hljs-symbol {
+  color: #0086b3;
+}
+
+.hljs-keyword {
+  font-weight: normal;
+  color: #a71d5d;
+}
+
+.hljs-string {
+  color: #183691;
+}
+
+/* Header Anchors */
+/* From https://github.com/facelessuser/pymdown-extensions/blob/bf18d0635e9d91b0f98eacdcaa10f26e0ace0f20/doc_theme/css/theme_custom.css#L322-L395 */
+.rst-content .headeranchor-link {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  display: block;
+  padding-right: 6px;
+  padding-left: 30px;
+  margin-left: -30px;
+}
+
+.rst-content .headeranchor-link:focus {
+  outline: none;
+}
+
+.rst-content h1,
+.rst-content h2,
+.rst-content h3,
+.rst-content h4,
+.rst-content h5,
+.rst-content h6 {
+  position: relative;
+}
+
+.rst-content h1 .headeranchor,
+.rst-content h2 .headeranchor,
+.rst-content h3 .headeranchor,
+.rst-content h4 .headeranchor,
+.rst-content h5 .headeranchor,
+.rst-content h6 .headeranchor {
+  display: none;
+  color: #000;
+  vertical-align: middle;
+}
+
+.rst-content h1:hover .headeranchor-link,
+.rst-content h2:hover .headeranchor-link,
+.rst-content h3:hover .headeranchor-link,
+.rst-content h4:hover .headeranchor-link,
+.rst-content h5:hover .headeranchor-link,
+.rst-content h6:hover .headeranchor-link {
+  height: 1em;
+  padding-left: 8px;
+  margin-left: -30px;
+  text-decoration: none;
+}
+
+.rst-content h1:hover .headeranchor-link .headeranchor,
+.rst-content h2:hover .headeranchor-link .headeranchor,
+.rst-content h3:hover .headeranchor-link .headeranchor,
+.rst-content h4:hover .headeranchor-link .headeranchor,
+.rst-content h5:hover .headeranchor-link .headeranchor,
+.rst-content h6:hover .headeranchor-link .headeranchor {
+  display: inline-block;
+}
+
+.rst-content .headeranchor {
+  font: normal normal 16px FontAwesome;
+  line-height: 1;
+  display: inline-block;
+  text-decoration: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.rst-content .headeranchor:before {
+  content: '\f0c1';
+}
+
+/* index.md badges */
+@media screen and (max-width: 768px) {
+  .badge img {
+    width: auto;
+  }
+}

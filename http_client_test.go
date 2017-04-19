@@ -24,8 +24,8 @@ func TestHTTPClientURLPort(t *testing.T) {
 	}
 
 	c2 := NewHTTPClient("https://example.com", &HTTPClientConfig{})
-	if c2.baseURL != "https://example.com:443" {
-		t.Error("Sould add 443 port for https:", c2.baseURL)
+	if c2.baseURL != "https://example.com" {
+		t.Error("Sould not add 443 port for https:", c2.baseURL)
 	}
 
 	c3 := NewHTTPClient("https://example.com:1", &HTTPClientConfig{})

@@ -64,6 +64,18 @@ func TestHTTPModifierHeaderNegativeFilters(t *testing.T) {
 	if len(modifier.Rewrite(payload)) != 0 {
 		t.Error("Request should not pass filters")
 	}
+
+	filters = HTTPHeaderFilters{}
+	// Setting filter that not match our header
+	filters.Set("Host: www*")
+
+	modifier = NewHTTPModifier(&HTTPModifierConfig{
+		headerNegativeFilters: filters,
+	})
+
+	if len(modifier.Rewrite(payload)) != 0 {
+		t.Error("Request should not pass filters")
+	}
 }
 
 func TestHTTPModifierURLRewrite(t *testing.T) {

@@ -87,10 +87,6 @@ func NewHTTPOutput(address string, config *HTTPOutputConfig) io.Writer {
 		o.elasticSearch.Init(o.config.elasticSearch)
 	}
 
-	if len(Settings.middleware) > 0 {
-		o.config.TrackResponses = true
-	}
-
 	go o.workerMaster()
 
 	return o
@@ -177,7 +173,9 @@ func (o *HTTPOutput) Write(data []byte) (n int, err error) {
 func (o *HTTPOutput) Read(data []byte) (int, error) {
 	resp := <-o.responses
 
-	Debug("[OUTPUT-HTTP] Received response:", string(resp.payload))
+    if Settings.debug {
+	    Debug("[OUTPUT-HTTP] Received response:", string(resp.payload))
+    }
 
 	header := payloadHeader(ReplayedResponsePayload, resp.uuid, resp.roundTripTime, resp.startedAt)
 	copy(data[0:len(header)], header)
@@ -188,6 +186,11 @@ func (o *HTTPOutput) Read(data []byte) (int, error) {
 
 func (o *HTTPOutput) sendRequest(client *HTTPClient, request []byte) {
 	meta := payloadMeta(request)
+
+    if Settings.debug {
+      Debug(meta)
+    }
+
 	if len(meta) < 2 {
 		return
 	}

@@ -1,0 +1,15 @@
+{
+  "name": "goreplay_middleware",
+  "version": "0.1.11",
+  "description": "Package for writing middleware for GoReplay https://goreplay.org",
+  "main": "middleware.js",
+  "scripts": {
+    "test": "node -e \"var gor = require('./middleware.js'); gor.test(); process.exit()\""
+  },
+  "keywords": [
+    "middleware",
+    "goreplay"
+  ],
+  "author": "Leonid Bugaev",
+  "license": "LGPL-3.0"
+}

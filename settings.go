@@ -50,14 +50,20 @@ type AppSettings struct {
 	inputRAWEngine        string
 	inputRAWTrackResponse bool
 	inputRAWRealIPHeader  string
+	inputRAWExpire        time.Duration
 
 	middleware string
 
 	inputHTTP  MultiOption
 	outputHTTP MultiOption
 
+	prettifyHTTP bool
+
 	outputHTTPConfig HTTPOutputConfig
 	modifierConfig   HTTPModifierConfig
+
+	inputKafkaConfig  KafkaConfig
+	outputKafkaConfig KafkaConfig
 }
 
 // Settings holds Gor configuration
@@ -94,13 +100,15 @@ func init() {
 	flag.BoolVar(&Settings.inputFileLoop, "input-file-loop", false, "Loop input files, useful for performance testing.")
 
 	flag.Var(&Settings.outputFile, "output-file", "Write incoming requests to file: \n\tgor --input-raw :80 --output-file ./requests.gor")
-	flag.DurationVar(&Settings.outputFileConfig.flushInterval, "output-file-flush-interval", time.Minute, "Interval for forcing buffer flush to the file, default: 60s.")
+	flag.DurationVar(&Settings.outputFileConfig.flushInterval, "output-file-flush-interval", time.Second, "Interval for forcing buffer flush to the file, default: 1s.")
 	flag.BoolVar(&Settings.outputFileConfig.append, "output-file-append", false, "The flushed chunk is appended to existence file or not. ")
 
 	// Set default
 	Settings.outputFileConfig.sizeLimit.Set("32mb")
 	flag.Var(&Settings.outputFileConfig.sizeLimit, "output-file-size-limit", "Size of each chunk. Default: 32mb")
 	flag.IntVar(&Settings.outputFileConfig.queueLimit, "output-file-queue-limit", 256, "The length of the chunk queue. Default: 256")
+
+	flag.BoolVar(&Settings.prettifyHTTP, "prettify-http", false, "If enabled, will automatically decode requests and responses with: Content-Encodning: gzip and Transfer-Encoding: chunked. Useful for debugging, in conjuction with --output-stdout")
 
 	flag.Var(&Settings.inputRAW, "input-raw", "Capture traffic from given port (use RAW sockets and require *sudo* access):\n\t# Capture traffic from 8080 port\n\tgor --input-raw :8080 --output-http staging.com")
 
@@ -110,6 +118,8 @@ func init() {
 
 	flag.StringVar(&Settings.inputRAWRealIPHeader, "input-raw-realip-header", "", "If not blank, injects header with given name and real IP value to the request payload. Usually this header should be named: X-Real-IP")
 
+	flag.DurationVar(&Settings.inputRAWExpire, "input-raw-expire", time.Second*2, "How much it should wait for the last TCP packet, till consider that TCP message complete.")
+
 	flag.StringVar(&Settings.middleware, "middleware", "", "Used for modifying traffic using external command")
 
 	// flag.Var(&Settings.inputHTTP, "input-http", "Read requests from HTTP, should be explicitly sent from your application:\n\t# Listen for http on 9000\n\tgor --input-http :9000 --output-http staging.com")
@@ -118,13 +128,22 @@ func init() {
 	flag.IntVar(&Settings.outputHTTPConfig.BufferSize, "output-http-response-buffer", 0, "HTTP response buffer size, all data after this size will be discarded.")
 	flag.IntVar(&Settings.outputHTTPConfig.workers, "output-http-workers", 0, "Gor uses dynamic worker scaling by default.  Enter a number to run a set number of workers.")
 	flag.IntVar(&Settings.outputHTTPConfig.redirectLimit, "output-http-redirects", 0, "Enable how often redirects should be followed.")
-	flag.DurationVar(&Settings.outputHTTPConfig.Timeout, "output-http-timeout", 5 * time.Second, "Specify HTTP request/response timeout. By default 5s. Example: --output-http-timeout 30s")
+	flag.DurationVar(&Settings.outputHTTPConfig.Timeout, "output-http-timeout", 5*time.Second, "Specify HTTP request/response timeout. By default 5s. Example: --output-http-timeout 30s")
+	flag.BoolVar(&Settings.outputHTTPConfig.TrackResponses, "output-http-track-response", false, "If turned on, HTTP output responses will be set to all outputs like stdout, file and etc.")
 
 	flag.BoolVar(&Settings.outputHTTPConfig.stats, "output-http-stats", false, "Report http output queue stats to console every 5 seconds.")
 	flag.BoolVar(&Settings.outputHTTPConfig.OriginalHost, "http-original-host", false, "Normally gor replaces the Host http header with the host supplied with --output-http.  This option disables that behavior, preserving the original Host header.")
 	flag.BoolVar(&Settings.outputHTTPConfig.Debug, "output-http-debug", false, "Enables http debug output.")
 
 	flag.StringVar(&Settings.outputHTTPConfig.elasticSearch, "output-http-elasticsearch", "", "Send request and response stats to ElasticSearch:\n\tgor --input-raw :8080 --output-http staging.com --output-http-elasticsearch 'es_host:api_port/index_name'")
+
+	flag.StringVar(&Settings.outputKafkaConfig.host, "output-kafka-host", "", "Read request and response stats from Kafka:\n\tgor --input-raw :8080 --output-kafka-host '192.168.0.1:9092,192.168.0.2:9092'")
+	flag.StringVar(&Settings.outputKafkaConfig.topic, "output-kafka-topic", "", "Read request and response stats from Kafka:\n\tgor --input-raw :8080 --output-kafka-topic 'kafka-log'")
+	flag.BoolVar(&Settings.outputKafkaConfig.useJSON, "output-kafka-json-format", false, "If turned on, it will serialize messages from GoReplay text format to JSON.")
+
+	flag.StringVar(&Settings.inputKafkaConfig.host, "input-kafka-host", "", "Send request and response stats to Kafka:\n\tgor --output-stdout --input-kafka-host '192.168.0.1:9092,192.168.0.2:9092'")
+	flag.StringVar(&Settings.inputKafkaConfig.topic, "input-kafka-topic", "", "Send request and response stats to Kafka:\n\tgor --output-stdout --input-kafka-topic 'kafka-log'")
+	flag.BoolVar(&Settings.inputKafkaConfig.useJSON, "input-kafka-json-format", false, "If turned on, it will assume that messages coming in JSON format rather than  GoReplay text format.")
 
 	flag.Var(&Settings.modifierConfig.headers, "http-set-header", "Inject additional headers to http reqest:\n\tgor --input-raw :8080 --output-http staging.com --http-set-header 'User-Agent: Gor'")
 	flag.Var(&Settings.modifierConfig.headers, "output-http-header", "WARNING: `--output-http-header` DEPRECATED, use `--http-set-header` instead")

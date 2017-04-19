@@ -18,5 +18,7 @@ RUN go get -u github.com/golang/lint/golint
 WORKDIR /go/src/github.com/buger/gor/
 ADD . /go/src/github.com/buger/gor/
 
-RUN javac -cp /tmp/commons-io-2.4/commons-io-2.4.jar ./examples/middleware/echo.java
+RUN wget http://archive.apache.org/dist/commons/io/binaries/commons-io-2.4-bin.tar.gz && tar xzf commons-io-2.4-bin.tar.gz && cd commons-io-2.4 && mv commons-io-2.4.jar /tmp/
+RUN wget http://archive.apache.org/dist/commons/codec/binaries/commons-codec-1.9-bin.tar.gz && tar xzf commons-codec-1.9-bin.tar.gz
+RUN javac -cp commons-io-2.4/commons-io-2.4.jar -cp commons-codec-1.9/commons-codec-1.9.jar ./examples/middleware/echo.java
 RUN go get

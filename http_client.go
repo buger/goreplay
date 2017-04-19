@@ -58,10 +58,9 @@ func NewHTTPClient(baseURL string, config *HTTPClientConfig) *HTTPClient {
 	}
 
 	u, _ := url.Parse(baseURL)
-	if !strings.Contains(u.Host, ":") {
-		if u.Scheme != "http" {
-			u.Host += ":" + defaultPorts[u.Scheme]
-		}
+
+	if config.Timeout == 0 {
+		config.Timeout = time.Second
 	}
 
 	config.ConnectionTimeout = config.Timeout
@@ -88,13 +87,13 @@ func (c *HTTPClient) Connect() (err error) {
 	c.Disconnect()
 
 	if !strings.Contains(c.host, ":") {
-		c.conn, err = net.DialTimeout("tcp", c.host+":80", c.config.ConnectionTimeout)
+		c.conn, err = net.DialTimeout("tcp", c.host+":"+defaultPorts[c.scheme], c.config.ConnectionTimeout)
 	} else {
 		c.conn, err = net.DialTimeout("tcp", c.host, c.config.ConnectionTimeout)
 	}
 
 	if c.scheme == "https" {
-		tlsConn := tls.Client(c.conn, &tls.Config{InsecureSkipVerify: true})
+		tlsConn := tls.Client(c.conn, &tls.Config{InsecureSkipVerify: true, ServerName: c.host})
 
 		if err = tlsConn.Handshake(); err != nil {
 			return
@@ -124,9 +123,7 @@ func (c *HTTPClient) isAlive() bool {
 	if err == nil {
 		return true
 	} else if err == io.EOF {
-		if c.config.Debug {
-			Debug("[HTTPClient] connection closed, reconnecting")
-		}
+		Debug("[HTTPClient] connection closed, reconnecting")
 		return false
 	} else if err == syscall.EPIPE {
 		Debug("Detected broken pipe.", err)
@@ -137,14 +134,17 @@ func (c *HTTPClient) isAlive() bool {
 }
 
 func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
+    var payload []byte
+
 	// Don't exit on panic
 	defer func() {
 		if r := recover(); r != nil {
 			Debug("[HTTPClient]", r, string(data))
 
-			if _, ok := r.(error); !ok {
+			if _, ok := r.(error); ok {
 				log.Println("[HTTPClient] Failed to send request: ", string(data))
-				log.Println("PANIC: pkg:", r, debug.Stack())
+                log.Println("[HTTPClient] Response: ", string(response))
+				log.Println("PANIC: pkg:", r, string(debug.Stack()))
 			}
 		}
 	}()
@@ -196,25 +196,25 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 			readBytes += n
 			chunks++
 
-			if err != nil {
-				if err == io.EOF {
-					err = nil
-				}
-				break
-			}
-
 			// First chunk
 			if chunked || contentLength != -1 {
 				currentContentLength += n
 			} else {
 				// If headers are finished
-				if bytes.Contains(c.respBuf[:readBytes], proto.EmptyLine) {
-					if bytes.Equal(proto.Header(c.respBuf, []byte("Transfer-Encoding")), []byte("chunked")) {
+
+                if bytes.Contains(c.respBuf[:readBytes], proto.EmptyLine) {
+                    if bytes.Equal(proto.Header(c.respBuf[:readBytes], []byte("Transfer-Encoding")), []byte("chunked")) {
 						chunked = true
 					} else {
-						l := proto.Header(c.respBuf, []byte("Content-Length"))
-						if len(l) > 0 {
-							contentLength, _ = strconv.Atoi(string(l))
+                        status, _ := strconv.Atoi(string(proto.Status(c.respBuf[:readBytes])))
+						if (status >= 100 && status < 200) || status == 204 || status == 304 {
+                            contentLength = 0
+                            break
+						} else {
+                            l := proto.Header(c.respBuf[:readBytes], []byte("Content-Length"))
+							if len(l) > 0 {
+								contentLength, _ = strconv.Atoi(string(l))
+							}
 						}
 					}
 
@@ -236,19 +236,19 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 					break
 				}
 			}
+
+			if err != nil {
+				if err == io.EOF {
+					err = nil
+				}
+				break
+			}
 		} else {
 			if currentChunk == nil {
 				currentChunk = make([]byte, readChunkSize)
 			}
 
 			n, err = c.conn.Read(currentChunk)
-
-			if err == io.EOF {
-				break
-			} else if err != nil {
-				Debug("[HTTPClient] Read the whole body error:", err, c.baseURL)
-				break
-			}
 
 			readBytes += int(n)
 			chunks++
@@ -272,6 +272,15 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 				c.Disconnect()
 				break
 			}
+
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				Debug("[HTTPClient] Read the whole body error:", err, c.baseURL)
+				break
+			}
+
+
 		}
 
 		if readBytes >= maxResponseSize {
@@ -284,16 +293,24 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 		timeout = time.Now().Add(c.config.Timeout / 5)
 	}
 
-	if err != nil {
-		Debug("[HTTPClient] Response read error", err, c.conn, readBytes)
+	if err != nil && readBytes == 0 {
+        Debug("[HTTPClient] Response read timeout error", err, c.conn, readBytes, string(c.respBuf[:readBytes]))
 		response = errorPayload(HTTP_TIMEOUT)
+        c.Disconnect()
+		return
+	}
+
+    if readBytes < 4 || string(c.respBuf[:4]) != "HTTP" {
+		Debug("[HTTPClient] Response read unknown error", err, c.conn, readBytes, string(c.respBuf[:readBytes]))
+		response = errorPayload(HTTP_UNKNOWN_ERROR)
+        c.Disconnect()
 		return
 	}
 
 	if readBytes > len(c.respBuf) {
 		readBytes = len(c.respBuf)
 	}
-	payload := make([]byte, readBytes)
+	payload = make([]byte, readBytes)
 	copy(payload, c.respBuf[:readBytes])
 
 	if c.config.Debug {
@@ -319,8 +336,8 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 	}
 
 	if bytes.Equal(proto.Status(payload), []byte("400")) {
-		c.Disconnect()
 		Debug("[HTTPClient] Closed connection on 400 response")
+		c.Disconnect()
 	}
 
 	c.redirectsCount = 0

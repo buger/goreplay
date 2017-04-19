@@ -6,19 +6,19 @@ import org.apache.commons.codec.DecoderException;
 import org.apache.commons.codec.binary.Hex;
 
 
-public class Echo {
-        public static String decodeHexString(String s) throws DecoderException {
-            return new String(Hex.decodeHex(s.toCharArray()));
-        }
+class Echo {
+    public static String decodeHexString(String s) throws DecoderException {
+        return new String(Hex.decodeHex(s.toCharArray()));
+    }
 
-        public static String encodeHexString(String s) {
-            return new String(Hex.encodeHex(s.getBytes()));
-        }
+    public static String encodeHexString(String s) {
+        return new String(Hex.encodeHex(s.getBytes()));
+    }
 
-        public static String transformHTTPMessage(String req) {
-            // do actual transformations here
-            return req;
-        }
+    public static String transformHTTPMessage(String req) {
+        // do actual transformations here
+        return req;
+    }
 
     public static void main(String[] args) throws DecoderException {
         if(args != null){
@@ -29,7 +29,7 @@ public class Echo {
         }
 
         BufferedReader stdin = new BufferedReader(new InputStreamReader(
-                System.in));
+                                                                        System.in));
         String line = null;
 
         try {

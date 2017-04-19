@@ -48,9 +48,8 @@ type TCPMessage struct {
 }
 
 // NewTCPMessage pointer created from a Acknowledgment number and a channel of messages readuy to be deleted
-func NewTCPMessage(Seq, Ack uint32, IsIncoming bool) (msg *TCPMessage) {
-	msg = &TCPMessage{Seq: Seq, Ack: Ack, IsIncoming: IsIncoming}
-	msg.Start = time.Now()
+func NewTCPMessage(Seq, Ack uint32, IsIncoming bool, timestamp time.Time) (msg *TCPMessage) {
+	msg = &TCPMessage{Seq: Seq, Ack: Ack, IsIncoming: IsIncoming, Start: timestamp}
 
 	return
 }
@@ -137,6 +136,10 @@ func (t *TCPMessage) AddPacket(packet *TCPPacket) {
 
 		if packet.OrigAck != 0 {
 			t.DataAck = packet.OrigAck
+		}
+
+		if packet.timestamp.Before(t.Start) {
+			t.Start = packet.timestamp
 		}
 	}
 
@@ -354,7 +357,7 @@ func (t *TCPMessage) updateBodyType() {
 
 	var lengthB, encB, connB []byte
 
-	proto.ParseHeaders(t.packetsData(), func(header, value []byte)bool{
+	proto.ParseHeaders(t.packetsData(), func(header, value []byte) bool {
 		if proto.HeadersEqual(header, []byte("Content-Length")) {
 			lengthB = value
 			return false
@@ -435,7 +438,7 @@ func (t *TCPMessage) check100Continue() {
 	}
 
 	var expectB []byte
-	proto.ParseHeaders(t.packetsData(), func(header, value []byte)bool{
+	proto.ParseHeaders(t.packetsData(), func(header, value []byte) bool {
 		if proto.HeadersEqual(header, bExpectHeader) {
 			expectB = value
 			return false

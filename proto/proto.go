@@ -32,7 +32,7 @@ var HeaderDelim = []byte(": ")
 
 // MIMEHeadersEndPos finds end of the Headers section, which should end with empty line.
 func MIMEHeadersEndPos(payload []byte) int {
-	return bytes.Index(payload, EmptyLine)
+	return bytes.Index(payload, EmptyLine) + 4
 }
 
 // MIMEHeadersStartPos finds start of Headers section
@@ -181,15 +181,15 @@ func HeadersEqual(h1 []byte, h2 []byte) bool {
 
 // Parsing headers from multiple payloads
 func ParseHeaders(payloads [][]byte, cb func(header []byte, value []byte) bool) {
-
-	hS := [2]int{0, 0}
-	hE := [2]int{-1, -1}
-	vS := [2]int{-1, -1}
-	vE := [2]int{-1, -1}
+	hS := [2]int{0, 0}   // header start
+	hE := [2]int{-1, -1} // header end
+	vS := [2]int{-1, -1} // value start
+	vE := [2]int{-1, -1} // value end
 
 	i := 0
 	pIdx := 0
 	lineBreaks := 0
+	newLineBreak := true
 
 	for {
 		if len(payloads)-1 < pIdx {
@@ -206,6 +206,7 @@ func ParseHeaders(payloads [][]byte, cb func(header []byte, value []byte) bool) 
 
 		switch p[i] {
 		case '\r', '\n':
+			newLineBreak = true
 			lineBreaks++
 
 			// End of headers
@@ -254,12 +255,17 @@ func ParseHeaders(payloads [][]byte, cb func(header []byte, value []byte) bool) 
 			hS = [2]int{-1, -1}
 			hE = [2]int{-1, -1}
 		case ':':
-			hE = [2]int{pIdx, i}
+			if newLineBreak {
+				hE = [2]int{pIdx, i}
+				newLineBreak = false
+			}
+			lineBreaks = 0
 		default:
 			lineBreaks = 0
 
 			if hS[1] == -1 {
 				hS = [2]int{pIdx, i}
+				hE = [2]int{-1, -1}
 			} else {
 				if hE[1] == -1 {
 					break
@@ -331,7 +337,7 @@ func DeleteHeader(payload, name []byte) []byte {
 // Body returns request/response body
 func Body(payload []byte) []byte {
 	// 4 -> len(EMPTY_LINE)
-	return payload[MIMEHeadersEndPos(payload)+4:]
+	return payload[MIMEHeadersEndPos(payload):]
 }
 
 // Path takes payload and retuns request path: Split(firstLine, ' ')[1]
@@ -443,7 +449,7 @@ func Status(payload []byte) []byte {
 }
 
 var httpMethods []string = []string{
-	"GET ", "OPTI", "HEAD", "POST", "PUT ", "DELE", "TRAC", "CONN" /* custom methods */, "BAN", "PURG",
+	"GET ", "OPTI", "HEAD", "POST", "PUT ", "DELE", "TRAC", "CONN", "PATC" /* custom methods */, "BAN", "PURG",
 }
 
 func IsHTTPPayload(payload []byte) bool {

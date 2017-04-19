@@ -84,9 +84,11 @@ func (p *ESPlugin) Init(URI string) {
 	p.done = make(chan bool)
 	p.indexor.Start()
 
-	// Only start the ErrorHandler goroutine when in verbose mode
-	// no need to burn ressources otherwise
-	go p.ErrorHandler()
+	if Settings.verbose {
+		// Only start the ErrorHandler goroutine when in verbose mode
+		// no need to burn ressources otherwise
+		go p.ErrorHandler()
+	}
 
 	log.Println("Initialized Elasticsearch Plugin")
 	return

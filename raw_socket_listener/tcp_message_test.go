@@ -5,9 +5,10 @@ import (
 	"encoding/binary"
 	_ "log"
 	"testing"
+	"time"
 )
 
-func buildPacket(isIncoming bool, Ack, Seq uint32, Data []byte) (packet *TCPPacket) {
+func buildPacket(isIncoming bool, Ack, Seq uint32, Data []byte, timestamp time.Time) (packet *TCPPacket) {
 	var srcPort, destPort uint16
 
 	// For tests `listening` port is 0
@@ -25,7 +26,7 @@ func buildPacket(isIncoming bool, Ack, Seq uint32, Data []byte) (packet *TCPPack
 	buf[12] = 64
 	buf = append(buf, Data...)
 
-	packet = ParseTCPPacket([]byte("123"), buf)
+	packet = ParseTCPPacket([]byte("123"), buf, timestamp)
 
 	return packet
 }
@@ -36,31 +37,31 @@ func buildMessage(p *TCPPacket) *TCPMessage {
 		isIncoming = true
 	}
 
-	m := NewTCPMessage(p.Seq, p.Ack, isIncoming)
+	m := NewTCPMessage(p.Seq, p.Ack, isIncoming, p.timestamp)
 	m.AddPacket(p)
 
 	return m
 }
 
 func TestTCPMessagePacketsOrder(t *testing.T) {
-	msg := buildMessage(buildPacket(true, 1, 1, []byte("a")))
-	msg.AddPacket(buildPacket(true, 1, 2, []byte("b")))
+	msg := buildMessage(buildPacket(true, 1, 1, []byte("a"), time.Now()))
+	msg.AddPacket(buildPacket(true, 1, 2, []byte("b"), time.Now()))
 
 	if !bytes.Equal(msg.Bytes(), []byte("ab")) {
 		t.Error("Should contatenate packets in right order")
 	}
 
 	// When first packet have wrong order (Seq)
-	msg = buildMessage(buildPacket(true, 1, 2, []byte("b")))
-	msg.AddPacket(buildPacket(true, 1, 1, []byte("a")))
+	msg = buildMessage(buildPacket(true, 1, 2, []byte("b"), time.Now()))
+	msg.AddPacket(buildPacket(true, 1, 1, []byte("a"), time.Now()))
 
 	if !bytes.Equal(msg.Bytes(), []byte("ab")) {
 		t.Error("Should contatenate packets in right order")
 	}
 
 	// Should ignore packets with same sequence
-	msg = buildMessage(buildPacket(true, 1, 1, []byte("a")))
-	msg.AddPacket(buildPacket(true, 1, 1, []byte("a")))
+	msg = buildMessage(buildPacket(true, 1, 1, []byte("a"), time.Now()))
+	msg.AddPacket(buildPacket(true, 1, 1, []byte("a"), time.Now()))
 
 	if !bytes.Equal(msg.Bytes(), []byte("a")) {
 		t.Error("Should ignore packet with same Seq")
@@ -68,8 +69,8 @@ func TestTCPMessagePacketsOrder(t *testing.T) {
 }
 
 func TestTCPMessageSize(t *testing.T) {
-	msg := buildMessage(buildPacket(true, 1, 1, []byte("POST / HTTP/1.1\r\nContent-Length: 2\r\n\r\na")))
-	msg.AddPacket(buildPacket(true, 1, 2, []byte("b")))
+	msg := buildMessage(buildPacket(true, 1, 1, []byte("POST / HTTP/1.1\r\nContent-Length: 2\r\n\r\na"), time.Now()))
+	msg.AddPacket(buildPacket(true, 1, 2, []byte("b"), time.Now()))
 
 	if msg.BodySize() != 2 {
 		t.Error("Should count only body", msg.BodySize())
@@ -110,7 +111,7 @@ func TestTCPMessageIsComplete(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		msg := buildMessage(buildPacket(tc.direction, 1, 1, []byte(tc.payload)))
+		msg := buildMessage(buildPacket(tc.direction, 1, 1, []byte(tc.payload), time.Now()))
 		if tc.assocMessage {
 			msg.AssocMessage = &TCPMessage{}
 		}
@@ -123,9 +124,9 @@ func TestTCPMessageIsComplete(t *testing.T) {
 }
 
 func TestTCPMessageIsSeqMissing(t *testing.T) {
-	p1 := buildPacket(false, 1, 1, []byte("HTTP/1.1 200 OK\r\n"))
-	p2 := buildPacket(false, 1, p1.Seq+uint32(len(p1.Data)), []byte("Content-Length: 10\r\n\r\n"))
-	p3 := buildPacket(false, 1, p2.Seq+uint32(len(p2.Data)), []byte("a"))
+	p1 := buildPacket(false, 1, 1, []byte("HTTP/1.1 200 OK\r\n"), time.Now())
+	p2 := buildPacket(false, 1, p1.Seq+uint32(len(p1.Data)), []byte("Content-Length: 10\r\n\r\n"), time.Now())
+	p3 := buildPacket(false, 1, p2.Seq+uint32(len(p2.Data)), []byte("a"), time.Now())
 
 	msg := buildMessage(p1)
 	if msg.seqMissing {
@@ -144,8 +145,8 @@ func TestTCPMessageIsSeqMissing(t *testing.T) {
 }
 
 func TestTCPMessageIsHeadersReceived(t *testing.T) {
-	p1 := buildPacket(false, 1, 1, []byte("HTTP/1.1 200 OK\r\n\r\n"))
-	p2 := buildPacket(false, 1, p1.Seq+uint32(len(p1.Data)), []byte("Content-Length: 10\r\n\r\n"))
+	p1 := buildPacket(false, 1, 1, []byte("HTTP/1.1 200 OK\r\n\r\n"), time.Now())
+	p2 := buildPacket(false, 1, p1.Seq+uint32(len(p1.Data)), []byte("Content-Length: 10\r\n\r\n"), time.Now())
 
 	msg := buildMessage(p1)
 	if msg.headerPacket == -1 {
@@ -157,7 +158,7 @@ func TestTCPMessageIsHeadersReceived(t *testing.T) {
 		t.Error("Should found double new line: headers received")
 	}
 
-	msg = buildMessage(buildPacket(true, 1, 1, []byte("GET / HTTP/1.1\r\nContent-Length: 1\r\n")))
+	msg = buildMessage(buildPacket(true, 1, 1, []byte("GET / HTTP/1.1\r\nContent-Length: 1\r\n"), time.Now()))
 	if msg.headerPacket != -1 {
 		t.Error("Should not find headers end")
 	}
@@ -183,7 +184,7 @@ func TestTCPMessageMethodType(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		msg := buildMessage(buildPacket(tc.direction, 1, 1, []byte(tc.payload)))
+		msg := buildMessage(buildPacket(tc.direction, 1, 1, []byte(tc.payload), time.Now()))
 
 		if msg.methodType != tc.expectedMethodType {
 			t.Errorf("Expected %d, got %d", tc.expectedMethodType, msg.methodType)
@@ -208,7 +209,7 @@ func TestTCPMessageBodyType(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		msg := buildMessage(buildPacket(tc.direction, 1, 1, []byte(tc.payload)))
+		msg := buildMessage(buildPacket(tc.direction, 1, 1, []byte(tc.payload), time.Now()))
 
 		if msg.bodyType != tc.expectedBodyType {
 			t.Errorf("Expected %d, got %d", tc.expectedBodyType, msg.bodyType)
@@ -229,17 +230,28 @@ func TestTCPMessageBodySize(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		msg := buildMessage(buildPacket(tc.direction, 1, 1, []byte(tc.payloads[0])))
+		msg := buildMessage(buildPacket(tc.direction, 1, 1, []byte(tc.payloads[0]), time.Now()))
 
 		if len(tc.payloads) > 1 {
 			for _, p := range tc.payloads[1:] {
 				seq := uint32(1 + msg.Size())
-				msg.AddPacket(buildPacket(tc.direction, 1, seq, []byte(p)))
+				msg.AddPacket(buildPacket(tc.direction, 1, seq, []byte(p), time.Now()))
 			}
 		}
 
 		if msg.BodySize() != tc.expectedSize {
 			t.Errorf("Expected %d, got %d", tc.expectedSize, msg.BodySize())
 		}
+	}
+}
+
+func TestTcpMessageStart(t *testing.T) {
+	start := time.Now().Add(-1 * time.Second)
+
+	msg := buildMessage(buildPacket(true, 1, 2, []byte("b"), time.Now()))
+	msg.AddPacket(buildPacket(true, 1, 1, []byte("POST / HTTP/1.1\r\nContent-Length: 2\r\n\r\na"), start))
+
+	if msg.Start != start {
+		t.Error("Message timestamp should be equal to the lowest related packet timestamp", start, msg.Start)
 	}
 }

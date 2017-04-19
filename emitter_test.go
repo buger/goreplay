@@ -5,6 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestEmitter(t *testing.T) {
@@ -29,6 +30,53 @@ func TestEmitter(t *testing.T) {
 	wg.Wait()
 
 	close(quit)
+}
+
+func TestEmitterFiltered(t *testing.T) {
+	wg := new(sync.WaitGroup)
+	quit := make(chan int)
+
+	input := NewTestInput()
+	input.skipHeader = true
+
+	output := NewTestOutput(func(data []byte) {
+		wg.Done()
+	})
+
+	Plugins.Inputs = []io.Reader{input}
+	Plugins.Outputs = []io.Writer{output}
+	methods := HTTPMethods{[]byte("GET")}
+	Settings.modifierConfig = HTTPModifierConfig{methods: methods}
+
+	go Start(quit)
+
+	wg.Add(2)
+
+	id := uuid()
+	reqh := payloadHeader(RequestPayload, id, time.Now().UnixNano(), -1)
+	reqb := append(reqh, []byte("GET / HTTP/1.1\r\nHost: www.w3.org\r\nUser-Agent: Go 1.1 package http\r\nAccept-Encoding: gzip\r\n\r\n")...)
+
+	resh := payloadHeader(ResponsePayload, id, time.Now().UnixNano()+1, 1)
+	respb := append(resh, []byte("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")...)
+
+	input.EmitBytes(reqb)
+	input.EmitBytes(respb)
+
+	id = uuid()
+	reqh = payloadHeader(RequestPayload, id, time.Now().UnixNano(), -1)
+	reqb = append(reqh, []byte("POST / HTTP/1.1\r\nHost: www.w3.org\r\nUser-Agent: Go 1.1 package http\r\nAccept-Encoding: gzip\r\n\r\n")...)
+
+	resh = payloadHeader(ResponsePayload, id, time.Now().UnixNano()+1, 1)
+	respb = append(resh, []byte("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")...)
+
+	input.EmitBytes(reqb)
+	input.EmitBytes(respb)
+
+	wg.Wait()
+
+	close(quit)
+
+	Settings.modifierConfig = HTTPModifierConfig{}
 }
 
 func TestEmitterRoundRobin(t *testing.T) {

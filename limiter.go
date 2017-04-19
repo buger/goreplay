@@ -82,7 +82,11 @@ func (l *Limiter) Write(data []byte) (n int, err error) {
 }
 
 func (l *Limiter) Read(data []byte) (n int, err error) {
-	n, err = l.plugin.(io.Reader).Read(data)
+	if r, ok := l.plugin.(io.Reader); ok {
+		n, err = r.Read(data)
+	} else {
+		return 0, nil
+	}
 
 	if l.isLimited() {
 		return 0, nil
