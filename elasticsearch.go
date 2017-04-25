@@ -1,18 +1,20 @@
 package main
 
 import (
+	"net/url"
 	"encoding/json"
 	"github.com/buger/gor/proto"
 	"github.com/mattbaird/elastigo/lib"
 	"log"
-	"regexp"
+	"strings"
+	//"regexp"
 	"time"
 )
 
 type ESUriErorr struct{}
 
 func (e *ESUriErorr) Error() string {
-	return "Wrong ElasticSearch URL format. Expected to be: scheme://host:port/index_name"
+	return "Wrong ElasticSearch URL format. Expected to be: scheme://host/index_name"
 }
 
 type ESPlugin struct {
@@ -57,25 +59,27 @@ type ESRequestResponse struct {
 // net/url.Parse() does not fail if scheme is not provided but actualy does not
 // handle URI properly.
 // So we must 'validate' URI format to match requirements to use net/url.Parse()
-//
-// regexp clarification :
-// ^(https?:\/\/)? : start with http or https - required. No oher scheme allowed for elastic connexion.
-// (([\da-z]+):([\da-z]+)@)? : user info - not required.
-// (([a-z0-9]+(([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5})?):([0-9]+) : host and port.
-// ((/.+)?/(.+)))$ : path. At least one, index is last part
-func parseURI(URI string) (err error, host string, port string, index string) {
-	uriRegExp := `^(https?:\/\/){1}(([\da-z]+):([\da-z]+)@)?(([a-z0-9]+(([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5})?):([0-9]+)((/.+)?/(.+)))$`
-	rURI := regexp.MustCompile(uriRegExp)
-	match := rURI.FindAllStringSubmatch(URI, -1)
+func parseURI(URI string) (err error, index string) {
 
-	if len(match) == 0 {
+	parsedUrl, parseErr := url.Parse(URI)
+	log.Println("Parsed URL", parsedUrl)
+
+	if parseErr != nil {
 		err = new(ESUriErorr)
-	} else {
-		//	scheme + host.domain
-		host = match[0][1] + match[0][6]
-		port = match[0][9]
-		index = match[0][12]
 	}
+
+	log.Println("Parsed Host", parsedUrl.Host)
+	//	check URL validity by extracting host and undex values.
+	host := parsedUrl.Host
+	urlPathParts := strings.Split(parsedUrl.Path, "/")
+	index = urlPathParts[len(urlPathParts) - 1 ]
+
+	// force index specification in uri : ie no implicit index
+	if (host == "" ||  index == "") {
+		err = new(ESUriErorr)
+	}
+
+	//log.Println("Parsed index", index)
 
 	return
 }
@@ -83,7 +87,7 @@ func parseURI(URI string) (err error, host string, port string, index string) {
 func (p *ESPlugin) Init(URI string) {
 	var err error
 
-	err, _, _, p.Index = parseURI(URI)
+	err, p.Index = parseURI(URI)
 
 	if err != nil {
 		log.Fatal("Can't initialize ElasticSearch plugin.", err)
