@@ -62,13 +62,11 @@ type ESRequestResponse struct {
 func parseURI(URI string) (err error, index string) {
 
 	parsedUrl, parseErr := url.Parse(URI)
-	log.Println("Parsed URL", parsedUrl)
 
 	if parseErr != nil {
 		err = new(ESUriErorr)
 	}
 
-	log.Println("Parsed Host", parsedUrl.Host)
 	//	check URL validity by extracting host and undex values.
 	host := parsedUrl.Host
 	urlPathParts := strings.Split(parsedUrl.Path, "/")
@@ -78,8 +76,6 @@ func parseURI(URI string) (err error, index string) {
 	if (host == "" ||  index == "") {
 		err = new(ESUriErorr)
 	}
-
-	//log.Println("Parsed index", index)
 
 	return
 }
