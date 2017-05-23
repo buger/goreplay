@@ -52,7 +52,7 @@ func main() {
 		}
 		dir, _ := os.Getwd()
 
-		log.Println("Started example file server for current dirrectory on address ", args[1])
+		log.Println("Started example file server for current directory on address ", args[1])
 
 		log.Fatal(http.ListenAndServe(args[1], loggingMiddleware(http.FileServer(http.Dir(dir)))))
 	} else {
