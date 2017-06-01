@@ -52,7 +52,8 @@ type AppSettings struct {
 	inputRAWRealIPHeader  string
 	inputRAWExpire        time.Duration
 
-	middleware string
+	middleware     string
+	outputFirehose MultiOption
 
 	inputHTTP  MultiOption
 	outputHTTP MultiOption
@@ -109,6 +110,8 @@ func init() {
 	flag.IntVar(&Settings.outputFileConfig.queueLimit, "output-file-queue-limit", 256, "The length of the chunk queue. Default: 256")
 
 	flag.BoolVar(&Settings.prettifyHTTP, "prettify-http", false, "If enabled, will automatically decode requests and responses with: Content-Encodning: gzip and Transfer-Encoding: chunked. Useful for debugging, in conjuction with --output-stdout")
+
+	flag.Var(&Settings.outputFirehose, "output-firehose", "Write incoming requests to firehose stream: \n\tgor --input-raw :80 --output-firehose stream-name")
 
 	flag.Var(&Settings.inputRAW, "input-raw", "Capture traffic from given port (use RAW sockets and require *sudo* access):\n\t# Capture traffic from 8080 port\n\tgor --input-raw :8080 --output-http staging.com")
 

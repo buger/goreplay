@@ -16,12 +16,15 @@ import (
 	"runtime/pprof"
 	"syscall"
 	"time"
+
+	"gopkg.in/Clever/kayvee-go.v3/logger"
 )
 
 var (
 	mode       string
 	cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 	memprofile = flag.String("memprofile", "", "write memory profile to this file")
+	KV         = logger.New("gor")
 )
 
 func loggingMiddleware(next http.Handler) http.Handler {

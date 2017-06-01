@@ -125,6 +125,10 @@ func InitPlugins() {
 		registerPlugin(NewFileOutput, options, &Settings.outputFileConfig)
 	}
 
+	for _, options := range Settings.outputFirehose {
+		registerPlugin(NewFirehoseOutput, options)
+	}
+
 	for _, options := range Settings.inputHTTP {
 		registerPlugin(NewHTTPInput, options)
 	}
