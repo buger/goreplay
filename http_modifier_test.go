@@ -78,6 +78,45 @@ func TestHTTPModifierHeaderNegativeFilters(t *testing.T) {
 	}
 }
 
+func TestHTTPHeaderBasicAuthFilters(t *testing.T) {
+	filters := HTTPHeaderBasicAuthFilters{}
+	filters.Set("^customer[0-9].*")
+
+	modifier := NewHTTPModifier(&HTTPModifierConfig{
+		headerBasicAuthFilters: filters,
+	})
+
+	//Encoded UserId:Password = customer3:welcome
+	payload := []byte("POST /post HTTP/1.1\r\nContent-Length: 7\r\nAuthorization: Basic Y3VzdG9tZXIzOndlbGNvbWU=\r\n\r\na=1&b=2")
+	if len(modifier.Rewrite(payload)) == 0 {
+		t.Error("Request should pass filters")
+	}
+
+	//customer6:rest@123^TEST
+	payload = []byte("POST /post HTTP/1.1\r\nContent-Length: 88\r\nAuthorization: Basic Y3VzdG9tZXI2OnJlc3RAMTIzXlRFU1Q==\r\n\r\na=1&b=2")
+	if len(modifier.Rewrite(payload)) == 0 {
+		t.Error("Request should pass filters")
+	}	
+
+	filters = HTTPHeaderBasicAuthFilters{}
+	// Setting filter that not match our header
+	filters.Set("^(homer simpson|mickey mouse).*")
+
+	modifier = NewHTTPModifier(&HTTPModifierConfig{
+		headerBasicAuthFilters: filters,
+	})
+
+	if len(modifier.Rewrite(payload)) != 0 {
+		t.Error("Request should not pass filters")
+	}
+
+	//mickey mouse:happy123
+	payload = []byte("POST /post HTTP/1.1\r\nContent-Length: 88\r\nAuthorization: Basic bWlja2V5IG1vdXNlOmhhcHB5MTIz\r\n\r\na=1&b=2")
+	if len(modifier.Rewrite(payload)) == 0 {
+		t.Error("Request should pass filters")
+	}	
+}
+
 func TestHTTPModifierURLRewrite(t *testing.T) {
 	var url, newURL []byte
 

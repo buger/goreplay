@@ -10,14 +10,15 @@ import (
 
 // HTTPModifierConfig holds configuration options for built-in traffic modifier
 type HTTPModifierConfig struct {
-	urlNegativeRegexp     HTTPUrlRegexp
-	urlRegexp             HTTPUrlRegexp
-	urlRewrite            UrlRewriteMap
-	headerRewrite         HeaderRewriteMap
-	headerFilters         HTTPHeaderFilters
-	headerNegativeFilters HTTPHeaderFilters
-	headerHashFilters     HTTPHashFilters
-	paramHashFilters      HTTPHashFilters
+	urlNegativeRegexp      HTTPUrlRegexp
+	urlRegexp              HTTPUrlRegexp
+	urlRewrite             UrlRewriteMap
+	headerRewrite          HeaderRewriteMap
+	headerFilters          HTTPHeaderFilters
+	headerNegativeFilters  HTTPHeaderFilters
+	headerBasicAuthFilters HTTPHeaderBasicAuthFilters
+	headerHashFilters      HTTPHashFilters
+	paramHashFilters       HTTPHashFilters
 
 	params  HTTPParams
 	headers HTTPHeaders
@@ -54,6 +55,32 @@ func (h *HTTPHeaderFilters) Set(value string) error {
 
 	return nil
 }
+
+//
+// Handling of --http-basic-auth-filter option
+//
+type basicAuthFilter struct {
+	regexp *regexp.Regexp
+}
+
+// HTTPHeaderFilters holds list of headers and their regexps
+type HTTPHeaderBasicAuthFilters []basicAuthFilter
+
+func (h *HTTPHeaderBasicAuthFilters) String() string {
+	return fmt.Sprint(*h)
+}
+
+func (h *HTTPHeaderBasicAuthFilters) Set(value string) error {
+	r, err := regexp.Compile(value)
+	if err != nil {
+		return err
+	}
+
+	*h = append(*h, basicAuthFilter{regexp: r})
+
+	return nil
+}
+
 
 //
 // Handling of --http-allow-header-hash and --http-allow-param-hash options
