@@ -28,7 +28,7 @@ install:
 	go install $(MAC_LDFLAGS)
 
 build:
-	docker build -t gor .
+	docker build -t gor -f Dockerfile.dev .
 
 
 profile:
