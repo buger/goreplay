@@ -170,16 +170,16 @@ func TestTCPMessageMethodType(t *testing.T) {
 		payload            string
 		expectedMethodType httpMethodType
 	}{
-		{true, "GET / HTTP/1.1\r\n\r\n", httpMethodWithoutBody},
-		{true, "GET * HTTP/1.1\r\n\r\n", httpMethodWithoutBody},
-		{true, "UNKNOWN / HTTP/1.1\r\n\r\n", httpMethodWithoutBody},
-		{true, "GET http://example.com HTTP/1.1\r\n\r\n", httpMethodWithoutBody},
-		{true, "POST / HTTP/1.1\r\n\r\n", httpMethodWithBody},
-		{true, "PUT / HTTP/1.1\r\n\r\n", httpMethodWithBody},
+		{true, "GET / HTTP/1.1\r\n\r\n", httpMethodKnown},
+		{true, "GET * HTTP/1.1\r\n\r\n", httpMethodKnown},
+		{true, "UNKNOWN / HTTP/1.1\r\n\r\n", httpMethodKnown},
+		{true, "GET http://example.com HTTP/1.1\r\n\r\n", httpMethodKnown},
+		{true, "POST / HTTP/1.1\r\n\r\n", httpMethodKnown},
+		{true, "PUT / HTTP/1.1\r\n\r\n", httpMethodKnown},
 		{true, "GET zxc HTTP/1.1\r\n\r\n", httpMethodNotFound},
 		{true, "GET / HTTP\r\n\r\n", httpMethodNotFound},
 		{true, "VERYLONGMETHOD / HTTP/1.1\r\n\r\n", httpMethodNotFound},
-		{false, "HTTP/1.1 200 OK\r\n\r\n", httpMethodWithBody},
+		{false, "HTTP/1.1 200 OK\r\n\r\n", httpMethodKnown},
 		{false, "HTTP /1.1 200 OK\r\n\r\n", httpMethodNotFound},
 	}
 
@@ -199,6 +199,7 @@ func TestTCPMessageBodyType(t *testing.T) {
 		expectedBodyType httpBodyType
 	}{
 		{true, "GET / HTTP/1.1\r\n\r\n", httpBodyEmpty},
+		{true, "GET / HTTP/1.1\r\nContent-Length: 2\r\n\r\nab", httpBodyContentLength},
 		{true, "POST / HTTP/1.1\r\n\r\n", httpBodyEmpty},
 		{true, "POST / HTTP/1.1\r\nUser-Agent: zxc\r\n\r\n", httpBodyEmpty},
 		{false, "HTTP/1.1 200 OK\r\n\r\n", httpBodyEmpty},
