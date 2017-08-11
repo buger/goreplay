@@ -6,9 +6,9 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/mattbaird/elastigo/lib"
-
 	"github.com/buger/goreplay/proto"
+
+	"github.com/mattbaird/elastigo/lib"
 )
 
 type ESUriErorr struct{}

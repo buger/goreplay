@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/buger/goreplay/proto"
+
 	"github.com/Shopify/sarama"
 	"github.com/Shopify/sarama/mocks"
-
-	"github.com/buger/goreplay/proto"
 )
 
 // KafkaOutput is used for sending payloads to kafka in JSON format.
