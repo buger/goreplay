@@ -321,7 +321,7 @@ func TestFileOutputAppendSizeLimitOverflow(t *testing.T) {
 
 	messageSize := len(message) + len(payloadSeparator)
 
-	output := NewFileOutput(name, &FileOutputConfig{append: false, flushInterval: time.Minute, sizeLimit: unitSizeVar(2 * messageSize) })
+	output := NewFileOutput(name, &FileOutputConfig{append: false, flushInterval: time.Minute, sizeLimit: unitSizeVar(2 * messageSize)})
 
 	output.Write([]byte("1 1 1\r\ntest"))
 	name1 := output.file.Name()
