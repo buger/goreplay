@@ -23,29 +23,30 @@ Here is basic workflow: The listener server catches http traffic and sends it to
 Check [latest documentation](http://github.com/buger/goreplay/wiki).
 
 ## Installation
+
 Download latest binary from https://github.com/buger/goreplay/releases or [compile by yourself](https://github.com/buger/goreplay/wiki/Compilation).
 
 ## Getting started
 
-The most basic setup will be `sudo ./gor --input-raw :8000 --output-stdout` which acts like tcpdump.
-If you already have test environment you can start replaying: `sudo ./gor --input-raw :8000 --output-http http://staging.env`.
+The most basic setup will be `sudo ./goreplay --input-raw :8000 --output-stdout` which acts like tcpdump.
+If you already have test environment you can start replaying: `sudo ./goreplay --input-raw :8000 --output-http http://staging.env`.
 
 See the our [documentation](https://github.com/buger/goreplay/wiki/) and [Getting started](https://github.com/buger/goreplay/wiki/Getting-Started) page for more info. 
-## Newsletter
-Subscribe to our [newsletter](https://www.getdrip.com/forms/89690474/submissions/new) to stay informed about the latest features and changes to Gor project.
 
+## Newsletter
+
+Subscribe to our [newsletter](https://www.getdrip.com/forms/89690474/submissions/new) to stay informed about the latest features and changes to Goreplay project.
 
 ## Want to Upgrade?
 
 We have created a [GoReplay PRO](https://goreplay.org/pro.html) extension which provides additional features such as support for binary protocols like Thrift or ProtocolBuffers, saving and replaying from cloud storage, TCP sessions replication, etc. The PRO version also includes a commercial-friendly license, dedicated support, and it also allows you to support high-quality open source development. 
 
-
 ## Problems?
+
 If you have a problem, please review the [FAQ](https://github.com/buger/goreplay/wiki/FAQ) and [Troubleshooting](https://github.com/buger/goreplay/wiki/Troubleshooting) wiki pages. Searching the [issues](https://github.com/buger/goreplay/issues) for your problem is also a good idea.
 
 All bug-reports and suggestions should go though Github Issues or our [Google Group](https://groups.google.com/forum/#!forum/gor-users) (you can just send email to gor-users@googlegroups.com).
 If you have a private question feel free to send email to support@gortool.com.
-
 
 ## Contributing
 
@@ -55,7 +56,7 @@ If you have a private question feel free to send email to support@gortool.com.
 4. Push to the branch (git push origin my-new-feature)
 5. Create new Pull Request
 
-## Companies using Gor
+## Companies using Goreplay
 
 * [GOV.UK](https://www.gov.uk) - UK Government Digital Service
 * [theguardian.com](http://theguardian.com) - Most popular online newspaper in the UK
@@ -68,7 +69,7 @@ If you have a private question feel free to send email to support@gortool.com.
 * [Granify](http://granify.com) - AI backed SaaS solution that enables online retailers to maximise their sales
 * And many more!
 
-If you are using Gor we are happy add you to the list and share your story, just write to: hello@goreplay.org
+If you are using Goreplay we are happy add you to the list and share your story, just write to: hello@goreplay.org
 
 ## Author
 
