@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/buger/goreplay/proto"
 	"io"
 	"log"
 	"net/http"
@@ -9,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/buger/goreplay/proto"
 )
 
 func TestHTTPInput(t *testing.T) {

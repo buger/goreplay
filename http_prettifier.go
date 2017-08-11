@@ -3,10 +3,11 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
-	"github.com/buger/goreplay/proto"
 	"io/ioutil"
 	"net/http/httputil"
 	"strconv"
+
+	"github.com/buger/goreplay/proto"
 )
 
 func prettifyHTTP(p []byte) []byte {

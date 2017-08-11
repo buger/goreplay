@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"github.com/buger/goreplay/proto"
 	"io"
 	"io/ioutil"
 	"log"
@@ -19,6 +18,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/buger/goreplay/proto"
 )
 
 const testRawExpire = time.Millisecond * 200

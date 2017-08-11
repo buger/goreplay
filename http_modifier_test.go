@@ -2,8 +2,9 @@ package main
 
 import (
 	"bytes"
-	"github.com/buger/goreplay/proto"
 	"testing"
+
+	"github.com/buger/goreplay/proto"
 )
 
 func TestHTTPModifierWithoutConfig(t *testing.T) {
