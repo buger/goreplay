@@ -29,12 +29,15 @@ func Replace(a []byte, from, to int, new []byte) []byte {
 		copy(a[from:from+len(new)], new)
 
 		return a
-	} else if lenDiff < 0 {
+	}
+
+	if lenDiff < 0 {
 		copy(a[from:], new)
 		copy(a[from+len(new):], a[to:])
 		return a[:len(a)+lenDiff]
-	} else { // same size
-		copy(a[from:], new)
-		return a
 	}
+
+	// same size
+	copy(a[from:], new)
+	return a
 }

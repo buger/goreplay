@@ -306,9 +306,9 @@ func findPcapDevices(addr string) (interfaces []pcap.Interface, err error) {
 
 	if len(interfaces) == 0 {
 		return nil, &DeviceNotFoundError{addr}
-	} else {
-		return interfaces, nil
 	}
+
+	return interfaces, nil
 }
 
 func (t *Listener) readPcap() {
