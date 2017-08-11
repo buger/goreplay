@@ -122,10 +122,14 @@ func (c *HTTPClient) isAlive() bool {
 
 	if err == nil {
 		return true
-	} else if err == io.EOF {
+	}
+
+	if err == io.EOF {
 		Debug("[HTTPClient] connection closed, reconnecting")
 		return false
-	} else if err == syscall.EPIPE {
+	}
+
+	if err == syscall.EPIPE {
 		Debug("Detected broken pipe.", err)
 		return false
 	}

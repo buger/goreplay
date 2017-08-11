@@ -82,20 +82,21 @@ func (i *KafkaInput) Read(data []byte) (int, error) {
 	if !i.config.useJSON {
 		copy(data, message.Value)
 		return len(message.Value), nil
-	} else {
-		var kafkaMessage KafkaMessage
-		json.Unmarshal(message.Value, &kafkaMessage)
-
-		buf, err := kafkaMessage.Dump()
-		if err != nil {
-			log.Println("Failed to decode access log entry:", err)
-			return 0, err
-		}
-
-		copy(data, buf)
-
-		return len(buf), nil
 	}
+
+	var kafkaMessage KafkaMessage
+	json.Unmarshal(message.Value, &kafkaMessage)
+
+	buf, err := kafkaMessage.Dump()
+	if err != nil {
+		log.Println("Failed to decode access log entry:", err)
+		return 0, err
+	}
+
+	copy(data, buf)
+
+	return len(buf), nil
+
 }
 
 func (i *KafkaInput) String() string {

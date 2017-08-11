@@ -20,11 +20,12 @@ func parseDataUnit(s string) int64 {
 	if unit, ok := dataUnitMap[s[len(s)-1]]; ok {
 		size, _ := strconv.ParseInt(s[:len(s)-1], 10, 64)
 		return unit * size
-	} else {
-		// If no unit specified use bytes
-		size, _ := strconv.ParseInt(s, 10, 64)
-		return size
 	}
+
+	// If no unit specified use bytes
+	size, _ := strconv.ParseInt(s, 10, 64)
+	return size
+
 }
 
 type unitSizeVar int64
