@@ -3,8 +3,8 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -46,17 +46,17 @@ func (i *TCPInput) Read(data []byte) (int, error) {
 
 func (i *TCPInput) listen(address string) {
 	if i.config.secure {
-	  	cer, err := tls.LoadX509KeyPair(i.config.certificatePath, i.config.keyPath)
-	    if err != nil {
-	        log.Fatal("Error while loading --input-file certificate:", err)
-	    }
+		cer, err := tls.LoadX509KeyPair(i.config.certificatePath, i.config.keyPath)
+		if err != nil {
+			log.Fatal("Error while loading --input-file certificate:", err)
+		}
 
-	    config := &tls.Config{Certificates: []tls.Certificate{cer}}
-	    listener, err := tls.Listen("tcp", address, config)
-	    if err != nil {
-	        log.Fatal("Can't start --input-tcp with secure connection:", err)
-	    }
-	    i.listener = listener
+		config := &tls.Config{Certificates: []tls.Certificate{cer}}
+		listener, err := tls.Listen("tcp", address, config)
+		if err != nil {
+			log.Fatal("Can't start --input-tcp with secure connection:", err)
+		}
+		i.listener = listener
 	} else {
 		listener, err := net.Listen("tcp", address)
 		if err != nil {
