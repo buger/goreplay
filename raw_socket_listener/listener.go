@@ -16,10 +16,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/buger/goreplay/proto"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
 	"io"
 	"log"
 	"net"
@@ -29,6 +25,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/buger/goreplay/proto"
+
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/google/gopacket/pcap"
 )
 
 var _ = fmt.Println

@@ -5,11 +5,12 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"encoding/hex"
-	"github.com/buger/goreplay/proto"
 	"log"
 	"net"
 	"strconv"
 	"time"
+
+	"github.com/buger/goreplay/proto"
 )
 
 var _ = log.Println
