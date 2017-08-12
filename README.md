@@ -14,8 +14,6 @@ As your application grows, the effort required to test it also grows exponential
 
 GoReplay increases your confidence in code deployments, configuration changes and infrastructure changes. Did we mention that no coding is required?
 
-
-
 Here is basic workflow: The listener server catches http traffic and sends it to the replay server or saves to file. The replay server forwards traffic to a given address.
 
 ![Diagram](http://i.imgur.com/9mqj2SK.png)
@@ -35,7 +33,7 @@ See the our [documentation](https://github.com/buger/goreplay/wiki/) and [Gettin
 
 ## Newsletter
 
-Subscribe to our [newsletter](https://www.getdrip.com/forms/89690474/submissions/new) to stay informed about the latest features and changes to Goreplay project.
+Subscribe to our [newsletter](https://www.getdrip.com/forms/89690474/submissions/new) to stay informed about the latest features and changes to GoReplay project.
 
 ## Want to Upgrade?
 
@@ -51,9 +49,9 @@ If you have a private question feel free to send email to support@gortool.com.
 ## Contributing
 
 1. Fork it
-2. Create your feature branch (git checkout -b my-new-feature)
-3. Commit your changes (git commit -am 'Added some feature')
-4. Push to the branch (git push origin my-new-feature)
+2. Create your feature branch (`git checkout -b my-new-feature`)
+3. Commit your changes (`git commit -am 'Added some feature'`)
+4. Push to the branch (`git push origin my-new-feature`)
 5. Create new Pull Request
 
 ## Companies using Goreplay
@@ -69,7 +67,7 @@ If you have a private question feel free to send email to support@gortool.com.
 * [Granify](http://granify.com) - AI backed SaaS solution that enables online retailers to maximise their sales
 * And many more!
 
-If you are using Goreplay we are happy add you to the list and share your story, just write to: hello@goreplay.org
+If you are using GoReplay we are happy add you to the list and share your story, just write to: hello@goreplay.org
 
 ## Author
 
