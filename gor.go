@@ -20,8 +20,8 @@ import (
 
 var (
 	mode       string
-	cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
-	memprofile = flag.String("memprofile", "", "write memory profile to this file")
+	cpuprofile = flag.String("cpuprofile", "", "Write cpu profile to file.")
+	memprofile = flag.String("memprofile", "", "Write memory profile to this file.")
 )
 
 func loggingMiddleware(next http.Handler) http.Handler {
