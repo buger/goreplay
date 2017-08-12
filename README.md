@@ -54,7 +54,7 @@ If you have a private question feel free to send email to support@gortool.com.
 4. Push to the branch (`git push origin my-new-feature`)
 5. Create new Pull Request
 
-## Companies using Goreplay
+## Companies using GoReplay
 
 * [GOV.UK](https://www.gov.uk) - UK Government Digital Service
 * [theguardian.com](http://theguardian.com) - Most popular online newspaper in the UK
