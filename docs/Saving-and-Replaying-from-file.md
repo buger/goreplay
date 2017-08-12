@@ -1,17 +1,17 @@
-You can save requests to file, and replay them later. While replaying it will preserve the original time differences between requests. If you apply [percentage based limiting](Rate Limiting) timing between requests will be reduced or increased appropriately: this approach opens possibilities like load testing, see below.
+You can save requests to file, and replay them later. While replaying it will preserve the original time differences between requests. If you apply [percentage based limiting](Rate-limiting.md) timing between requests will be reduced or increased appropriately: this approach opens possibilities like load testing, see below.
 
 ```bash
 # write to file
-gor --input-raw :80 --output-file requests.log
+./goreplay --input-raw :80 --output-file requests.log
 
 # read from file
-gor --input-file requests.gor --output-http "http://staging.com"
+./goreplay --input-file requests.gor --output-http "http://staging.com"
 ```
 
-By default Gor writes files in chunks. This configurable using `--output-file-append` option: the flushed chunk is appended to existence file or not. The default is **false**. By default, `--output-file` flushes each chunk to a different path.
+By default GoReplay writes files in chunks. This configurable using `--output-file-append` option: the flushed chunk is appended to existence file or not. The default is **false**. By default, `--output-file` flushes each chunk to a different path.
 
 ```bash
-gor ... --output-file %Y%m%d.log
+./goreplay ... --output-file %Y%m%d.log
 # append false
 20140608_0.log
 20140608_1.log
@@ -22,7 +22,7 @@ gor ... --output-file %Y%m%d.log
 This makes parallel file processing easy. But if you want to disable this behavior, you can disable it by adding `--output-file-append` option:
 
 ```bash
-gor ... --output-file %Y%m%d.log --output-file-append
+./goreplay ... --output-file %Y%m%d.log --output-file-append
 # append true
 20140608.log
 20140609.log
@@ -37,7 +37,7 @@ The length of the chunk queue and the size of each chunk, respectively. The defa
 If you want to have only size constraint, you can set `--output-file-queue-limit` to 0, and vice versa.
 
 ```bash
-gor --input-raw :80 --output-file %Y-%m-%d.gz --output-file-size-limit 256m --output-file-queue-limit 0
+./goreplay --input-raw :80 --output-file %Y-%m-%d.gz --output-file-size-limit 256m --output-file-queue-limit 0
 ```
 
 ### Using date variables in file names
@@ -55,7 +55,6 @@ The time format used as part of the file name. The following characters are repl
 
 The default format is `%Y%m%d%H`, which creates one file per hour.
 
-
 ### GZIP compression
 To read or write GZIP compressed files ensure that file extension ends with ".gz": `--output-file log.gz`
 
@@ -64,7 +63,7 @@ To read or write GZIP compressed files ensure that file extension ends with ".gz
 `--input-file` accepts file pattern, for example: `--input-file logs-2016-05-*`: it will replay all the files, sorting them in lexicographical order.
 
 ### Buffered file output
-Gor has memory buffer when it writes to file, and continuously flush changes to the file. Flushing to file happens if the buffer is filled, forced flush every 1 second, or if Gor is closed. You can change it using `--output-file-flush-interval` option. It most cases it should not be touched.
+GoReplay has memory buffer when it writes to file, and continuously flush changes to the file. Flushing to file happens if the buffer is filled, forced flush every 1 second, or if GoReplay is closed. You can change it using `--output-file-flush-interval` option. It most cases it should not be touched.
 
 ### File format
 HTTP requests stored as it is, plain text: headers and bodies. Requests separated by `\n🐵🙈🙉\n` line (using such sequence for uniqueness and fun). Before each request goes single line with meta information containing payload type (1 - request, 2 - response, 3 - replayed response), unique request ID (request and response have the same) and timestamp when request was made. An example of 2 requests:
@@ -92,7 +91,7 @@ Currently, this functionality supported only by `input-file` and only when using
 
 ```
 # Replay from file on 2x speed 
-gor --input-file "requests.gor|200%" --output-http "staging.com"
+./goreplay --input-file "requests.gor|200%" --output-http "staging.com"
 ```
 
 Use `--stats --output-http-stats` to see latency stats.
@@ -102,4 +101,4 @@ You can loop the same set of files, so when the last one replays all the request
 Pass `--input-file-loop` to make it work. 
 
 ***
-You may also read about [[Capturing and replaying traffic]] and [[Rate limiting]]
+You may also read about [Capturing and replaying traffic](Capturing-and-replaying-traffic.md) and [Rate limiting](Rate-limiting.md).

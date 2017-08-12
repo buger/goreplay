@@ -1,4 +1,4 @@
-Gor can report stats on the `output-tcp` and `output-http` request queues. Stats are reported to the console every 5 seconds in the form `latest,mean,max,count,count/second` by using the `--output-http-stats` and `--output-tcp-stats` options.
+GoReplay can report stats on the `output-tcp` and `output-http` request queues. Stats are reported to the console every 5 seconds in the form `latest,mean,max,count,count/second` by using the `--output-http-stats` and `--output-tcp-stats` options.
 
 Examples:
 
@@ -40,7 +40,6 @@ When using the Gor listener the output-tcp feature may bottleneck if:
   * the replay is unable to accept and process more requests than the listener is able generate. Prior to troubleshooting the output-tcp bottleneck, ensure that the replay target is not experiencing any bottlenecks. 
   * the replay target has inadequate bandwidth to handle all its incoming requests.  If a replay target's incoming bandwidth is maxed out the output-tcp-stats may report that the output-tcp queue is filling up. See if there is a way to upgrade the replay's bandwidth.
 
-
 #### Tuning
 
 To achieve the top most performance you should tune the source server system limits:
@@ -62,7 +61,7 @@ To achieve the top most performance you should tune the source server system lim
     net.ipv4.tcp_syncookies = 0
 ***
 
-### Gor is crashing with following stacktrace
+### GoReplay is crashing with following stacktrace
 ```
 fatal error: unexpected signal during runtime execution
 [signal 0xb code=0x1 addr=0x63 pc=0x7ffcdfdf8b2c]
@@ -83,8 +82,7 @@ net.cgoLookupIPCNAME(0x7fffb17208ab, 0x12, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x
 
 There is a chance that you hit Go bug. The crash comes from the CGO version of DNS resolver.
 By default Go based version used, but ins some cases [it switches to CGO based](https://golang.org/pkg/net/#hdr-Name_Resolution). It is possible to force Go based DNS resolver using GODEBUG environment variable:
-`sudo GODEBUG="netdns=go" ./gor --input-raw :80 --output-http staging.env`
+`sudo GODEBUG="netdns=go" ./goreplay --input-raw :80 --output-http staging.env`
 
-
-
-Also, see [[FAQ]]
+***
+Also, see [FAQ](FAQ.md).
