@@ -20,7 +20,7 @@ Middleware is a program that accepts request and response payload at STDIN and e
 (1): Original responses will only be sent to the middleware if the `--input-raw-track-response` option is specified.
 
 Middleware can be written in any language, see `examples/middleware` folder for examples.
-Middleware program should accept the fact that all communication with Gor is asynchronous, there is no guarantee that original request and response messages will come one after each other. Your app should take care of the state if logic depends on original or replayed response, see `examples/middleware/token_modifier.go` as example.
+Middleware program should accept the fact that all communication with GoReplay is asynchronous, there is no guarantee that original request and response messages will come one after each other. Your app should take care of the state if logic depends on original or replayed response, see `examples/middleware/token_modifier.go` as example.
 
 Simple bash echo middleware (returns same request) will look like this:
 ```bash
@@ -31,13 +31,13 @@ end
 
 Middleware can be enabled using `--middleware` option, by specifying path to executable file:
 ```
-gor --input-raw :80 --middleware "/opt/middleware_executable" --output-http "http://staging.server"
+./goreplay --input-raw :80 --middleware "/opt/middleware_executable" --output-http "http://staging.server"
 ```
 
 #### Communication protocol
 All messages should be hex encoded, new line character specifieds the end of the message, eg. new message per line.
 
-Decoded payload consist of 2 parts: header and HTTP payload, separated by new line character.  
+Decoded payload consist of 2 parts: header and HTTP payload, separated by new line character.
 
 Example request payload:
 
@@ -45,7 +45,6 @@ Example request payload:
 1 932079936fa4306fc308d67588178d17d823647c 1439818823587396305
 GET /a HTTP/1.1
 Host: 127.0.0.1
-
 ```
 
 Example response payload (note: you will only receive this if you specify `--input-raw-track-response`)
@@ -56,7 +55,6 @@ HTTP/1.1 200 OK
 Date: Mon, 17 Aug 2015 13:40:23 GMT
 Content-Length: 0
 Content-Type: text/plain; charset=utf-8
-
 ```
 
 Header contains request meta information separated by spaces. First value is payload type, possible values: `1` - request, `2` - original response, `3` - replayed response.
@@ -71,4 +69,4 @@ Imagine that you have auth system that randomly generate access tokens, which us
 
 ***
 
-You may also read about [[Request filtering]], [[Rate limiting]] and [[Request rewriting]].
+You may also read about [Request filtering](Request-filtering.md), [Rate limiting](Rate-limiting.md) and [Request rewriting](Request-rewriting.md).

@@ -1,7 +1,7 @@
-Gor can export requests and replayed response data to ElasticSearch:
+GoReplay can export requests and replayed response data to ElasticSearch:
 
 ```
-./gor --input-raw :8000 --output-http http://staging.com  --output-http-elasticsearch localhost:9200/gor
+./goreplay --input-raw :8000 --output-http http://staging.com  --output-http-elasticsearch localhost:9200/gor
 ```
 
 You don't have to create the index upfront. That will be done for you automatically.
