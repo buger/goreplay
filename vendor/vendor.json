@@ -46,7 +46,6 @@
 		},
 		{
 			"checksumSHA1": "U2Ydh7vEAKlN0Wq22n1JpefF7uY=",
-			"origin": "github.com/buger/goreplay/vendor/github.com/google/gopacket",
 			"path": "github.com/google/gopacket",
 			"revision": "b09bf408520f7646e29b7033d9adb00ed779a1c4",
 			"revisionTime": "2016-05-12T15:06:07Z"
@@ -94,5 +93,5 @@
 			"revisionTime": "2017-02-01T04:15:14Z"
 		}
 	],
-	"rootPath": "github.com/buger/gor"
+	"rootPath": "github.com/buger/goreplay"
 }
