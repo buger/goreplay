@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/buger/goreplay/proto"
-	raw "github.com/buger/goreplay/raw_socket_listener"
 	"log"
 	"net"
 	"time"
+
+	"github.com/buger/goreplay/proto"
+	raw "github.com/buger/goreplay/raw_socket_listener"
 )
 
 // RAWInput used for intercepting traffic for given address
@@ -18,6 +19,7 @@ type RAWInput struct {
 	realIPHeader  []byte
 	trackResponse bool
 	listener      *raw.Listener
+	bpfFilter     string
 }
 
 // Available engines for intercepting traffic
@@ -28,12 +30,13 @@ const (
 )
 
 // NewRAWInput constructor for RAWInput. Accepts address with port as argument.
-func NewRAWInput(address string, engine int, trackResponse bool, expire time.Duration, realIPHeader string) (i *RAWInput) {
+func NewRAWInput(address string, engine int, trackResponse bool, expire time.Duration, realIPHeader string, bpfFilter string) (i *RAWInput) {
 	i = new(RAWInput)
 	i.data = make(chan *raw.TCPMessage)
 	i.address = address
 	i.expire = expire
 	i.engine = engine
+	i.bpfFilter = bpfFilter
 	i.realIPHeader = []byte(realIPHeader)
 	i.quit = make(chan bool)
 	i.trackResponse = trackResponse
@@ -70,17 +73,11 @@ func (i *RAWInput) listen(address string) {
 
 	host, port, err := net.SplitHostPort(address)
 
-	if i.engine == EnginePcapFile {
-		host = address
-		port = "1"
-		err = nil
-	}
-
 	if err != nil {
 		log.Fatal("input-raw: error while parsing address", err)
 	}
 
-	i.listener = raw.NewListener(host, port, i.engine, i.trackResponse, i.expire)
+	i.listener = raw.NewListener(host, port, i.engine, i.trackResponse, i.expire, i.bpfFilter)
 
 	ch := i.listener.Receiver()
 

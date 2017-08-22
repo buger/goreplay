@@ -1,9 +1,10 @@
 package main
 
 import (
+	"testing"
+
 	"github.com/Shopify/sarama"
 	"github.com/Shopify/sarama/mocks"
-	"testing"
 )
 
 func TestInputKafkaRAW(t *testing.T) {

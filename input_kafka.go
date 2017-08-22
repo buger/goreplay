@@ -2,9 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"log"
+
 	"github.com/Shopify/sarama"
 	"github.com/Shopify/sarama/mocks"
-	"log"
 )
 
 // KafkaInput is used for recieving Kafka messages and

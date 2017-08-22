@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
-	"github.com/buger/goreplay/proto"
 	"io/ioutil"
 	_ "log"
 	"net"
@@ -15,6 +14,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/buger/goreplay/proto"
 )
 
 func TestHTTPClientURLPort(t *testing.T) {

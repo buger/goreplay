@@ -18,6 +18,7 @@ package proto
 
 import (
 	"bytes"
+
 	"github.com/buger/goreplay/byteutils"
 )
 
@@ -346,8 +347,20 @@ func Path(payload []byte) []byte {
 	eol := bytes.IndexByte(payload[start:], '\r')
 	end := bytes.IndexByte(payload[start:], ' ')
 
-	if eol > 0 && eol < end {
-		return payload[start : start + eol]
+	if eol > 0 {
+		if end == -1 || eol < end {
+			return payload[start : start+eol]
+		}
+	} else { // support for legacy clients
+		eol = bytes.IndexByte(payload[start:], '\n')
+
+		if eol > 0 && (end == -1 || eol < end) {
+			return payload[start : start+eol]
+		}
+	}
+
+	if end < 0 {
+		return payload[start:len(payload)]
 	}
 
 	return payload[start : start+end]

@@ -1,28 +1,28 @@
 package main
 
 import (
-	"io"
-	"os"
-	"log"
-	"net"
-	"io/ioutil"
-	"crypto/x509"
-	"crypto/rsa"
-	"crypto/rand"
-	"crypto/tls"
-	"encoding/pem"
-	"math/big"
-	"time"
 	"bytes"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
+	"io"
+	"io/ioutil"
+	"log"
+	"math/big"
+	"net"
+	"os"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestTCPInput(t *testing.T) {
 	wg := new(sync.WaitGroup)
 	quit := make(chan int)
 
-	input := NewTCPInput("127.0.0.1:0",  &TCPInputConfig{})
+	input := NewTCPInput("127.0.0.1:0", &TCPInputConfig{})
 	output := NewTestOutput(func(data []byte) {
 		wg.Done()
 	})
@@ -90,7 +90,7 @@ func TestTCPInputSecure(t *testing.T) {
 	serverPrivPemFile.Write(serverPrivPem)
 	serverPrivPemFile.Close()
 
-	defer func(){
+	defer func() {
 		os.Remove(serverPrivPemFile.Name())
 		os.Remove(serverCertPemFile.Name())
 	}()
@@ -99,9 +99,9 @@ func TestTCPInputSecure(t *testing.T) {
 	quit := make(chan int)
 
 	input := NewTCPInput("127.0.0.1:0", &TCPInputConfig{
-		secure: true,
+		secure:          true,
 		certificatePath: serverCertPemFile.Name(),
-		keyPath: serverPrivPemFile.Name(),
+		keyPath:         serverPrivPemFile.Name(),
 	})
 	output := NewTestOutput(func(data []byte) {
 		wg.Done()
@@ -112,15 +112,15 @@ func TestTCPInputSecure(t *testing.T) {
 
 	go Start(quit)
 
-    conf := &tls.Config{
-         InsecureSkipVerify: true,
-    }
+	conf := &tls.Config{
+		InsecureSkipVerify: true,
+	}
 
-    conn, err := tls.Dial("tcp", input.listener.Addr().String(), conf)
-    if err != nil {
-        t.Fatal(err)
-    }
-    defer conn.Close()
+	conn, err := tls.Dial("tcp", input.listener.Addr().String(), conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
 
 	msg := []byte("1 1 1\nGET / HTTP/1.1\r\n\r\n")
 

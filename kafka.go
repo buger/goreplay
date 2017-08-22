@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/Shopify/sarama"
+
 	"github.com/buger/goreplay/proto"
+
+	"github.com/Shopify/sarama"
 )
 
 // KafkaConfig should contains required information to

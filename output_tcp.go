@@ -21,7 +21,7 @@ type TCPOutput struct {
 }
 
 type TCPOutputConfig struct {
-	secure	bool
+	secure bool
 }
 
 // NewTCPOutput constructor for TCPOutput

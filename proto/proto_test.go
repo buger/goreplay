@@ -243,6 +243,18 @@ func TestPath(t *testing.T) {
 	if path = Path(payload); !bytes.Equal(path, []byte("/get")) {
 		t.Error("Should find path", string(path))
 	}
+
+	payload = []byte("GET /get\n")
+
+	if path = Path(payload); !bytes.Equal(path, []byte("/get")) {
+		t.Error("Should find path", string(path))
+	}
+
+	payload = []byte("GET /get")
+
+	if path = Path(payload); !bytes.Equal(path, []byte("/get")) {
+		t.Error("Should find path", string(path))
+	}
 }
 
 func TestSetPath(t *testing.T) {

@@ -2,13 +2,15 @@ package main
 
 import (
 	"encoding/json"
-	"github.com/Shopify/sarama"
-	"github.com/Shopify/sarama/mocks"
-	"github.com/buger/goreplay/proto"
 	"io"
 	"log"
 	"strings"
 	"time"
+
+	"github.com/buger/goreplay/proto"
+
+	"github.com/Shopify/sarama"
+	"github.com/Shopify/sarama/mocks"
 )
 
 // KafkaOutput is used for sending payloads to kafka in JSON format.

@@ -260,7 +260,6 @@ func (r *HeaderRewriteMap) Set(value string) error {
 	return nil
 }
 
-
 //
 // Handling of --http-allow-url option
 //

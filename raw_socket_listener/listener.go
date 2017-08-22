@@ -16,10 +16,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/buger/goreplay/proto"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcap"
 	"io"
 	"log"
 	"net"
@@ -29,6 +25,12 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/buger/goreplay/proto"
+
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
+	"github.com/google/gopacket/pcap"
 )
 
 var _ = fmt.Println
@@ -70,6 +72,8 @@ type Listener struct {
 	trackResponse bool
 	messageExpire time.Duration
 
+	bpfFilter string
+
 	conn        net.PacketConn
 	pcapHandles []*pcap.Handle
 
@@ -91,7 +95,7 @@ const (
 )
 
 // NewListener creates and initializes new Listener object
-func NewListener(addr string, port string, engine int, trackResponse bool, expire time.Duration) (l *Listener) {
+func NewListener(addr string, port string, engine int, trackResponse bool, expire time.Duration, bpfFilter string) (l *Listener) {
 	l = &Listener{}
 
 	l.packetsChan = make(chan *packet, 10000)
@@ -105,6 +109,7 @@ func NewListener(addr string, port string, engine int, trackResponse bool, expir
 	l.respAliases = make(map[uint32]*TCPMessage)
 	l.respWithoutReq = make(map[uint32]tcpID)
 	l.trackResponse = trackResponse
+	l.bpfFilter = bpfFilter
 
 	l.addr = addr
 	_port, _ := strconv.Atoi(port)
@@ -368,6 +373,10 @@ func (t *Listener) readPcap() {
 					bpf = "tcp dst port " + strconv.Itoa(int(t.port)) + " and (" + bpfDstHost + ")"
 				}
 
+				if t.bpfFilter != "" {
+					bpf = t.bpfFilter
+				}
+
 				if err := handle.SetBPFFilter(bpf); err != nil {
 					log.Println("BPF filter error:", err, "Device:", device.Name, bpf)
 					wg.Done()
@@ -542,6 +551,13 @@ func (t *Listener) readPcapFile() {
 	if handle, err := pcap.OpenOffline(t.addr); err != nil {
 		log.Fatal(err)
 	} else {
+		if t.bpfFilter != "" {
+			if err := handle.SetBPFFilter(t.bpfFilter); err != nil {
+				log.Println("BPF filter error:", err)
+				return
+			}
+		}
+
 		t.readyCh <- true
 		packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 
@@ -560,12 +576,12 @@ func (t *Listener) readPcapFile() {
 				tcp, _ := tcpLayer.(*layers.TCP)
 				data = append(tcp.LayerContents(), tcp.LayerPayload()...)
 
-				if tcp.SrcPort >= 32768 && tcp.SrcPort <= 61000 {
-					copy(data[0:2], []byte{0, 0})
-					copy(data[2:4], []byte{0, 1})
+				if uint16(tcp.DstPort) == t.port {
+					copy(data[0:2], []byte{byte(tcp.SrcPort >> 8), byte(tcp.SrcPort)})
+					copy(data[2:4], []byte{byte(tcp.DstPort >> 8), byte(tcp.DstPort)})
 				} else {
-					copy(data[0:2], []byte{0, 1})
-					copy(data[2:4], []byte{0, 0})
+					copy(data[0:2], []byte{byte(tcp.DstPort >> 8), byte(tcp.DstPort)})
+					copy(data[2:4], []byte{byte(tcp.SrcPort >> 8), byte(tcp.SrcPort)})
 				}
 			} else {
 				continue

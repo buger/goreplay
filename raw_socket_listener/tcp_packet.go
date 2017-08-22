@@ -78,8 +78,8 @@ func (t *TCPPacket) ParseBasic() {
 	t.IsFIN = t.Raw[13]&0x01 != 0
 
 	if len(t.Raw) >= int(t.DataOffset*4) {
-        t.Data = t.Raw[t.DataOffset*4:]
-    }
+		t.Data = t.Raw[t.DataOffset*4:]
+	}
 }
 
 func (t *TCPPacket) dump() *packet {

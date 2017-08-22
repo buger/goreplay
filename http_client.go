@@ -134,7 +134,7 @@ func (c *HTTPClient) isAlive() bool {
 }
 
 func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
-    var payload []byte
+	var payload []byte
 
 	// Don't exit on panic
 	defer func() {
@@ -143,7 +143,7 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 
 			if _, ok := r.(error); ok {
 				log.Println("[HTTPClient] Failed to send request: ", string(data))
-                log.Println("[HTTPClient] Response: ", string(response))
+				log.Println("[HTTPClient] Response: ", string(response))
 				log.Println("PANIC: pkg:", r, string(debug.Stack()))
 			}
 		}
@@ -202,16 +202,16 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 			} else {
 				// If headers are finished
 
-                if bytes.Contains(c.respBuf[:readBytes], proto.EmptyLine) {
-                    if bytes.Equal(proto.Header(c.respBuf[:readBytes], []byte("Transfer-Encoding")), []byte("chunked")) {
+				if bytes.Contains(c.respBuf[:readBytes], proto.EmptyLine) {
+					if bytes.Equal(proto.Header(c.respBuf[:readBytes], []byte("Transfer-Encoding")), []byte("chunked")) {
 						chunked = true
 					} else {
-                        status, _ := strconv.Atoi(string(proto.Status(c.respBuf[:readBytes])))
+						status, _ := strconv.Atoi(string(proto.Status(c.respBuf[:readBytes])))
 						if (status >= 100 && status < 200) || status == 204 || status == 304 {
-                            contentLength = 0
-                            break
+							contentLength = 0
+							break
 						} else {
-                            l := proto.Header(c.respBuf[:readBytes], []byte("Content-Length"))
+							l := proto.Header(c.respBuf[:readBytes], []byte("Content-Length"))
 							if len(l) > 0 {
 								contentLength, _ = strconv.Atoi(string(l))
 							}
@@ -280,7 +280,6 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 				break
 			}
 
-
 		}
 
 		if readBytes >= maxResponseSize {
@@ -294,16 +293,16 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 	}
 
 	if err != nil && readBytes == 0 {
-        Debug("[HTTPClient] Response read timeout error", err, c.conn, readBytes, string(c.respBuf[:readBytes]))
+		Debug("[HTTPClient] Response read timeout error", err, c.conn, readBytes, string(c.respBuf[:readBytes]))
 		response = errorPayload(HTTP_TIMEOUT)
-        c.Disconnect()
+		c.Disconnect()
 		return
 	}
 
-    if readBytes < 4 || string(c.respBuf[:4]) != "HTTP" {
+	if readBytes < 4 || string(c.respBuf[:4]) != "HTTP" {
 		Debug("[HTTPClient] Response read unknown error", err, c.conn, readBytes, string(c.respBuf[:readBytes]))
 		response = errorPayload(HTTP_UNKNOWN_ERROR)
-        c.Disconnect()
+		c.Disconnect()
 		return
 	}
 

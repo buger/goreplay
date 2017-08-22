@@ -1,18 +1,22 @@
 package main
 
 import (
+	"net/url"
 	"encoding/json"
-	"github.com/buger/goreplay/proto"
-	"github.com/mattbaird/elastigo/lib"
 	"log"
-	"regexp"
+	"strings"
+	//"regexp"
 	"time"
+
+	"github.com/buger/goreplay/proto"
+
+	"github.com/mattbaird/elastigo/lib"
 )
 
 type ESUriErorr struct{}
 
 func (e *ESUriErorr) Error() string {
-	return "Wrong ElasticSearch URL format. Expected to be: host:port/index_name"
+	return "Wrong ElasticSearch URL format. Expected to be: scheme://host/index_name"
 }
 
 type ESPlugin struct {
@@ -52,17 +56,27 @@ type ESRequestResponse struct {
 
 // Parse ElasticSearch URI
 //
-// Proper format is: host:port/index_name
-func parseURI(URI string) (err error, host string, port string, index string) {
-	rURI := regexp.MustCompile("(.+):([0-9]+)/(.+)")
-	match := rURI.FindAllStringSubmatch(URI, -1)
+// Proper format is: scheme://[userinfo@]host/index_name
+// userinfo is: user[:password]
+// net/url.Parse() does not fail if scheme is not provided but actualy does not
+// handle URI properly.
+// So we must 'validate' URI format to match requirements to use net/url.Parse()
+func parseURI(URI string) (err error, index string) {
 
-	if len(match) == 0 {
+	parsedUrl, parseErr := url.Parse(URI)
+
+	if parseErr != nil {
 		err = new(ESUriErorr)
-	} else {
-		host = match[0][1]
-		port = match[0][2]
-		index = match[0][3]
+	}
+
+	//	check URL validity by extracting host and undex values.
+	host := parsedUrl.Host
+	urlPathParts := strings.Split(parsedUrl.Path, "/")
+	index = urlPathParts[len(urlPathParts) - 1 ]
+
+	// force index specification in uri : ie no implicit index
+	if (host == "" ||  index == "") {
+		err = new(ESUriErorr)
 	}
 
 	return
@@ -71,14 +85,15 @@ func parseURI(URI string) (err error, host string, port string, index string) {
 func (p *ESPlugin) Init(URI string) {
 	var err error
 
-	err, p.Host, p.ApiPort, p.Index = parseURI(URI)
+	err, p.Index = parseURI(URI)
 
 	if err != nil {
 		log.Fatal("Can't initialize ElasticSearch plugin.", err)
 	}
+
 	p.eConn = elastigo.NewConn()
-	p.eConn.SetPort(p.ApiPort)
-	p.eConn.SetHosts([]string{p.Host})
+
+	p.eConn.SetFromUrl(URI)
 
 	p.indexor = p.eConn.NewBulkIndexerErrors(50, 60)
 	p.done = make(chan bool)
