@@ -45,11 +45,10 @@
 			"revisionTime": "2016-05-29T05:00:41Z"
 		},
 		{
-			"checksumSHA1": "U2Ydh7vEAKlN0Wq22n1JpefF7uY=",
-			"origin": "github.com/buger/goreplay/vendor/github.com/google/gopacket",
+			"checksumSHA1": "zYWRs1ulJNrF3bmnRQAEA2WnPQs=",
 			"path": "github.com/google/gopacket",
-			"revision": "b09bf408520f7646e29b7033d9adb00ed779a1c4",
-			"revisionTime": "2016-05-12T15:06:07Z"
+			"revision": "7d9ba85c47bb41298fed10f5769f793741de187f",
+			"revisionTime": "2017-08-08T17:56:35Z"
 		},
 		{
 			"checksumSHA1": "BM6ZlNJmtKy3GBoWwg2X55gnZ4A=",
