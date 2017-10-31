@@ -43,7 +43,7 @@ We have created a [GoReplay PRO](https://goreplay.org/pro.html) extension which 
 ## Problems?
 If you have a problem, please review the [FAQ](https://github.com/buger/goreplay/wiki/FAQ) and [Troubleshooting](https://github.com/buger/goreplay/wiki/Troubleshooting) wiki pages. Searching the [issues](https://github.com/buger/goreplay/issues) for your problem is also a good idea.
 
-All bug-reports and suggestions should go though Github Issues or our [Google Group](https://groups.google.com/forum/#!forum/gor-users) (you can just send email to gor-users@googlegroups.com).
+All bug-reports and suggestions should go through Github Issues or our [Google Group](https://groups.google.com/forum/#!forum/gor-users) (you can just send email to gor-users@googlegroups.com).
 If you have a private question feel free to send email to support@gortool.com.
 
 
