@@ -76,6 +76,40 @@ func responsePacket(prev *TCPPacket, payload []byte) *TCPPacket {
 	)
 }
 
+func TestHEADRequestNoBody(t *testing.T) {
+	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "")
+	defer listener.Close()
+
+	reqPacket := firstPacket([]byte("HEAD / HTTP/1.1\r\nContent-Length: 0\r\n\r\n"))
+	respPacket := responsePacket(reqPacket, []byte("HTTP/1.1 200 OK\r\nContent-Length: 100\r\n\r\n"))
+
+	listener.packetsChan <- reqPacket.dump()
+	listener.packetsChan <- respPacket.dump()
+
+	var req, resp *TCPMessage
+	select {
+	case req = <-listener.messagesChan:
+	case <-time.After( time.Millisecond):
+		t.Error("Should return request immediately")
+		return
+	}
+
+	if !req.IsIncoming {
+		t.Error("Should be request")
+	}
+
+	select {
+	case resp = <-listener.messagesChan:
+	case <-time.After(20 * time.Millisecond):
+		t.Error("Should return response immediately")
+		return
+	}
+
+	if resp.IsIncoming {
+		t.Error("Should be response")
+	}
+}
+
 func TestSingleAck100Continue(t *testing.T) {
 	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "")
 	defer listener.Close()
