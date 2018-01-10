@@ -23,12 +23,12 @@ Set request header, if header already exists it will be overwritten. May be usef
 
 ```
 gor --input-raw :80 --output-http "http://staging.server" \
-    --http-header "User-Agent: Replayed by Gor" \
-    --http-header "Enable-Feature-X: true"
+    --http-set-header "User-Agent: Replayed by Gor" \
+    --http-set-header "Enable-Feature-X: true"
 ```
 
 #### Host header
-Host header gets special treatment. By default Host get set to the value specified in --output-http. If you manually set --http-header "Host: anonther.com", Gor will not override Host value.
+Host header gets special treatment. By default Host get set to the value specified in --output-http. If you manually set --http-set-header "Host: anonther.com", Gor will not override Host value.
 
 If you app accepts traffic from multiple domains, and you want to keep original headers, there is specific `--http-original-host` with tells Gor do not touch Host header at all.
 
