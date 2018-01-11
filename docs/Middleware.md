@@ -26,7 +26,7 @@ Simple bash echo middleware (returns same request) will look like this:
 ```bash
 while read line; do
   echo $line
-end
+done
 ```
 
 Middleware can be enabled using `--middleware` option, by specifying path to executable file:
