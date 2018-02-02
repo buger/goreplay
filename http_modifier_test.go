@@ -97,7 +97,7 @@ func TestHTTPHeaderBasicAuthFilters(t *testing.T) {
 	payload = []byte("POST /post HTTP/1.1\r\nContent-Length: 88\r\nAuthorization: Basic Y3VzdG9tZXI2OnJlc3RAMTIzXlRFU1Q==\r\n\r\na=1&b=2")
 	if len(modifier.Rewrite(payload)) == 0 {
 		t.Error("Request should pass filters")
-	}	
+	}
 
 	filters = HTTPHeaderBasicAuthFilters{}
 	// Setting filter that not match our header
@@ -115,7 +115,7 @@ func TestHTTPHeaderBasicAuthFilters(t *testing.T) {
 	payload = []byte("POST /post HTTP/1.1\r\nContent-Length: 88\r\nAuthorization: Basic bWlja2V5IG1vdXNlOmhhcHB5MTIz\r\n\r\na=1&b=2")
 	if len(modifier.Rewrite(payload)) == 0 {
 		t.Error("Request should pass filters")
-	}	
+	}
 }
 
 func TestHTTPModifierURLRewrite(t *testing.T) {

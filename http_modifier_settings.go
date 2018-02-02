@@ -81,7 +81,6 @@ func (h *HTTPHeaderBasicAuthFilters) Set(value string) error {
 	return nil
 }
 
-
 //
 // Handling of --http-allow-header-hash and --http-allow-param-hash options
 //

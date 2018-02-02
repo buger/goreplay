@@ -131,18 +131,16 @@ func (t *TCPMessage) AddPacket(packet *TCPPacket) {
 			}
 		}
 
-		if t.IsIncoming {
-			t.End = time.Now()
-		} else {
-			t.End = time.Now().Add(time.Millisecond)
-		}
-
 		if packet.OrigAck != 0 {
 			t.DataAck = packet.OrigAck
 		}
 
 		if packet.timestamp.Before(t.Start) {
 			t.Start = packet.timestamp
+		}
+
+		if t.End.IsZero() || t.End.Before(packet.timestamp) {
+			t.End = packet.timestamp
 		}
 	}
 
@@ -226,7 +224,7 @@ func (t *TCPMessage) updateHeadersPacket() {
 	return
 }
 
-// checkIfComplete returns true if all of the packets that compse the message arrived. 
+// checkIfComplete returns true if all of the packets that compse the message arrived.
 func (t *TCPMessage) checkIfComplete() {
 	if t.seqMissing || t.headerPacket == -1 {
 		return

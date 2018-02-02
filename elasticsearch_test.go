@@ -6,19 +6,19 @@ import (
 
 const expectedIndex = "gor"
 
-func assertExpectedGorIndex (index string, t *testing.T) {
+func assertExpectedGorIndex(index string, t *testing.T) {
 	if expectedIndex != index {
 		t.Fatalf("Expected index %s but got %s", expectedIndex, index)
 	}
 }
 
-func assertExpectedIndex (expectedIndex string, index string, t *testing.T) {
+func assertExpectedIndex(expectedIndex string, index string, t *testing.T) {
 	if expectedIndex != index {
 		t.Fatalf("Expected index %s but got %s", expectedIndex, index)
 	}
 }
 
-func assertExpectedError (returnedError error, t *testing.T) {
+func assertExpectedError(returnedError error, t *testing.T) {
 	expectedError := new(ESUriErorr)
 
 	if expectedError != returnedError {
@@ -26,7 +26,7 @@ func assertExpectedError (returnedError error, t *testing.T) {
 	}
 }
 
-func assertNoError (returnedError error, t *testing.T) {
+func assertNoError(returnedError error, t *testing.T) {
 	if nil != returnedError {
 		t.Errorf("Expected err %s but got %s", nil, returnedError)
 	}
@@ -38,7 +38,7 @@ func assertNoError (returnedError error, t *testing.T) {
 func TestElasticConnectionBuildFailWithoutScheme(t *testing.T) {
 	uri := "localhost:9200/" + expectedIndex
 
-  err, _ := parseURI(uri)
+	err, _ := parseURI(uri)
 	assertExpectedError(err, t)
 }
 
@@ -48,7 +48,7 @@ func TestElasticConnectionBuildFailWithoutScheme(t *testing.T) {
 func TestElasticConnectionBuildFailWithoutIndex(t *testing.T) {
 	uri := "http://localhost:9200"
 
-  err, index := parseURI(uri)
+	err, index := parseURI(uri)
 
 	assertExpectedIndex("", index, t)
 

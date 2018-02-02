@@ -298,9 +298,9 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 
 	if err != nil && readBytes == 0 {
 		maxRead := 100
-    	if readBytes < maxRead {
-    		maxRead = readBytes
-    	}
+		if readBytes < maxRead {
+			maxRead = readBytes
+		}
 		Debug("[HTTPClient] Response read timeout error", err, c.conn, readBytes, string(c.respBuf[:maxRead]))
 		response = errorPayload(HTTP_TIMEOUT)
 		c.Disconnect()
@@ -309,9 +309,9 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 
 	if readBytes < 4 || string(c.respBuf[:4]) != "HTTP" {
 		maxRead := 100
-    	if readBytes < maxRead {
-    		maxRead = readBytes
-    	}
+		if readBytes < maxRead {
+			maxRead = readBytes
+		}
 		Debug("[HTTPClient] Response read unknown error", err, c.conn, readBytes, string(c.respBuf[:maxRead]))
 		response = errorPayload(HTTP_UNKNOWN_ERROR)
 		c.Disconnect()

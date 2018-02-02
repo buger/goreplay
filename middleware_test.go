@@ -118,7 +118,7 @@ func TestEchoMiddleware(t *testing.T) {
 
 	// Catch traffic from one service
 	fromAddr := strings.Replace(from.Listener.Addr().String(), "[::]", "127.0.0.1", -1)
-	input := NewRAWInput(fromAddr, EnginePcap, true, testRawExpire, "", "")
+	input := NewRAWInput(fromAddr, EnginePcap, true, testRawExpire, "", "", "")
 	defer input.Close()
 
 	// And redirect to another
@@ -180,7 +180,7 @@ func TestTokenMiddleware(t *testing.T) {
 
 	fromAddr := strings.Replace(from.Listener.Addr().String(), "[::]", "127.0.0.1", -1)
 	// Catch traffic from one service
-	input := NewRAWInput(fromAddr, EnginePcap, true, testRawExpire, "", "")
+	input := NewRAWInput(fromAddr, EnginePcap, true, testRawExpire, "", "", "")
 	defer input.Close()
 
 	// And redirect to another

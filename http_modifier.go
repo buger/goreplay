@@ -2,9 +2,9 @@ package main
 
 import (
 	"bytes"
-	"strings"
-	"hash/fnv"
 	"encoding/base64"
+	"hash/fnv"
+	"strings"
 
 	"github.com/buger/goreplay/proto"
 )

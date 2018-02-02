@@ -1,9 +1,9 @@
 package main
 
 import (
-	"net/url"
 	"encoding/json"
 	"log"
+	"net/url"
 	"strings"
 	//"regexp"
 	"time"
@@ -72,10 +72,10 @@ func parseURI(URI string) (err error, index string) {
 	//	check URL validity by extracting host and undex values.
 	host := parsedUrl.Host
 	urlPathParts := strings.Split(parsedUrl.Path, "/")
-	index = urlPathParts[len(urlPathParts) - 1 ]
+	index = urlPathParts[len(urlPathParts)-1]
 
 	// force index specification in uri : ie no implicit index
-	if (host == "" ||  index == "") {
+	if host == "" || index == "" {
 		err = new(ESUriErorr)
 	}
 

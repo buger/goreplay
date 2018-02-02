@@ -72,7 +72,8 @@ type Listener struct {
 	trackResponse bool
 	messageExpire time.Duration
 
-	bpfFilter string
+	bpfFilter     string
+	timestampType string
 
 	conn        net.PacketConn
 	pcapHandles []*pcap.Handle
@@ -95,7 +96,7 @@ const (
 )
 
 // NewListener creates and initializes new Listener object
-func NewListener(addr string, port string, engine int, trackResponse bool, expire time.Duration, bpfFilter string) (l *Listener) {
+func NewListener(addr string, port string, engine int, trackResponse bool, expire time.Duration, bpfFilter string, timestampType string) (l *Listener) {
 	l = &Listener{}
 
 	l.packetsChan = make(chan *packet, 10000)
@@ -110,6 +111,7 @@ func NewListener(addr string, port string, engine int, trackResponse bool, expir
 	l.respWithoutReq = make(map[uint32]tcpID)
 	l.trackResponse = trackResponse
 	l.bpfFilter = bpfFilter
+	l.timestampType = timestampType
 
 	l.addr = addr
 	_port, _ := strconv.Atoi(port)
@@ -329,12 +331,31 @@ func (t *Listener) readPcap() {
 
 	for _, d := range devices {
 		go func(device pcap.Interface) {
-			handle, err := pcap.OpenLive(device.Name, 65536, true, t.messageExpire)
+			inactive, err := pcap.NewInactiveHandle(device.Name)
 			if err != nil {
 				log.Println("Pcap Error while opening device", device.Name, err)
 				wg.Done()
 				return
 			}
+
+			if t.timestampType != "" {
+				if tt, terr := pcap.TimestampSourceFromString(t.timestampType); terr != nil {
+					log.Println("Supported timestamp types: ", inactive.SupportedTimestamps(), device.Name)
+				} else if terr := inactive.SetTimestampSource(tt); terr != nil {
+					log.Println("Supported timestamp types: ", inactive.SupportedTimestamps(), device.Name)
+				}
+			}
+			inactive.SetSnapLen(65536)
+			inactive.SetTimeout(t.messageExpire)
+			inactive.SetPromisc(true)
+
+			handle, herr := inactive.Activate()
+			if herr != nil {
+				log.Println("PCAP Activate error:", herr)
+				wg.Done()
+				return
+			}
+
 			defer handle.Close()
 
 			t.mu.Lock()
