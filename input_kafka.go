@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"strings"
 
 	"github.com/Shopify/sarama"
 	"github.com/Shopify/sarama/mocks"
@@ -27,7 +28,8 @@ func NewKafkaInput(address string, config *KafkaConfig) *KafkaInput {
 		con = config.consumer
 	} else {
 		var err error
-		con, err = sarama.NewConsumer([]string{config.host}, c)
+		//con, err = sarama.NewConsumer([]string{config.host}, c)
+		con, err = sarama.NewConsumer(strings.Split(config.host,","), c)
 
 		if err != nil {
 			log.Fatalln("Failed to start Sarama(Kafka) consumer:", err)
