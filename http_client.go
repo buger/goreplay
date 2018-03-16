@@ -203,13 +203,21 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 				currentContentLength += n
 			} else {
 				// If headers are finished
-
-				if bytes.Contains(c.respBuf[:readBytes], proto.EmptyLine) {
+				var firstEmptyLine = bytes.Index(c.respBuf[:readBytes], proto.EmptyLine);
+				if firstEmptyLine != -1 {
 					if bytes.Equal(proto.Header(c.respBuf[:readBytes], []byte("Transfer-Encoding")), []byte("chunked")) {
 						chunked = true
 					} else {
 						status, _ := strconv.Atoi(string(proto.Status(c.respBuf[:readBytes])))
-						if (status >= 100 && status < 200) || status == 204 || status == 304 {
+						// We want to soak up all 100 Continues received to get the real result code
+						if status >= 100 && status < 200 {
+							timeout = time.Now().Add(c.config.Timeout)
+							var deleteLen = firstEmptyLine + len(proto.EmptyLine)
+							copy(c.respBuf, c.respBuf[deleteLen:readBytes])
+							readBytes -= deleteLen
+							chunks--
+							continue
+						} else if status == 204 || status == 304 {
 							contentLength = 0
 							break
 						} else {
