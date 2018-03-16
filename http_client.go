@@ -181,6 +181,7 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 	if _, err = c.conn.Write(data); err != nil {
 		Debug("[HTTPClient] Write error:", err, c.baseURL)
 		response = errorPayload(HTTP_TIMEOUT)
+		c.Disconnect()
 		return
 	}
 
