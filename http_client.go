@@ -113,16 +113,10 @@ func (c *HTTPClient) Disconnect() {
 	}
 }
 
-func (c *HTTPClient) isAlive() bool {
-	one := make([]byte, 1)
-
+func (c *HTTPClient) isAlive(readBytes *int) (bool) {
 	// Ready 1 byte from socket without timeout to check if it not closed
 	c.conn.SetReadDeadline(time.Now().Add(time.Millisecond))
-	_, err := c.conn.Read(one)
-
-	if err == nil {
-		return true
-	}
+	n, err := c.conn.Read(c.respBuf[:1])
 
 	if err == io.EOF {
 		Debug("[HTTPClient] connection closed, reconnecting")
@@ -133,7 +127,10 @@ func (c *HTTPClient) isAlive() bool {
 		Debug("Detected broken pipe.", err)
 		return false
 	}
-
+	if n != 0 {
+		*readBytes += n
+		Debug("[HTTPClient] isAlive readBytes ", *readBytes)
+	}
 	return true
 }
 
@@ -153,7 +150,8 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 		}
 	}()
 
-	if c.conn == nil || !c.isAlive() {
+	var readBytes, n int
+	if c.conn == nil || !c.isAlive(&readBytes) {
 		Debug("[HTTPClient] Connecting:", c.baseURL)
 		if err = c.Connect(); err != nil {
 			log.Println("[HTTPClient] Connection error:", err)
@@ -185,7 +183,6 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 		return
 	}
 
-	var readBytes, n int
 	var currentChunk []byte
 	timeout = time.Now().Add(c.config.Timeout)
 	chunked := false
