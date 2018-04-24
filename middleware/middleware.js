@@ -45,7 +45,7 @@ function init() {
                 if (proxy.ch[chanID]) {
                     proxy.ch[chanID].forEach(function(ch){
                         let r = ch.cb(msg);
-                        if (r) resp = r; // If one of callback decided not to send response back, do not override it in global callbacks
+                        if (!r) resp = r; // If one of callback decided not to send response back, do not override it in global callbacks
                     })
                     
                     // Cleanup Individual message channels to avoid memory leaks
