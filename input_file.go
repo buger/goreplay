@@ -46,7 +46,8 @@ func (f *fileInputReader) parseNext() error {
 			asBytes := buffer.Bytes()
 			meta := payloadMeta(asBytes)
 
-			f.timestamp, _ = strconv.ParseInt(string(meta[2]), 10, 64)
+			//f.timestamp, _ = strconv.ParseInt(string(meta[2]), 10, 64)
+			f.timestamp, _ = strconv.ParseInt(string(meta[0]), 10, 64)
 			f.data = asBytes[:len(asBytes)-1]
 
 			return nil
