@@ -40,7 +40,7 @@ func (s *GorStat) Write(latest int) {
 			s.max = latest
 		}
 		if latest != 0 {
-			s.mean = (s.mean + latest) / 2
+			s.mean = ((s.mean * s.count) + latest) / (s.count + 1)
 		}
 		s.latest = latest
 		s.count = s.count + 1
