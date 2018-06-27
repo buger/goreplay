@@ -6,7 +6,7 @@ while data = STDIN.gets # continiously read line from STDIN
   
   decoded = [data].pack("H*") # decode base64 encoded request
   
-  # dedoded value is raw HTTP payload, example:
+  # decoded value is raw HTTP payload, example:
   #   
   #   POST /post HTTP/1.1
   #   Content-Length: 7
