@@ -55,7 +55,7 @@ def process_stdin():
         request_type_id = int(raw_metadata.split(b' ')[0])
         log('Request type: {}'.format({
           1: 'Request',
-          2: 'Original Request',
+          2: 'Original Response',
           3: 'Replayed Response'
         }[request_type_id]))
         log('===================================')
