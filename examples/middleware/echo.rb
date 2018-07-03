@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 # encoding: utf-8
-while data = STDIN.gets # continiously read line from STDIN
+while data = STDIN.gets # continuously read line from STDIN
   next unless data
   data = data.chomp # remove end of line symbol
   
