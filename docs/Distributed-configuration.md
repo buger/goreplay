@@ -13,7 +13,7 @@ If you have multiple replay machines you can split traffic among them using `--s
 gor --input-raw :80 --split-output --output-tcp replay1.local:28020 --output-tcp replay2.local:28020
 ```
 
-[GoReplay PRO](https://goreplay.com/pro.html) support accurate recording and replaying of tcp sessions, and when `--recognize-tcp-sessions` option is passed, instead of round-robin it will use a smarter algorithm which ensures that same sessions will be sent to the same replay instance.
+[GoReplay PRO](https://goreplay.org/pro.html) support accurate recording and replaying of tcp sessions, and when `--recognize-tcp-sessions` option is passed, instead of round-robin it will use a smarter algorithm which ensures that same sessions will be sent to the same replay instance.
 
 
 In case if you are planning a large load testing, you may consider use separate master instance which will control Gor slaves which actually replay traffic. For example:
