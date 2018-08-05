@@ -682,12 +682,6 @@ func (t *Listener) readRAWSocket() {
 }
 
 func (t *Listener) buildPacket(packetSrcIP []byte, packetData []byte, timestamp time.Time) *packet {
-	copyPacketSrcIP := make([]byte, 16)
-	copyPacketData := make([]byte, len(packetData))
-
-	copy(copyPacketSrcIP, packetSrcIP)
-	copy(copyPacketData, packetSrcIP)
-
 	return &packet{
 		srcIP:     packetSrcIP,
 		data:      packetData,
