@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"io"
+	"log"
 	"time"
 )
 
@@ -47,7 +48,7 @@ func Start(stop chan int) {
 
 // CopyMulty copies from 1 reader to multiple writers
 func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
-	buf := make([]byte, 5*1024*1024)
+	buf := make([]byte, Settings.copyBufferSize)
 	wIndex := 0
 	modifier := NewHTTPModifier(&Settings.modifierConfig)
 	filteredRequests := make(map[string]time.Time)
@@ -61,7 +62,6 @@ func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
 		if nr > 500 {
 			_maxN = 500
 		}
-
 		if nr > 0 && len(buf) > nr {
 			payload := buf[:nr]
 			meta := payloadMeta(payload)
@@ -72,6 +72,10 @@ func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
 				continue
 			}
 			requestID := string(meta[1])
+
+			if nr >= 5*1024*1024 {
+				log.Println("INFO: Large packet... We received ", len(payload), " bytes from ", src)
+			}
 
 			if Settings.debug {
 				Debug("[EMITTER] input:", string(payload[0:_maxN]), nr, "from:", src)
@@ -126,7 +130,8 @@ func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
 					dst.Write(payload)
 				}
 			}
-
+		} else if nr > 0 {
+			log.Println("WARN: Packet", nr, "bytes is too large to process. Consider increasing --copy-buffer-size")
 		}
 		if er == io.EOF {
 			break
