@@ -2,6 +2,7 @@ package main
 
 import (
 	"io"
+	"log"
 	"sync/atomic"
 	"time"
 
@@ -21,8 +22,9 @@ type response struct {
 type HTTPOutputConfig struct {
 	redirectLimit int
 
-	stats   bool
-	workers int
+	stats       bool
+	workers_min int
+	workers_max int
 
 	elasticSearch string
 
@@ -76,10 +78,10 @@ func NewHTTPOutput(address string, config *HTTPOutputConfig) io.Writer {
 	o.needWorker = make(chan int, 1)
 
 	// Initial workers count
-	if o.config.workers == 0 {
+	if o.config.workers_max == 0 {
 		o.needWorker <- initialDynamicWorkers
 	} else {
-		o.needWorker <- o.config.workers
+		o.needWorker <- o.config.workers_max
 	}
 
 	if o.config.elasticSearch != "" {
@@ -97,11 +99,6 @@ func (o *HTTPOutput) workerMaster() {
 		newWorkers := <-o.needWorker
 		for i := 0; i < newWorkers; i++ {
 			go o.startWorker()
-		}
-
-		// Disable dynamic scaling if workers poll fixed size
-		if o.config.workers != 0 {
-			return
 		}
 	}
 }
@@ -126,17 +123,16 @@ func (o *HTTPOutput) startWorker() {
 			deathCount = 0
 		case <-time.After(time.Millisecond * 100):
 			// When dynamic scaling enabled workers die after 2s of inactivity
-			if o.config.workers == 0 {
-				deathCount++
-			} else {
+			if o.config.workers_min == o.config.workers_max {
 				continue
 			}
 
+			deathCount++
 			if deathCount > 20 {
-				workersCount := atomic.LoadInt64(&o.activeWorkers)
+				workersCount := int(atomic.LoadInt64(&o.activeWorkers))
 
 				// At least 1 startWorker should be alive
-				if workersCount != 1 {
+				if workersCount != 1 && workersCount > o.config.workers_min {
 					atomic.AddInt64(&o.activeWorkers, -1)
 					return
 				}
@@ -159,11 +155,18 @@ func (o *HTTPOutput) Write(data []byte) (n int, err error) {
 		o.queueStats.Write(len(o.queue))
 	}
 
-	if o.config.workers == 0 {
-		workersCount := atomic.LoadInt64(&o.activeWorkers)
+	if o.config.workers_max != o.config.workers_min {
+		workersCount := int(atomic.LoadInt64(&o.activeWorkers))
 
-		if len(o.queue) > int(workersCount) {
-			o.needWorker <- len(o.queue)
+		if len(o.queue) > workersCount {
+			extraWorkersReq := len(o.queue) - workersCount + 1
+			maxWorkersAvailable := o.config.workers_max - workersCount
+			if extraWorkersReq > maxWorkersAvailable {
+				extraWorkersReq = maxWorkersAvailable
+			}
+			if extraWorkersReq > 0 {
+				o.needWorker <- extraWorkersReq
+			}
 		}
 	}
 
@@ -206,6 +209,7 @@ func (o *HTTPOutput) sendRequest(client *HTTPClient, request []byte) {
 	stop := time.Now()
 
 	if err != nil {
+		log.Println("Error when sending ", err, time.Now())
 		Debug("Request error:", err)
 	}
 
