@@ -21,8 +21,9 @@ type response struct {
 type HTTPOutputConfig struct {
 	redirectLimit int
 
-	stats   bool
-	workers int
+	stats       bool
+	stats_ms    int
+	workers     int
 
 	elasticSearch string
 
@@ -68,7 +69,7 @@ func NewHTTPOutput(address string, config *HTTPOutputConfig) io.Writer {
 	o.config = config
 
 	if o.config.stats {
-		o.queueStats = NewGorStat("output_http")
+		o.queueStats = NewGorStat("output_http", o.config.stats_ms)
 	}
 
 	o.queue = make(chan []byte, 1000)
@@ -164,8 +165,8 @@ func (o *HTTPOutput) Write(data []byte) (n int, err error) {
 
 		if len(o.queue) > int(workersCount) {
 			o.needWorker <- len(o.queue)
+			}
 		}
-	}
 
 	return len(data), nil
 }

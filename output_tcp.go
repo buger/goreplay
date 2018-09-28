@@ -34,7 +34,7 @@ func NewTCPOutput(address string, config *TCPOutputConfig) io.Writer {
 
 	o.buf = make(chan []byte, 1000)
 	if Settings.outputTCPStats {
-		o.bufStats = NewGorStat("output_tcp")
+		o.bufStats = NewGorStat("output_tcp", 5000)
 	}
 
 	for i := 0; i < 10; i++ {
