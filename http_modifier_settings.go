@@ -41,6 +41,7 @@ func (h *HeaderDropList) String() string {
 	return fmt.Sprint(*h)
 }
 
+// Set header to drop
 func (h *HeaderDropList) Set(value string) error {
 	*h = append(*h, []byte(value))
 	return nil
