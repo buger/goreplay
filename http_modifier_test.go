@@ -40,6 +40,22 @@ func TestHTTPModifierHeaderFilters(t *testing.T) {
 	}
 }
 
+
+func TestHTTPModifierHeadersDrop(t *testing.T) {
+	filters := HeaderDropList{}
+	filters.Set("Header2")
+
+	modifier := NewHTTPModifier(&HTTPModifierConfig{
+		headerDrop: filters,
+	})
+
+	payload := []byte("POST /post HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.org\r\n\r\nHeader2: www.w3.org\r\n\r\na=1&b=2")
+
+	if len(modifier.Rewrite(payload)) == 0 {
+		t.Error("Request should pass filters")
+	}
+}
+
 func TestHTTPModifierHeaderNegativeFilters(t *testing.T) {
 	filters := HTTPHeaderFilters{}
 	filters.Set("Host:^www.w3.org$")

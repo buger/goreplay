@@ -14,6 +14,7 @@ type HTTPModifierConfig struct {
 	urlRegexp              HTTPUrlRegexp
 	urlRewrite             UrlRewriteMap
 	headerRewrite          HeaderRewriteMap
+	headerDrop          	 HeaderDropList
 	headerFilters          HTTPHeaderFilters
 	headerNegativeFilters  HTTPHeaderFilters
 	headerBasicAuthFilters HTTPHeaderBasicAuthFilters
@@ -31,6 +32,18 @@ type HTTPModifierConfig struct {
 type headerFilter struct {
 	name   []byte
 	regexp *regexp.Regexp
+}
+
+// HeaderDropList holds list of headers to drop
+type HeaderDropList [][]byte
+
+func (h *HeaderDropList) String() string {
+	return fmt.Sprint(*h)
+}
+
+func (h *HeaderDropList) Set(value string) error {
+	*h = append(*h, []byte(value))
+	return nil
 }
 
 // HTTPHeaderFilters holds list of headers and their regexps
