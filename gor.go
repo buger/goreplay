@@ -12,7 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	_ "runtime/debug"
+	"runtime/debug"
 	"runtime/pprof"
 	"syscall"
 	"time"
@@ -94,8 +94,24 @@ func main() {
 			close(closeCh)
 		})
 	}
+	if Settings.freeAfter > 0 {
+		ticker := time.NewTicker(Settings.freeAfter)
+		go func() {
+			var before,after runtime.MemStats
+			for _ = range ticker.C {
+        // For info on each, see: https://golang.org/pkg/runtime/#MemStats
+				runtime.ReadMemStats(&before)
+				debug.FreeOSMemory()
+				runtime.ReadMemStats(&after)
+				log.Printf("Alloc: %vMB (%v) Sys: %vMB (%v) Num GC: %v\n", megabytes(after.Alloc), megabytes(before.Alloc), megabytes(after.Sys), megabytes(before.Sys), after.NumGC)
+			}
+		}()
+	}
 
 	Start(closeCh)
+}
+func megabytes(b uint64) uint64 {
+    return b / 1024 / 1024
 }
 
 func finalize() {

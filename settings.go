@@ -29,6 +29,7 @@ type AppSettings struct {
 	debug     bool
 	stats     bool
 	exitAfter time.Duration
+	freeAfter time.Duration
 
 	splitOutput bool
 
@@ -87,6 +88,7 @@ func init() {
 	flag.BoolVar(&Settings.debug, "debug", false, "Turn on debug output, shows all intercepted traffic. Works only when with `verbose` flag")
 	flag.BoolVar(&Settings.stats, "stats", false, "Turn on queue stats output")
 	flag.DurationVar(&Settings.exitAfter, "exit-after", 0, "exit after specified duration")
+	flag.DurationVar(&Settings.freeAfter, "free-after", 0, "free memory back to OS after specified duration")
 
 	flag.BoolVar(&Settings.splitOutput, "split-output", false, "By default each output gets same traffic. If set to `true` it splits traffic equally among all outputs.")
 
