@@ -25,6 +25,7 @@ func (h *MultiOption) Set(value string) error {
 
 // AppSettings is the struct of main configuration
 type AppSettings struct {
+	pprof     bool
 	verbose   bool
 	debug     bool
 	stats     bool
@@ -82,6 +83,8 @@ func usage() {
 
 func init() {
 	flag.Usage = usage
+
+	flag.BoolVar(&Settings.pprof, "pprof", false, "Enable profiling web server")
 
 	flag.BoolVar(&Settings.verbose, "verbose", false, "Turn on more verbose output")
 	flag.BoolVar(&Settings.debug, "debug", false, "Turn on debug output, shows all intercepted traffic. Works only when with `verbose` flag")

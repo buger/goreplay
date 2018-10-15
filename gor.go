@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httputil"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
@@ -75,6 +76,12 @@ func main() {
 
 	if *cpuprofile != "" {
 		profileCPU(*cpuprofile)
+	}
+
+	if Settings.pprof {
+		go func() {
+			log.Println(http.ListenAndServe("localhost:6060", nil))
+		}()
 	}
 
 	c := make(chan os.Signal, 1)
