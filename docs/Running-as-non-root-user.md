@@ -1,12 +1,12 @@
 You can enable Gor for non-root users in a secure method by using the following commands
 
 ``` 
-# Following commands assume that you put `gor` binary to /usr/local/bin
-add gor
-addgroup <username> gor
-chgrp gor /usr/local/bin/gor
-chmod 0750 /usr/local/bin/gor
-setcap "cap_net_raw,cap_net_admin+eip" /usr/local/bin/gor
+# Following commands assume that you put `goreplay` binary to /usr/local/bin and <username> is the owner gor binary
+addgroup gor
+adduser <username> gor
+chgrp gor /usr/local/bin/goreplay
+chmod 0750 /usr/local/bin/goreplay
+setcap "cap_net_raw,cap_net_admin+eip" /usr/local/bin/goreplay
 ```
  
 As a brief explanation of the above.
