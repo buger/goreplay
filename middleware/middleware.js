@@ -385,7 +385,7 @@ function httpCookie(payload, name) {
     let value;
     let cookies = cookie.split("; ").forEach(function(v){
         if (v.indexOf(name + "=") == 0) {
-            value = v.split("=")[1];
+            value = v.substr(name.length + 1);
         }
     })
     return value;
