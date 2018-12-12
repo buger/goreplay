@@ -1,0 +1,39 @@
+name: goreplay
+version: '1.0'
+summary: GoReplay is an open-source tool for capturing and replaying live HTTP traffic 
+description: |
+  GoReplay is an open-source tool for capturing and replaying 
+  live HTTP traffic into a test environment in order to continuously 
+  test your system with real data. It can be used to increase confidence 
+  in code deployments, configuration changes and infrastructure changes. 
+grade: stable
+confinement: strict
+base: core18
+parts:
+  goreplay:
+    plugin: go
+    source: https://github.com/buger/goreplay.git
+    go-importpath: github.com/buger/goreplay
+    build-packages:
+      - build-essential
+      - libpcap-dev
+    stage-packages:
+      - libpcap0.8
+
+apps:
+  goreplay:
+    command: bin/goreplay
+    daemon: simple
+    restart-condition: on-abnormal
+    plugs:
+      - home
+      - network
+      - network-bind
+      - network-control
+      - network-observe
+      - netlink-connector
+      - netlink-audit
+      - bluetooth-control
+      - firewall-control
+      - x11
+      
