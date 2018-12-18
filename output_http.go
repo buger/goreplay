@@ -22,9 +22,9 @@ type response struct {
 type HTTPOutputConfig struct {
 	redirectLimit int
 
-	stats       bool
-	workers_min int
-	workers_max int
+	stats      bool
+	workersMin int
+	workersMax int
 
 	elasticSearch string
 
@@ -78,10 +78,10 @@ func NewHTTPOutput(address string, config *HTTPOutputConfig) io.Writer {
 	o.needWorker = make(chan int, 1)
 
 	// Initial workers count
-	if o.config.workers_max == 0 {
+	if o.config.workersMax == 0 {
 		o.needWorker <- initialDynamicWorkers
 	} else {
-		o.needWorker <- o.config.workers_max
+		o.needWorker <- o.config.workersMax
 	}
 
 	if o.config.elasticSearch != "" {
@@ -123,7 +123,7 @@ func (o *HTTPOutput) startWorker() {
 			deathCount = 0
 		case <-time.After(time.Millisecond * 100):
 			// When dynamic scaling enabled workers die after 2s of inactivity
-			if o.config.workers_min == o.config.workers_max {
+			if o.config.workersMin == o.config.workersMax {
 				continue
 			}
 
@@ -132,7 +132,7 @@ func (o *HTTPOutput) startWorker() {
 				workersCount := int(atomic.LoadInt64(&o.activeWorkers))
 
 				// At least 1 startWorker should be alive
-				if workersCount != 1 && workersCount > o.config.workers_min {
+				if workersCount != 1 && workersCount > o.config.workersMin {
 					atomic.AddInt64(&o.activeWorkers, -1)
 					return
 				}
@@ -155,12 +155,12 @@ func (o *HTTPOutput) Write(data []byte) (n int, err error) {
 		o.queueStats.Write(len(o.queue))
 	}
 
-	if o.config.workers_max != o.config.workers_min {
+	if o.config.workersMax != o.config.workersMin {
 		workersCount := int(atomic.LoadInt64(&o.activeWorkers))
 
 		if len(o.queue) > workersCount {
 			extraWorkersReq := len(o.queue) - workersCount + 1
-			maxWorkersAvailable := o.config.workers_max - workersCount
+			maxWorkersAvailable := o.config.workersMax - workersCount
 			if extraWorkersReq > maxWorkersAvailable {
 				extraWorkersReq = maxWorkersAvailable
 			}
