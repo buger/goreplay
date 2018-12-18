@@ -148,7 +148,7 @@ func init() {
 	flag.BoolVar(&Settings.outputHTTPConfig.TrackResponses, "output-http-track-response", false, "If turned on, HTTP output responses will be set to all outputs like stdout, file and etc.")
 
 	flag.BoolVar(&Settings.outputHTTPConfig.stats, "output-http-stats", false, "Report http output queue stats to console every N milliseconds. See output-http-stats-ms")
-	flag.IntVar(&Settings.outputHTTPConfig.stats_ms, "output-http-stats-ms", 5000, "Report http output queue stats to console every N milliseconds. default: 5000")
+	flag.IntVar(&Settings.outputHTTPConfig.statsMs, "output-http-stats-ms", 5000, "Report http output queue stats to console every N milliseconds. default: 5000")
 	flag.BoolVar(&Settings.outputHTTPConfig.OriginalHost, "http-original-host", false, "Normally gor replaces the Host http header with the host supplied with --output-http.  This option disables that behavior, preserving the original Host header.")
 	flag.BoolVar(&Settings.outputHTTPConfig.Debug, "output-http-debug", false, "Enables http debug output.")
 
