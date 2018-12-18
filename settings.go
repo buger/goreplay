@@ -56,6 +56,7 @@ type AppSettings struct {
 	inputRAWBpfFilter     string
 	inputRAWTimestampType string
 	inputRawBufferSize    int
+	inputRAWOverrideSnapLen bool
 
 	middleware string
 
@@ -133,6 +134,7 @@ func init() {
 	flag.StringVar(&Settings.inputRAWBpfFilter, "input-raw-bpf-filter", "", "BPF filter to write custom expressions. Can be useful in case of non standard network interfaces like tunneling or SPAN port. Example: --input-raw-bpf-filter 'dst port 80'")
 
 	flag.StringVar(&Settings.inputRAWTimestampType, "input-raw-timestamp-type", "", "Possible values: PCAP_TSTAMP_HOST, PCAP_TSTAMP_HOST_LOWPREC, PCAP_TSTAMP_HOST_HIPREC, PCAP_TSTAMP_ADAPTER, PCAP_TSTAMP_ADAPTER_UNSYNCED. This values not supported on all systems, GoReplay will tell you available values of you put wrong one.")
+	flag.BoolVar(&Settings.inputRAWOverrideSnapLen, "input-raw-override-snaplen", false, "Override the capture snaplen to be 64k. Required for some Virtualized environments")
 
 	flag.IntVar(&Settings.inputRawBufferSize, "input-raw-buffer-size", 0, "Controls size of the OS buffer (in bytes) which holds packets until they dispatched. Default value depends by system: in Linux around 2MB. If you see big package drop, increase this value.")
 
