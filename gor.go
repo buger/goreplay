@@ -98,7 +98,7 @@ func main() {
 		ticker := time.NewTicker(Settings.freeAfter)
 		go func() {
 			var before,after runtime.MemStats
-			for _ = range ticker.C {
+			for range ticker.C {
         // For info on each, see: https://golang.org/pkg/runtime/#MemStats
 				runtime.ReadMemStats(&before)
 				debug.FreeOSMemory()
