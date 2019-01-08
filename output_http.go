@@ -19,7 +19,8 @@ type response struct {
 
 // HTTPOutputConfig struct for holding http output configuration
 type HTTPOutputConfig struct {
-	redirectLimit int
+	redirectLimit       int
+	keepRedirectHeaders bool
 
 	stats   bool
 	workers int
@@ -108,7 +109,8 @@ func (o *HTTPOutput) workerMaster() {
 
 func (o *HTTPOutput) startWorker() {
 	client := NewHTTPClient(o.address, &HTTPClientConfig{
-		FollowRedirects:    o.config.redirectLimit,
+		FollowRedirects:           o.config.redirectLimit,
+		KeepFollowRedirectHeaders: o.config.keepRedirectHeaders,
 		Debug:              o.config.Debug,
 		OriginalHost:       o.config.OriginalHost,
 		Timeout:            o.config.Timeout,
