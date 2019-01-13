@@ -379,7 +379,7 @@ func TestHTTPClientKeepHeadersRedirect(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewHTTPClient(server.URL, &HTTPClientConfig{FollowRedirects: 1, KeepFollowRedirectHeaders: true, Debug: false})
+	client := NewHTTPClient(server.URL, &HTTPClientConfig{FollowRedirects: 1, Debug: false})
 
 	wg.Add(2)
 	client.Send(GETPayload)
