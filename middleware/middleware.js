@@ -45,7 +45,7 @@ function init() {
                 if (proxy.ch[chanID]) {
                     proxy.ch[chanID].forEach(function(ch){
                         let r = ch.cb(msg);
-                        if (r) resp = r; // If one of callback decided not to send response back, do not override it in global callbacks
+                        if (resp) resp = r; // If one of callback decided not to send response back, do not override it in global callbacks
                     })
                     
                     // Cleanup Individual message channels to avoid memory leaks
@@ -58,6 +58,8 @@ function init() {
             if (resp) {
               process.stdout.write(`${resp.rawMeta.toString('hex')}${Buffer.from("\n").toString("hex")}${resp.http.toString('hex')}\n`)
             }
+
+            return resp
         }
     }
 
@@ -385,7 +387,7 @@ function httpCookie(payload, name) {
     let value;
     let cookies = cookie.split("; ").forEach(function(v){
         if (v.indexOf(name + "=") == 0) {
-            value = v.split("=")[1];
+            value = v.substr(name.length + 1);
         }
     })
     return value;
@@ -421,7 +423,7 @@ module.exports = {
 // =========== Tests ==============
 
 function testRunner(){
-    ["init", "parseMessage", "httpMethod", "httpPath", "setHttpHeader", "deleteHttpHeader", "httpPathParam", "httpHeader", "httpBody", "setHttpBody", "httpBodyParam", "httpCookie", "setHttpCookie", "httpHeaders"].forEach(function(t){
+    ["init", "filter", "parseMessage", "httpMethod", "httpPath", "setHttpHeader", "deleteHttpHeader", "httpPathParam", "httpHeader", "httpBody", "setHttpBody", "httpBodyParam", "httpCookie", "setHttpCookie", "httpHeaders"].forEach(function(t){
         console.log(`====== Start ${t} =======`)
         eval(`TEST_${t}()`)
         console.log(`====== End ${t} =======`)
@@ -495,6 +497,7 @@ function TEST_init() {
     let req = parseMessage(Buffer.from("1 2 3\nGET / HTTP/1.1\r\n\r\n").toString('hex'));
     let resp = parseMessage(Buffer.from("2 2 3\nHTTP/1.1 200 OK\r\n\r\n").toString('hex'));
     let resp2 = parseMessage(Buffer.from("2 3 3\nHTTP/1.1 200 OK\r\n\r\n").toString('hex'));
+    
     gor.emit(req);
     gor.emit(resp);
     gor.emit(resp2);
@@ -504,6 +507,34 @@ function TEST_init() {
     if (received != 5) {
         fail(`Should receive 5 messages: ${received}`);
     }
+}
+
+function TEST_filter() {
+    const child_process = require('child_process');
+
+    let gor = init();
+    gor.on("request", function(req){
+        if (httpPath(req.http) != "/filter") {
+            return req
+        }
+    });
+
+    gor.on("request", function(req){
+        return req
+    });
+
+
+    let reqPass = parseMessage(Buffer.from("1 2 3\nGET / HTTP/1.1\r\n\r\n").toString('hex'));
+    let reqFilter = parseMessage(Buffer.from("1 2 3\nGET /filter HTTP/1.1\r\n\r\n").toString('hex'));
+    
+    if (!gor.emit(reqPass)) {
+        return fail("Should not filter request")
+    }
+
+    if (gor.emit(reqFilter)) {
+        return fail("Should filter request even if one middleware rejected it")
+    }
+
 }
 
 function TEST_parseMessage() {

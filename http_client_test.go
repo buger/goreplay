@@ -358,6 +358,35 @@ func TestHTTPClientRedirectLimit(t *testing.T) {
 	wg.Wait()
 }
 
+func TestHTTPClientKeepHeadersRedirect(t *testing.T) {
+	wg := new(sync.WaitGroup)
+
+	GETPayload := []byte("GET / HTTP/1.1\r\n\r\n")
+
+	GETPayload = proto.AddHeader(GETPayload, []byte("keep-header"), []byte("true"))
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		if r.URL.Path == "/" {
+			http.Redirect(w, r, "/new", 301)
+		}
+
+		if r.Header.Get("keep-header") != "true" {
+			t.Errorf("Header keep-header was incorrect, got: %s, want: %s.", r.Header.Get("keep-header"), "true")
+		}
+
+		wg.Done()
+	}))
+	defer server.Close()
+
+	client := NewHTTPClient(server.URL, &HTTPClientConfig{FollowRedirects: 1, Debug: false})
+
+	wg.Add(2)
+	client.Send(GETPayload)
+
+	wg.Wait()
+}
+
 func TestHTTPClientBasicAuth(t *testing.T) {
 	wg := new(sync.WaitGroup)
 	wg.Add(2)
