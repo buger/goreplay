@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httputil"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
@@ -77,6 +78,12 @@ func main() {
 		profileCPU(*cpuprofile)
 	}
 
+	if Settings.pprof != "" {
+		go func() {
+			log.Println(http.ListenAndServe(Settings.pprof, nil))
+		}()
+	}
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
@@ -87,7 +94,6 @@ func main() {
 
 	if Settings.exitAfter > 0 {
 		log.Println("Running gor for a duration of", Settings.exitAfter)
-		closeCh = make(chan int)
 
 		time.AfterFunc(Settings.exitAfter, func() {
 			log.Println("Stopping gor after", Settings.exitAfter)

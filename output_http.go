@@ -24,6 +24,7 @@ type HTTPOutputConfig struct {
 	stats   bool
 	statsMs int
 	workers int
+	queueLen int
 
 	elasticSearch string
 
@@ -72,8 +73,8 @@ func NewHTTPOutput(address string, config *HTTPOutputConfig) io.Writer {
 		o.queueStats = NewGorStat("output_http", o.config.statsMs)
 	}
 
-	o.queue = make(chan []byte, 1000)
-	o.responses = make(chan response, 1000)
+	o.queue = make(chan []byte, o.config.queueLen)
+	o.responses = make(chan response, o.config.queueLen)
 	o.needWorker = make(chan int, 1)
 
 	// Initial workers count

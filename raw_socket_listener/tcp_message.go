@@ -220,8 +220,9 @@ func (t *TCPMessage) updateHeadersPacket() {
 				t.headerPacket = i
 				return
 			}
-		} else if bytes.Equal(p.Data, bBR) {
-			if bytes.LastIndex(t.packets[i-1].Data, bBR) != -1 {
+		} else if i > 0 && bytes.Equal(p.Data, bBR) {
+			idx := bytes.LastIndex(t.packets[i-1].Data, bBR)
+			if idx != -1 && idx == len(t.packets[i-1].Data)-len(bBR) {
 				t.headerPacket = i
 				return
 			}

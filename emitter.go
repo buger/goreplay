@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"io"
+	"log"
 	"time"
 )
 
@@ -22,15 +23,30 @@ func Start(stop chan int) {
 			}
 		}
 
-		go CopyMulty(middleware, Plugins.Outputs...)
+		go func() {
+			if err := CopyMulty(middleware, Plugins.Outputs...); err != nil {
+				log.Println("Error during copy: ", err)
+				close(stop)
+			}
+		}()
 	} else {
 		for _, in := range Plugins.Inputs {
-			go CopyMulty(in, Plugins.Outputs...)
+			go func() {
+				if err := CopyMulty(in, Plugins.Outputs...); err != nil {
+					log.Println("Error during copy: ", err)
+					close(stop)
+				}
+			}()
 		}
 
 		for _, out := range Plugins.Outputs {
 			if r, ok := out.(io.Reader); ok {
-				go CopyMulty(r, Plugins.Outputs...)
+				go func() {
+					if err := CopyMulty(r, Plugins.Outputs...); err != nil {
+						log.Println("Error during copy: ", err)
+						close(stop)
+					}
+				}()
 			}
 		}
 	}
@@ -57,6 +73,14 @@ func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
 
 	for {
 		nr, er := src.Read(buf)
+
+		if er == io.EOF {
+			return nil
+		}
+		if er != nil {
+			return err
+		}
+
 		_maxN := nr
 		if nr > 500 {
 			_maxN = 500
@@ -114,7 +138,9 @@ func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
 
 			if Settings.splitOutput {
 				// Simple round robin
-				writers[wIndex].Write(payload)
+				if _, err := writers[wIndex].Write(payload); err != nil {
+					return err
+				}
 
 				wIndex++
 
@@ -123,17 +149,12 @@ func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
 				}
 			} else {
 				for _, dst := range writers {
-					dst.Write(payload)
+					if _, err := dst.Write(payload); err != nil {
+						return err
+					}
 				}
 			}
 
-		}
-		if er == io.EOF {
-			break
-		}
-		if er != nil {
-			err = er
-			break
 		}
 
 		// Run GC on each 1000 request
