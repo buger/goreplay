@@ -7,21 +7,19 @@ import (
 	"time"
 )
 
-const (
-	rate = 5
-)
-
 type GorStat struct {
 	statName string
+	rateMs   int
 	latest   int
 	mean     int
 	max      int
 	count    int
 }
 
-func NewGorStat(statName string) (s *GorStat) {
+func NewGorStat(statName string, rateMs int) (s *GorStat) {
 	s = new(GorStat)
 	s.statName = statName
+	s.rateMs = rateMs
 	s.latest = 0
 	s.mean = 0
 	s.max = 0
@@ -55,13 +53,13 @@ func (s *GorStat) Reset() {
 }
 
 func (s *GorStat) String() string {
-	return s.statName + ":" + strconv.Itoa(s.latest) + "," + strconv.Itoa(s.mean) + "," + strconv.Itoa(s.max) + "," + strconv.Itoa(s.count) + "," + strconv.Itoa(s.count/rate) + "," + strconv.Itoa(runtime.NumGoroutine())
+	return s.statName + ":" + strconv.Itoa(s.latest) + "," + strconv.Itoa(s.mean) + "," + strconv.Itoa(s.max) + "," + strconv.Itoa(s.count) + "," + strconv.Itoa(s.count/(s.rateMs/1000.0)) + "," + strconv.Itoa(runtime.NumGoroutine())
 }
 
 func (s *GorStat) reportStats() {
 	for {
 		log.Println(s)
 		s.Reset()
-		time.Sleep(rate * time.Second)
+		time.Sleep(time.Duration(s.rateMs) * time.Millisecond)
 	}
 }

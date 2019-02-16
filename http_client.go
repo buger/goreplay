@@ -342,7 +342,7 @@ func (c *HTTPClient) Send(data []byte) (response []byte, err error) {
 			c.redirectsCount++
 
 			location := proto.Header(payload, []byte("Location"))
-			redirectPayload := []byte("GET " + string(location) + " HTTP/1.1\r\n\r\n")
+			redirectPayload := proto.SetPath(data, location)
 
 			if c.config.Debug {
 				Debug("[HTTPClient] Redirecting to: " + string(location))
