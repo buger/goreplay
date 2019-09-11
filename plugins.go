@@ -118,7 +118,7 @@ func InitPlugins() {
 	}
 
 	for _, options := range Settings.inputFile {
-		registerPlugin(NewFileInput, options, Settings.inputFileLoop)
+		registerPlugin(NewFileInput, options, Settings.inputFileLoop, Settings.inputFileMaxWait)
 	}
 
 	for _, options := range Settings.outputFile {

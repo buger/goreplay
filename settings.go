@@ -74,6 +74,8 @@ type AppSettings struct {
 
 	inputKafkaConfig  KafkaConfig
 	outputKafkaConfig KafkaConfig
+
+	inputFileMaxWait  time.Duration
 }
 
 // Settings holds Gor configuration
@@ -114,6 +116,7 @@ func init() {
 
 	flag.Var(&Settings.inputFile, "input-file", "Read requests from file: \n\tgor --input-file ./requests.gor --output-http staging.com")
 	flag.BoolVar(&Settings.inputFileLoop, "input-file-loop", false, "Loop input files, useful for performance testing.")
+	flag.DurationVar(&Settings.inputFileMaxWait, "input-file-max-wait", time.Duration(500000), "Max duration to wait between requests, default: 0.5 msec.")
 
 	flag.Var(&Settings.outputFile, "output-file", "Write incoming requests to file: \n\tgor --input-raw :80 --output-file ./requests.gor")
 	flag.DurationVar(&Settings.outputFileConfig.flushInterval, "output-file-flush-interval", time.Second, "Interval for forcing buffer flush to the file, default: 1s.")
