@@ -114,7 +114,7 @@ func TestInputFileMultipleFilesWithRequestsOnly(t *testing.T) {
 	file2.Write([]byte(payloadSeparator))
 	file2.Close()
 
-	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false)
+	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false, Time.Second)
 	buf := make([]byte, 1000)
 
 	for i := '1'; i <= '4'; i++ {
@@ -141,7 +141,7 @@ func TestInputFileRequestsWithLatency(t *testing.T) {
 	file.Write([]byte("1 3 250000000\nrequest3"))
 	file.Write([]byte(payloadSeparator))
 
-	input := NewFileInput(fmt.Sprintf("/tmp/%d", rnd), false)
+	input := NewFileInput(fmt.Sprintf("/tmp/%d", rnd), false, Time.Second)
 	buf := make([]byte, 1000)
 
 	start := time.Now().UnixNano()
@@ -187,7 +187,7 @@ func TestInputFileMultipleFilesWithRequestsAndResponses(t *testing.T) {
 	file2.Write([]byte(payloadSeparator))
 	file2.Close()
 
-	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false)
+	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false, Time.Second)
 	buf := make([]byte, 1000)
 
 	for i := '1'; i <= '4'; i++ {
@@ -216,7 +216,7 @@ func TestInputFileLoop(t *testing.T) {
 	file.Write([]byte(payloadSeparator))
 	file.Close()
 
-	input := NewFileInput(fmt.Sprintf("/tmp/%d", rnd), true)
+	input := NewFileInput(fmt.Sprintf("/tmp/%d", rnd), true, Time.Second)
 	buf := make([]byte, 1000)
 
 	// Even if we have just 2 requests in file, it should indifinitly loop
@@ -245,7 +245,7 @@ func TestInputFileCompressed(t *testing.T) {
 	name2 := output2.file.Name()
 	output2.Close()
 
-	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false)
+	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false, Time.Second)
 	buf := make([]byte, 1000)
 	for i := 0; i < 2000; i++ {
 		input.Read(buf)
@@ -344,7 +344,7 @@ func ReadFromCaptureFile(captureFile *os.File, count int, callback writeCallback
 	quit := make(chan int)
 	wg := new(sync.WaitGroup)
 
-	input := NewFileInput(captureFile.Name(), false)
+	input := NewFileInput(captureFile.Name(), false, Time.Second)
 	output := NewTestOutput(func(data []byte) {
 		callback(data)
 		wg.Done()
