@@ -31,22 +31,22 @@ func Start(stop chan int) {
 		}()
 	} else {
 		for _, in := range Plugins.Inputs {
-			go func() {
+			go func(in io.Reader) {
 				if err := CopyMulty(in, Plugins.Outputs...); err != nil {
 					log.Println("Error during copy: ", err)
 					close(stop)
 				}
-			}()
+			}(in)
 		}
 
 		for _, out := range Plugins.Outputs {
 			if r, ok := out.(io.Reader); ok {
-				go func() {
+				go func(r io.Reader) {
 					if err := CopyMulty(r, Plugins.Outputs...); err != nil {
 						log.Println("Error during copy: ", err)
 						close(stop)
 					}
-				}()
+				}(r)
 			}
 		}
 	}
