@@ -21,11 +21,12 @@ type TCPOutput struct {
 }
 
 type TCPOutputConfig struct {
-	secure bool
+	secure  bool
+	workers int
 }
 
 // NewTCPOutput constructor for TCPOutput
-// Initialize 10 workers which hold keep-alive connection
+// Initialize TCPOutputConfig.workers workers which hold keep-alive connection
 func NewTCPOutput(address string, config *TCPOutputConfig) io.Writer {
 	o := new(TCPOutput)
 
@@ -37,7 +38,7 @@ func NewTCPOutput(address string, config *TCPOutputConfig) io.Writer {
 		o.bufStats = NewGorStat("output_tcp", 5000)
 	}
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < o.config.workers; i++ {
 		go o.worker()
 	}
 
