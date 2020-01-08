@@ -30,7 +30,7 @@ Basic formula looks like this: `FNV32-1A_hashing(value) % 100 >= chance`. Exampl
 # Limit based on header value
 gor --input-raw :80 --output-tcp "replay.local:28020|10%" --http-header-limiter "X-API-KEY: 10%"
 
-# Limit based on header value
+# Limit based on URL param value
 gor --input-raw :80 --output-tcp "replay.local:28020|10%" --http-param-limiter "api_key: 10%"
 ```
 
