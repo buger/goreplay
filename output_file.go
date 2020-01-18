@@ -213,8 +213,10 @@ func (o *FileOutput) Write(data []byte) (n int, err error) {
 		o.mu.Unlock()
 	}
 
+	o.mu.Lock()
 	o.writer.Write(data)
 	o.writer.Write([]byte(payloadSeparator))
+	o.mu.Unlock()
 
 	o.totalFileSize += int64(len(data) + len(payloadSeparator))
 	o.queueLength++
