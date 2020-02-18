@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"errors"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -77,6 +79,31 @@ func TestEmitterFiltered(t *testing.T) {
 	close(quit)
 
 	Settings.modifierConfig = HTTPModifierConfig{}
+}
+
+type errorReader struct {
+	errToReturn error
+}
+
+func (br *errorReader) Read(p []byte) (n int, err error) {
+	return 0, br.errToReturn
+}
+
+func TestCopyMulty(t *testing.T) {
+	expectedError := errors.New("broken reader should return this error")
+	out := &bytes.Buffer{}
+	in := &errorReader{errToReturn: expectedError}
+	copyError := CopyMulty(in, out)
+
+	if copyError == nil {
+		t.Fatal("reader error must be returned")
+	}
+	if copyError != expectedError {
+		t.Errorf("reader error must be %v but got %v", expectedError, copyError)
+	}
+	if out.Len() != 0 {
+		t.Error("out buffer must be empty")
+	}
 }
 
 func TestEmitterRoundRobin(t *testing.T) {

@@ -62,7 +62,7 @@ func Start(stop chan int) {
 }
 
 // CopyMulty copies from 1 reader to multiple writers
-func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
+func CopyMulty(src io.Reader, writers ...io.Writer) error {
 	buf := make([]byte, Settings.copyBufferSize)
 	wIndex := 0
 	modifier := NewHTTPModifier(&Settings.modifierConfig)
@@ -72,12 +72,11 @@ func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
 	i := 0
 
 	for {
-		nr, er := src.Read(buf)
-
-		if er == io.EOF {
+		nr, err := src.Read(buf)
+		if err == io.EOF {
 			return nil
 		}
-		if er != nil {
+		if err != nil {
 			return err
 		}
 
@@ -131,7 +130,6 @@ func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
 					}
 				}
 			}
-
 			if Settings.prettifyHTTP {
 				payload = prettifyHTTP(payload)
 				if len(payload) == 0 {
@@ -178,5 +176,5 @@ func CopyMulty(src io.Reader, writers ...io.Writer) (err error) {
 		i++
 	}
 
-	return err
+	return nil
 }
