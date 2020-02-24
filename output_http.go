@@ -224,7 +224,7 @@ func (o *HTTPOutput) sendRequest(client *HTTPClient, request []byte) {
 	}
 
 	if o.elasticSearch != nil {
-		o.elasticSearch.ResponseAnalyze(request, resp, start, stop)
+		o.elasticSearch.ResponseAnalyze(request, resp)
 	}
 }
 
