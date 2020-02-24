@@ -1,0 +1,11 @@
+version: "2"
+services:
+
+  goreplay:
+    # build: .
+    image: shaonian/gor:6.x
+    network_mode: host
+    environment:
+      INPUT: "--input-raw :5000"
+      OUTPUT: "--output-stdout"
+      # OUTPUT: "--output-stdout --output-http localhost:5000 --output-http-track-response --output-http-elasticsearch http://localhost:9200"

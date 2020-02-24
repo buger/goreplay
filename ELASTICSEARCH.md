@@ -16,6 +16,8 @@ The default elasticsearch configuration is just fine for most workloads. You won
 
 In this example we're installing it on our gor replay server which gives us the elasticsearch listener on _http://localhost:9200_
 
+(Support es6.x)
+
 
 kibana
 ------
@@ -42,11 +44,22 @@ Start your gor replay server with elasticsearch option:
 ./gor --input-raw :8000 --output-http http://staging.com  --output-http-elasticsearch localhost:9200/gor
 ```
 
+Or your can start gor with docker:
 
-(You don't have to create the index upfront. That will be done for you automatically)
+```
+cd ./examples/gorRunWithDocker
+docker-compose up -d
+```
 
+What's more, your can start kibana and es with docker:
 
-Now visit your kibana url, load the predefined dashboard from the gist https://gist.github.com/gottwald/b2c875037f24719a9616 and watch the data rush in.
+<img src="https://github.com/ShaoNianyr/goreplay/blob/go-es-6x/examples/gorRunWithDocker/pictures/docker_elk.png">
+
+(You don't have to create the index upfront. That will be done for you automatically and update everyday, like gor-2020-01-01.)
+
+Here is an example of gor links kibana-es-6x:
+
+<img src="https://github.com/ShaoNianyr/goreplay/blob/go-es-6x/examples/gorRunWithDocker/pictures/kibana-es-6x.png">
 
 
 Troubleshooting
