@@ -335,7 +335,12 @@ function deleteHttpHeader(payload, name) {
 }
 
 function httpBody(payload) {
-    return payload.slice(payload.indexOf("\r\n\r\n") + 4, payload.length);
+    let bodyIndex = payload.indexOf("\r\n\r\n");
+    if (-1 != bodyIndex){
+        return payload.slice(bodyIndex + 4, payload.length);   
+    } else {
+        return null;
+    }
 }
 
 function setHttpBody(payload, newBody) {
