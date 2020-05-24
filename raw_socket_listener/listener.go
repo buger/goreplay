@@ -72,12 +72,12 @@ type Listener struct {
 	trackResponse bool
 	messageExpire time.Duration
 
-	bpfFilter     string
-	timestampType string
+	bpfFilter       string
+	timestampType   string
 	overrideSnapLen bool
-	immediateMode bool
+	immediateMode   bool
 
-	bufferSize int
+	bufferSize int64
 
 	conn        net.PacketConn
 	pcapHandles []*pcap.Handle
@@ -100,7 +100,7 @@ const (
 )
 
 // NewListener creates and initializes new Listener object
-func NewListener(addr string, port string, engine int, trackResponse bool, expire time.Duration, bpfFilter string, timestampType string, bufferSize int, overrideSnapLen bool, immediateMode bool) (l *Listener) {
+func NewListener(addr string, port string, engine int, trackResponse bool, expire time.Duration, bpfFilter string, timestampType string, bufferSize int64, overrideSnapLen bool, immediateMode bool) (l *Listener) {
 	l = &Listener{}
 
 	l.packetsChan = make(chan *packet, 10000)
@@ -367,7 +367,7 @@ func (t *Listener) readPcap() {
 				log.Println("Setting immediate mode")
 			}
 			if t.bufferSize > 0 {
-				inactive.SetBufferSize(t.bufferSize)
+				inactive.SetBufferSize(int(t.bufferSize))
 			}
 
 			handle, herr := inactive.Activate()
@@ -889,11 +889,12 @@ func (t *Listener) IsReady() bool {
 	}
 }
 
-// Receive TCP messages from the listener channel
+// Receiver TCP messages from the listener channel
 func (t *Listener) Receiver() chan *TCPMessage {
 	return t.messagesChan
 }
 
+// Close tcp listener
 func (t *Listener) Close() {
 	close(t.quit)
 	if t.conn != nil {

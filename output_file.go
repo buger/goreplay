@@ -29,10 +29,11 @@ var dateFileNameFuncs = map[string]func(*FileOutput) string{
 	"%t":  func(o *FileOutput) string { return string(o.payloadType) },
 }
 
+// FileOutputConfig ...
 type FileOutputConfig struct {
 	flushInterval     time.Duration
-	sizeLimit         unitSizeVar
-	outputFileMaxSize unitSizeVar
+	sizeLimit         int64
+	outputFileMaxSize int64
 	queueLimit        int
 	append            bool
 }
@@ -219,7 +220,7 @@ func (o *FileOutput) Write(data []byte) (n int, err error) {
 	o.totalFileSize += int64(len(data) + len(payloadSeparator))
 	o.queueLength++
 
-	if Settings.outputFileConfig.outputFileMaxSize > 0 && o.totalFileSize >= int64(Settings.outputFileConfig.outputFileMaxSize) {
+	if Settings.outputFileConfig.outputFileMaxSize > 0 && o.totalFileSize >= Settings.outputFileConfig.outputFileMaxSize {
 		return len(data), errors.New("File output reached size limit")
 	}
 
@@ -256,6 +257,7 @@ func (o *FileOutput) String() string {
 	return "File output: " + o.file.Name()
 }
 
+// Close closes the output file
 func (o *FileOutput) Close() error {
 	if o.file != nil {
 		if strings.HasSuffix(o.currentName, ".gz") {
