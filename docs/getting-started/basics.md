@@ -1,7 +1,7 @@
 ### Overview
 Gor architecture tries to follow UNIX philosophy: everything made of pipes, various inputs multiplexing data to outputs.
 
-You can [rate limit](/rate-limiting.md), [filter](request-filtering.md), [rewrite](request-rewriting.md) requests or even use your own [middleware](middleware.md) to implement custom logic. Also, it is possible to replay requests at the higher rate for [load testing](saving-and-replaying-from-file.md).
+You can [rate limit](../Rate-limiting.md), [filter](../Request-filtering.md), [rewrite](../Request-rewriting.md) requests or even use your own [middleware](../Middleware.md) to implement custom logic. Also, it is possible to replay requests at the higher rate for [load testing](../Saving-and-replaying-from-file.md).
 
 ### Available inputs
 
