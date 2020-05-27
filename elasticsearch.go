@@ -5,12 +5,11 @@ import (
 	"log"
 	"net/url"
 	"strings"
-	//"regexp"
 	"time"
 
 	"github.com/buger/goreplay/proto"
 
-	"github.com/mattbaird/elastigo/lib"
+	elastigo "github.com/mattbaird/elastigo/lib"
 )
 
 type ESUriErorr struct{}
@@ -67,6 +66,7 @@ func parseURI(URI string) (err error, index string) {
 
 	if parseErr != nil {
 		err = new(ESUriErorr)
+		return
 	}
 
 	//	check URL validity by extracting host and undex values.

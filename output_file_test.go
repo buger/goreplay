@@ -158,21 +158,25 @@ func TestFileOutputCompression(t *testing.T) {
 }
 
 func TestParseDataUnit(t *testing.T) {
-	var tests = []struct {
-		value string
-		size  int64
-	}{
-		{"100kb", dataUnitMap['k'] * 100},
-		{"100k", dataUnitMap['k'] * 100},
-		{"1kb", dataUnitMap['k']},
-		{"1g", dataUnitMap['g']},
-		{"10m", dataUnitMap['m'] * 10},
-		{"zsaa312", 0},
+	var d = map[string]int64{
+		"42mb":                 42 << 20,
+		"4_2":                  42,
+		"00":                   0,
+		"\n\n 0.0\r\t\f":       0,
+		"0_600tb":              384 << 40,
+		"0600Tb":               384 << 40,
+		"0o12Mb":               10 << 20,
+		"0b_10010001111_1kb":   2335 << 10,
+		"1024":                 1 << 10,
+		"0b111":                7,
+		"0x12gB":               18 << 30,
+		"0x_67_7a_2f_cc_40_c6": 113774485586118,
+		"121562380192901":      121562380192901,
 	}
-
-	for _, c := range tests {
-		if parseDataUnit(c.value) != c.size {
-			t.Error(c.value, "should be", c.size, "instead", parseDataUnit(c.value))
+	for k, v := range d {
+		n, err := bufferParser(k, "0")
+		if err != nil || n != v {
+			t.Errorf("Error parsing %s: %v", k, err)
 		}
 	}
 }
@@ -321,7 +325,7 @@ func TestFileOutputAppendSizeLimitOverflow(t *testing.T) {
 
 	messageSize := len(message) + len(payloadSeparator)
 
-	output := NewFileOutput(name, &FileOutputConfig{append: false, flushInterval: time.Minute, sizeLimit: unitSizeVar(2 * messageSize)})
+	output := NewFileOutput(name, &FileOutputConfig{append: false, flushInterval: time.Minute, sizeLimit: 2 * int64(messageSize)})
 
 	output.Write([]byte("1 1 1\r\ntest"))
 	name1 := output.file.Name()

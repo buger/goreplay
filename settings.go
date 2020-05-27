@@ -3,12 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
+	"regexp"
+	"strconv"
 	"sync"
 	"time"
 )
-
-var VERSION string
 
 // MultiOption allows to specify multiple flags with same name and collects all values into array
 type MultiOption []string
@@ -57,9 +58,9 @@ type AppSettings struct {
 	inputRAWExpire          time.Duration
 	inputRAWBpfFilter       string
 	inputRAWTimestampType   string
-	copyBufferSize          int
+	copyBufferSize          int64
 	inputRAWImmediateMode   bool
-	inputRawBufferSize      int
+	inputRawBufferSize      int64
 	inputRAWOverrideSnapLen bool
 
 	middleware string
@@ -80,13 +81,16 @@ type AppSettings struct {
 var Settings AppSettings
 
 func usage() {
-	fmt.Printf("Gor is a simple http traffic replication tool written in Go. Its main goal is to replay traffic from production servers to staging and dev environments.\nProject page: https://github.com/buger/gor\nAuthor: <Leonid Bugaev> leonsbox@gmail.com\nCurrent Version: %s\n\n", VERSION)
+	fmt.Printf("Gor is a simple http traffic replication tool written in Go. Its main goal is to replay traffic from production servers to staging and dev environments.\nProject page: https://github.com/buger/gor\nAuthor: <Leonid Bugaev> leonsbox@gmail.com\nCurrent Version: v%s\n\n", VERSION)
 	flag.PrintDefaults()
 	os.Exit(2)
 }
 
 func init() {
 	flag.Usage = usage
+	var (
+		inputRawBufferSize, outputFileMaxSize, copyBufferSize, outputFileSize string
+	)
 
 	flag.StringVar(&Settings.pprof, "http-pprof", "", "Enable profiling. Starts  http server on specified port, exposing special /debug/pprof endpoint. Example: `:8181`")
 	flag.BoolVar(&Settings.verbose, "verbose", false, "Turn on more verbose output")
@@ -118,13 +122,23 @@ func init() {
 	flag.Var(&Settings.outputFile, "output-file", "Write incoming requests to file: \n\tgor --input-raw :80 --output-file ./requests.gor")
 	flag.DurationVar(&Settings.outputFileConfig.flushInterval, "output-file-flush-interval", time.Second, "Interval for forcing buffer flush to the file, default: 1s.")
 	flag.BoolVar(&Settings.outputFileConfig.append, "output-file-append", false, "The flushed chunk is appended to existence file or not. ")
-
-	// Set default
-	Settings.outputFileConfig.sizeLimit.Set("32mb")
-	flag.Var(&Settings.outputFileConfig.sizeLimit, "output-file-size-limit", "Size of each chunk. Default: 32mb")
+	flag.StringVar(&outputFileSize, "output-file-size-limit", "32mb", "Size of each chunk. Default: 32mb")
+	{
+		n, err := bufferParser(outputFileSize, "32MB")
+		if err != nil {
+			log.Fatalf("output-file-size-limit error: %v\n", err)
+		}
+		Settings.outputFileConfig.sizeLimit = n
+	}
 	flag.IntVar(&Settings.outputFileConfig.queueLimit, "output-file-queue-limit", 256, "The length of the chunk queue. Default: 256")
-	Settings.outputFileConfig.outputFileMaxSize.Set("-1")
-	flag.Var(&Settings.outputFileConfig.outputFileMaxSize, "output-file-max-size-limit", "Max size of output file, Default: 1TB")
+	flag.StringVar(&outputFileMaxSize, "output-file-max-size-limit", "1TB", "Max size of output file, Default: 1TB")
+	{
+		n, err := bufferParser(outputFileMaxSize, "1TB")
+		if err != nil {
+			log.Fatalf("output-file-max-size-limit error: %v\n", err)
+		}
+		Settings.outputFileConfig.outputFileMaxSize = n
+	}
 
 	flag.BoolVar(&Settings.prettifyHTTP, "prettify-http", false, "If enabled, will automatically decode requests and responses with: Content-Encodning: gzip and Transfer-Encoding: chunked. Useful for debugging, in conjuction with --output-stdout")
 
@@ -141,11 +155,25 @@ func init() {
 	flag.StringVar(&Settings.inputRAWBpfFilter, "input-raw-bpf-filter", "", "BPF filter to write custom expressions. Can be useful in case of non standard network interfaces like tunneling or SPAN port. Example: --input-raw-bpf-filter 'dst port 80'")
 
 	flag.StringVar(&Settings.inputRAWTimestampType, "input-raw-timestamp-type", "", "Possible values: PCAP_TSTAMP_HOST, PCAP_TSTAMP_HOST_LOWPREC, PCAP_TSTAMP_HOST_HIPREC, PCAP_TSTAMP_ADAPTER, PCAP_TSTAMP_ADAPTER_UNSYNCED. This values not supported on all systems, GoReplay will tell you available values of you put wrong one.")
-	flag.IntVar(&Settings.copyBufferSize, "copy-buffer-size", 5*1024*1024, "Set the buffer size for an individual request (default 5M)")
+	flag.StringVar(&copyBufferSize, "copy-buffer-size", "5mb", "Set the buffer size for an individual request (default 5MB)")
+	{
+		n, err := bufferParser(copyBufferSize, "5mb")
+		if err != nil {
+			log.Fatalf("copy-buffer-size error: %v\n", err)
+		}
+		Settings.copyBufferSize = n
+	}
 	flag.BoolVar(&Settings.inputRAWOverrideSnapLen, "input-raw-override-snaplen", false, "Override the capture snaplen to be 64k. Required for some Virtualized environments")
 	flag.BoolVar(&Settings.inputRAWImmediateMode, "input-raw-immediate-mode", false, "Set pcap interface to immediate mode.")
 
-	flag.IntVar(&Settings.inputRawBufferSize, "input-raw-buffer-size", 0, "Controls size of the OS buffer (in bytes) which holds packets until they dispatched. Default value depends by system: in Linux around 2MB. If you see big package drop, increase this value.")
+	flag.StringVar(&inputRawBufferSize, "input-raw-buffer-size", "", "Controls size of the OS buffer which holds packets until they dispatched. Default value depends by system: in Linux around 2MB. If you see big package drop, increase this value.")
+	{
+		n, err := bufferParser(inputRawBufferSize, "0")
+		if err != nil {
+			log.Fatalf("input-raw-buffer-size error: %v\n", err)
+		}
+		Settings.inputRawBufferSize = n
+	}
 
 	flag.StringVar(&Settings.middleware, "middleware", "", "Used for modifying traffic using external command")
 
@@ -210,19 +238,78 @@ func init() {
 	flag.Var(&Settings.modifierConfig.paramHashFilters, "http-param-limiter", "Takes a fraction of requests, consistently taking or rejecting a request based on the FNV32-1A hash of a specific GET param:\n\t gor --input-raw :8080 --output-http staging.com --http-param-limiter user_id:25%")
 }
 
-var previousDebugTime int64
+var previousDebugTime = time.Now()
 var debugMutex sync.Mutex
+var pID = os.Getpid()
 
-// Debug gets called only if --verbose flag specified
+// Debug take an effect only if --verbose flag specified
 func Debug(args ...interface{}) {
 	if Settings.verbose {
 		debugMutex.Lock()
+		defer debugMutex.Unlock()
 		now := time.Now()
-		diff := float64(now.UnixNano()-previousDebugTime) / 1000000
-		previousDebugTime = now.UnixNano()
-		debugMutex.Unlock()
-
-		fmt.Printf("[DEBUG][PID %d][%d][%fms] ", os.Getpid(), now.UnixNano(), diff)
+		diff := now.Sub(previousDebugTime).String()
+		previousDebugTime = now
+		fmt.Printf("[DEBUG][PID %d][%s][elapsed %s] ", pID, now.Format(time.StampNano), diff)
 		fmt.Println(args...)
 	}
+}
+
+// bufferParser parses buffer to bytes from different bases and data units
+// size is the buffer in string, rpl act as a replacement for empty buffer.
+// e.g: (--output-file-size-limit "") may override default 32mb with empty buffer,
+// which can be solved by setting rpl by bufferParser(buffer, "32mb")
+func bufferParser(size, rpl string) (buffer int64, err error) {
+	const (
+		_ = 1 << (iota * 10)
+		KB
+		MB
+		GB
+		TB
+	)
+
+	var (
+		// the following regexes follow Go semantics https://golang.org/ref/spec#Letters_and_digits
+		rB   = regexp.MustCompile(`(?i)^(?:0b|0x|0o)?[\da-f_]+$`)
+		rKB  = regexp.MustCompile(`(?i)^(?:0b|0x|0o)?[\da-f_]+kb$`)
+		rMB  = regexp.MustCompile(`(?i)^(?:0b|0x|0o)?[\da-f_]+mb$`)
+		rGB  = regexp.MustCompile(`(?i)^(?:0b|0x|0o)?[\da-f_]+gb$`)
+		rTB  = regexp.MustCompile(`(?i)^(?:0b|0x|0o)?[\da-f_]+tb$`)
+		empt = regexp.MustCompile(`^[\n\t\r 0.\f\a]*$`)
+
+		lmt = len(size) - 2
+		s   = []byte(size)
+	)
+
+	if empt.Match(s) {
+		size = rpl
+		s = []byte(size)
+	}
+
+	// recover, especially when buffer size overflows int64 i.e ~8019PBs
+	defer func() {
+		if e, ok := recover().(error); ok {
+			err = e.(error)
+		}
+	}()
+
+	switch {
+	case rB.Match(s):
+		buffer, err = strconv.ParseInt(size, 0, 64)
+	case rKB.Match(s):
+		buffer, err = strconv.ParseInt(size[:lmt], 0, 64)
+		buffer *= KB
+	case rMB.Match(s):
+		buffer, err = strconv.ParseInt(size[:lmt], 0, 64)
+		buffer *= MB
+	case rGB.Match(s):
+		buffer, err = strconv.ParseInt(size[:lmt], 0, 64)
+		buffer *= GB
+	case rTB.Match(s):
+		buffer, err = strconv.ParseInt(size[:lmt], 0, 64)
+		buffer *= TB
+	default:
+		return 0, fmt.Errorf("invalid buffer %q", size)
+	}
+	return
 }
