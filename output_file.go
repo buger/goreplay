@@ -276,7 +276,7 @@ func (o *FileOutput) closeLocked() error {
 	return nil
 }
 
-
+// Close closes the output file that is being written to.
 func (o *FileOutput) Close() error {
 	o.Lock()
 	defer o.Unlock()
@@ -284,6 +284,7 @@ func (o *FileOutput) Close() error {
 	return nil
 }
 
+// IsClosed returns if the output file is closed or not.
 func (o *FileOutput) IsClosed() bool {
 	o.Lock()
 	defer o.Unlock()
