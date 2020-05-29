@@ -7,6 +7,7 @@ import (
 	"strconv"
 )
 
+// These constants help to indicate the type of payload
 const (
 	RequestPayload          = '1'
 	ResponsePayload         = '2'

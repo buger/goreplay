@@ -124,11 +124,13 @@ func TestEchoMiddleware(t *testing.T) {
 	// And redirect to another
 	output := NewHTTPOutput(to.URL, &HTTPOutputConfig{Debug: false})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 
 	// Start Gor
-	go Start(quit)
+	go Start(plugins, quit)
 
 	// Wait till middleware initialization
 	time.Sleep(100 * time.Millisecond)
@@ -186,11 +188,13 @@ func TestTokenMiddleware(t *testing.T) {
 	// And redirect to another
 	output := NewHTTPOutput(to.URL, &HTTPOutputConfig{Debug: true})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 
 	// Start Gor
-	go Start(quit)
+	go Start(plugins, quit)
 
 	// Wait for middleware to initialize
 	// Give go compiller time to build programm

@@ -65,12 +65,14 @@ func TestRAWInputIPv4(t *testing.T) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 
 	client := NewHTTPClient("http://"+listener.Addr().String(), &HTTPClientConfig{})
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	for i := 0; i < 100; i++ {
 		// request + response
@@ -113,12 +115,14 @@ func TestRAWInputNoKeepAlive(t *testing.T) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 
 	client := NewHTTPClient("http://"+listener.Addr().String(), &HTTPClientConfig{})
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	for i := 0; i < 100; i++ {
 		// request + response
@@ -169,12 +173,14 @@ func TestRAWInputIPv6(t *testing.T) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 
 	client := NewHTTPClient("http://"+listener.Addr().String(), &HTTPClientConfig{})
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	for i := 0; i < 100; i++ {
 		// request + response
@@ -234,10 +240,12 @@ func TestInputRAW100Expect(t *testing.T) {
 
 	httpOutput := NewHTTPOutput(replay.URL, &HTTPOutputConfig{})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{testOutput, httpOutput}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{testOutput, httpOutput},
+	}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	// Origin + Response/Request Test Output + Request Http Output
 	wg.Add(4)
@@ -284,10 +292,12 @@ func TestInputRAWChunkedEncoding(t *testing.T) {
 
 	httpOutput := NewHTTPOutput(replay.URL, &HTTPOutputConfig{Debug: true})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{httpOutput}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{httpOutput},
+	}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	wg.Add(2)
 
@@ -350,10 +360,12 @@ func TestInputRAWLargePayload(t *testing.T) {
 
 	httpOutput := NewHTTPOutput(replay.URL, &HTTPOutputConfig{Debug: false})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{httpOutput}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{httpOutput},
+	}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	wg.Add(2)
 	curl := exec.Command("curl", "http://"+originAddr, "--header", "Transfer-Encoding: chunked", "--header", "Expect:", "--data-binary", "@/tmp/large")
@@ -394,10 +406,12 @@ func BenchmarkRAWInput(b *testing.B) {
 
 	httpOutput := NewLimiter(NewHTTPOutput(upstreamAddr, &HTTPOutputConfig{}), "10%")
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output, httpOutput}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output, httpOutput},
+	}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	emitted := 0
 	fileContent, _ := ioutil.ReadFile("LICENSE.txt")

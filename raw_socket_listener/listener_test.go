@@ -12,7 +12,7 @@ import (
 func TestRawListenerInput(t *testing.T) {
 	var req, resp *TCPMessage
 
-	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false)
+	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false, false)
 	defer listener.Close()
 
 	reqPacket := buildPacket(true, 1, 1, []byte("GET / HTTP/1.1\r\n\r\n"), time.Now())
@@ -77,7 +77,7 @@ func responsePacket(prev *TCPPacket, payload []byte) *TCPPacket {
 }
 
 func TestHEADRequestNoBody(t *testing.T) {
-	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false)
+	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false, false)
 	defer listener.Close()
 
 	reqPacket := firstPacket([]byte("HEAD / HTTP/1.1\r\nContent-Length: 0\r\n\r\n"))
@@ -111,7 +111,7 @@ func TestHEADRequestNoBody(t *testing.T) {
 }
 
 func TestSingleAck100Continue(t *testing.T) {
-	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false)
+	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false, false)
 	defer listener.Close()
 
 	reqPacket1 := firstPacket([]byte("POST / HTTP/1.1\r\nExpect: 100-continue\r\nContent-Length: 4\r\n\r\n"))
@@ -130,7 +130,7 @@ func TestSingleAck100Continue(t *testing.T) {
 }
 
 func Test100ContinueWithoutWaiting(t *testing.T) {
-	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false)
+	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false, false)
 	defer listener.Close()
 
 	req1 := firstPacket([]byte("POST / HTTP/1.1\r\nExpect: 100-continue\r\nContent-Length: 4\r\n\r\n"))
@@ -146,7 +146,7 @@ func Test100ContinueWithoutWaiting(t *testing.T) {
 
 // Client first sends data without waiting 100-continue, but once response received, generate packets based on Ack payload
 func Test100ContinueMixed(t *testing.T) {
-	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false)
+	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false, false)
 	defer listener.Close()
 
 	req1 := firstPacket([]byte("POST / HTTP/1.1\r\nExpect: 100-continue\r\nContent-Length: 12\r\n\r\n"))
@@ -164,7 +164,7 @@ func Test100ContinueMixed(t *testing.T) {
 }
 
 func TestDoubleAck100Continue(t *testing.T) {
-	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false)
+	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false, false)
 	defer listener.Close()
 
 	reqPacket1 := firstPacket([]byte("POST / HTTP/1.1\r\nExpect: 100-continue\r\nContent-Length: 4\r\n\r\n"))
@@ -187,7 +187,7 @@ func TestDoubleAck100Continue(t *testing.T) {
 func TestRawListenerInputResponseByClose(t *testing.T) {
 	var req, resp *TCPMessage
 
-	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false)
+	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false, false)
 	defer listener.Close()
 
 	reqPacket := buildPacket(true, 1, 1, []byte("GET / HTTP/1.1\r\n\r\n"), time.Now())
@@ -227,7 +227,7 @@ func TestRawListenerInputResponseByClose(t *testing.T) {
 func TestRawListenerInputWithoutResponse(t *testing.T) {
 	var req *TCPMessage
 
-	listener := NewListener("", "0", EnginePcap, false, 10*time.Millisecond, "", "", 0, false)
+	listener := NewListener("", "0", EnginePcap, false, 10*time.Millisecond, "", "", 0, false, false)
 	defer listener.Close()
 
 	reqPacket := buildPacket(true, 1, 1, []byte("GET / HTTP/1.1\r\n\r\n"), time.Now())
@@ -249,7 +249,7 @@ func TestRawListenerInputWithoutResponse(t *testing.T) {
 func TestRawListenerResponse(t *testing.T) {
 	var req, resp *TCPMessage
 
-	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false)
+	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false, false)
 	defer listener.Close()
 
 	reqPacket := firstPacket([]byte("GET / HTTP/1.1\r\n\r\n"))
@@ -297,7 +297,7 @@ func get100ContinuePackets() (req []*TCPPacket, resp []*TCPPacket) {
 }
 
 func TestShort100Continue(t *testing.T) {
-	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false)
+	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false, false)
 	defer listener.Close()
 
 	req, resp := get100ContinuePackets()
@@ -309,7 +309,7 @@ func TestShort100Continue(t *testing.T) {
 
 // Response comes before Request
 func Test100ContinueWrongOrder(t *testing.T) {
-	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false)
+	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false, false)
 	defer listener.Close()
 
 	req, resp := get100ContinuePackets()
@@ -462,7 +462,7 @@ func permutation(n int, list []*TCPPacket) []*TCPPacket {
 
 // Response comes before Request
 func TestRawListenerChunkedWrongOrder(t *testing.T) {
-	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false)
+	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false, false)
 	defer listener.Close()
 
 	reqPacket1 := firstPacket([]byte("POST / HTTP/1.1\r\nTransfer-Encoding: chunked\r\nExpect: 100-continue\r\n\r\n"))
@@ -532,7 +532,7 @@ func getMessage() []*TCPPacket {
 
 // Response comes before Request
 func TestRawListenerBench(t *testing.T) {
-	l := NewListener("", "0", EnginePcap, true, 200*time.Millisecond, "", "", 0, false)
+	l := NewListener("", "0", EnginePcap, true, 200*time.Millisecond, "", "", 0, false, false)
 	defer l.Close()
 
 	// Should re-construct message from all possible combinations
@@ -583,7 +583,7 @@ func TestRawListenerBench(t *testing.T) {
 
 func TestResponseZeroContentLength(t *testing.T) {
 	var req, resp *TCPMessage
-	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false)
+	listener := NewListener("", "0", EnginePcap, true, 10*time.Millisecond, "", "", 0, false, false)
 	defer listener.Close()
 
 	reqPacket := firstPacket([]byte("POST /api/setup/install HTTP/1.1\r\nHost: localhost:22936\r\nUser-Agent: curl/7.57.0\r\nAccept: */*\r\nContent-Length: 0\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\n"))

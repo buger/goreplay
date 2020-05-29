@@ -17,7 +17,7 @@ type InOutPlugins struct {
 var pluginMu sync.Mutex
 
 // Plugins holds all the plugin objects
-var Plugins *InOutPlugins = new(InOutPlugins)
+var plugins *InOutPlugins = new(InOutPlugins)
 
 // extractLimitOptions detects if plugin get called with limiter support
 // Returns address and limit
@@ -67,18 +67,18 @@ func registerPlugin(constructor interface{}, options ...interface{}) {
 
 	// Some of the output can be Readers as well because return responses
 	if isR && !isW {
-		Plugins.Inputs = append(Plugins.Inputs, pluginWrapper.(io.Reader))
+		plugins.Inputs = append(plugins.Inputs, pluginWrapper.(io.Reader))
 	}
 
 	if isW {
-		Plugins.Outputs = append(Plugins.Outputs, pluginWrapper.(io.Writer))
+		plugins.Outputs = append(plugins.Outputs, pluginWrapper.(io.Writer))
 	}
 
-	Plugins.All = append(Plugins.All, plugin)
+	plugins.All = append(plugins.All, plugin)
 }
 
 // InitPlugins specify and initialize all available plugins
-func InitPlugins() {
+func InitPlugins() *InOutPlugins {
 	pluginMu.Lock()
 	defer pluginMu.Unlock()
 
@@ -149,4 +149,6 @@ func InitPlugins() {
 	if Settings.inputKafkaConfig.host != "" && Settings.inputKafkaConfig.topic != "" {
 		registerPlugin(NewKafkaInput, "", &Settings.inputKafkaConfig)
 	}
+
+	return plugins
 }

@@ -19,10 +19,12 @@ func TestEmitter(t *testing.T) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	for i := 0; i < 1000; i++ {
 		wg.Add(1)
@@ -45,12 +47,14 @@ func TestEmitterFiltered(t *testing.T) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 	methods := HTTPMethods{[]byte("GET")}
 	Settings.modifierConfig = HTTPModifierConfig{methods: methods}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	wg.Add(2)
 
@@ -124,12 +128,14 @@ func TestEmitterRoundRobin(t *testing.T) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output1, output2}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output1, output2},
+	}
 
 	Settings.splitOutput = true
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	for i := 0; i < 1000; i++ {
 		wg.Add(1)
@@ -157,10 +163,12 @@ func BenchmarkEmitter(b *testing.B) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	b.ResetTimer()
 

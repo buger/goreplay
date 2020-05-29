@@ -18,10 +18,12 @@ func TestOutputLimiter(t *testing.T) {
 	}), "10")
 	wg.Add(10)
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	for i := 0; i < 100; i++ {
 		input.EmitGET()
@@ -42,10 +44,12 @@ func TestInputLimiter(t *testing.T) {
 	})
 	wg.Add(10)
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	for i := 0; i < 100; i++ {
 		input.(*Limiter).plugin.(*TestInput).EmitGET()
@@ -66,10 +70,12 @@ func TestPercentLimiter1(t *testing.T) {
 		wg.Done()
 	}), "0%")
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	for i := 0; i < 100; i++ {
 		input.EmitGET()
@@ -91,10 +97,12 @@ func TestPercentLimiter2(t *testing.T) {
 	}), "100%")
 	wg.Add(100)
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	for i := 0; i < 100; i++ {
 		input.EmitGET()
