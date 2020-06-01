@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	"hash/fnv"
 	"io"
 	"log"
 	"net"
@@ -15,13 +16,14 @@ import (
 type TCPOutput struct {
 	address  string
 	limit    int
-	buf      chan []byte
+	buf      []chan []byte
 	bufStats *GorStat
 	config   *TCPOutputConfig
 }
 
 type TCPOutputConfig struct {
 	secure bool
+	sticky bool
 }
 
 // NewTCPOutput constructor for TCPOutput
@@ -32,19 +34,30 @@ func NewTCPOutput(address string, config *TCPOutputConfig) io.Writer {
 	o.address = address
 	o.config = config
 
-	o.buf = make(chan []byte, 1000)
 	if Settings.outputTCPStats {
 		o.bufStats = NewGorStat("output_tcp", 5000)
 	}
 
-	for i := 0; i < 10; i++ {
-		go o.worker()
+	if o.config.sticky {
+		// create 10 buffers and send the buffer index to the worker
+		o.buf = make([]chan []byte, 10)
+		for i := 0; i < 10; i++ {
+			o.buf[i] = make(chan []byte, 100)
+			go o.worker(i)
+		}
+	} else {
+		// create 1 buffer and send its index (0) to all workers
+		o.buf = make([]chan []byte, 1)
+		o.buf[0] = make(chan []byte, 1000)
+		for i := 0; i < 10; i++ {
+			go o.worker(0)
+		}
 	}
 
 	return o
 }
 
-func (o *TCPOutput) worker() {
+func (o *TCPOutput) worker(bufferIndex int) {
 	retries := 1
 	conn, err := o.connect(o.address)
 	for {
@@ -66,17 +79,27 @@ func (o *TCPOutput) worker() {
 	defer conn.Close()
 
 	for {
-		data := <-o.buf
+		data := <-o.buf[bufferIndex]
 		conn.Write(data)
 		_, err := conn.Write([]byte(payloadSeparator))
 
 		if err != nil {
 			log.Println("INFO: TCP output connection closed, reconnecting")
-			o.buf <- data
-			go o.worker()
+			o.buf[bufferIndex] <- data
+			go o.worker(bufferIndex)
 			break
 		}
 	}
+}
+
+func (o *TCPOutput) getBufferIndex(data []byte) int {
+	if !o.config.sticky {
+		return 0
+	}
+
+	hasher := fnv.New32a()
+	hasher.Write(payloadMeta(data)[1])
+	return int(hasher.Sum32()) % 10
 }
 
 func (o *TCPOutput) Write(data []byte) (n int, err error) {
@@ -88,10 +111,11 @@ func (o *TCPOutput) Write(data []byte) (n int, err error) {
 	newBuf := make([]byte, len(data))
 	copy(newBuf, data)
 
-	o.buf <- newBuf
+	bufferIndex := o.getBufferIndex(data)
+	o.buf[bufferIndex] <- newBuf
 
 	if Settings.outputTCPStats {
-		o.bufStats.Write(len(o.buf))
+		o.bufStats.Write(len(o.buf[bufferIndex]))
 	}
 
 	return len(data), nil

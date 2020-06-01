@@ -21,10 +21,12 @@ func TestHTTPInput(t *testing.T) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	address := strings.Replace(input.listener.Addr().String(), "[::]", "127.0.0.1", -1)
 
@@ -55,10 +57,12 @@ func TestInputHTTPLargePayload(t *testing.T) {
 		}
 		wg.Done()
 	})
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	wg.Add(1)
 	address := strings.Replace(input.listener.Addr().String(), "[::]", "127.0.0.1", -1)

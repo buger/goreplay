@@ -322,10 +322,12 @@ func CreateCaptureFile(requestGenerator *RequestGenerator) *CaptureFile {
 
 	outputFile := NewFileOutput(f.Name(), &FileOutputConfig{flushInterval: time.Minute, append: true})
 
-	Plugins.Inputs = requestGenerator.inputs
-	Plugins.Outputs = []io.Writer{output, outputFile}
+	plugins := &InOutPlugins{
+		Inputs:  requestGenerator.inputs,
+		Outputs: []io.Writer{output, outputFile},
+	}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	requestGenerator.emit()
 	requestGenerator.wg.Wait()
@@ -350,11 +352,13 @@ func ReadFromCaptureFile(captureFile *os.File, count int, callback writeCallback
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 
 	wg.Add(count)
-	go Start(quit)
+	go Start(plugins, quit)
 
 	done := make(chan int, 1)
 	go func() {

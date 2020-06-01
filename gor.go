@@ -50,6 +50,7 @@ func main() {
 	}
 
 	args := os.Args[1:]
+	var plugins *InOutPlugins
 	if len(args) > 0 && args[0] == "file-server" {
 		if len(args) != 2 {
 			log.Fatal("You should specify port and IP (optional) for the file server. Example: `gor file-server :80`")
@@ -61,12 +62,12 @@ func main() {
 		log.Fatal(http.ListenAndServe(args[1], loggingMiddleware(http.FileServer(http.Dir(dir)))))
 	} else {
 		flag.Parse()
-		InitPlugins()
+		plugins = InitPlugins()
 	}
 
 	fmt.Println("Version:", VERSION)
 
-	if len(Plugins.Inputs) == 0 || len(Plugins.Outputs) == 0 {
+	if len(plugins.Inputs) == 0 || len(plugins.Outputs) == 0 {
 		log.Fatal("Required at least 1 input and 1 output")
 	}
 
@@ -88,7 +89,7 @@ func main() {
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-c
-		finalize()
+		finalize(plugins)
 		os.Exit(1)
 	}()
 
@@ -101,11 +102,11 @@ func main() {
 		})
 	}
 
-	Start(closeCh)
+	Start(plugins, closeCh)
 }
 
-func finalize() {
-	for _, p := range Plugins.All {
+func finalize(plugins *InOutPlugins) {
+	for _, p := range plugins.All {
 		if cp, ok := p.(io.Closer); ok {
 			cp.Close()
 		}

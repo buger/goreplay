@@ -4,7 +4,7 @@ package main
 type NullOutput struct {
 }
 
-// NullOutput constructor for NullOutput
+// NewNullOutput constructor for NullOutput
 func NewNullOutput() (o *NullOutput) {
 	return new(NullOutput)
 }

@@ -21,7 +21,7 @@ type RAWInput struct {
 	listener      *raw.Listener
 	bpfFilter     string
 	timestampType string
-	bufferSize    int
+	bufferSize    int64
 }
 
 // Available engines for intercepting traffic
@@ -32,7 +32,7 @@ const (
 )
 
 // NewRAWInput constructor for RAWInput. Accepts address with port as argument.
-func NewRAWInput(address string, engine int, trackResponse bool, expire time.Duration, realIPHeader string, bpfFilter string, timestampType string, bufferSize int) (i *RAWInput) {
+func NewRAWInput(address string, engine int, trackResponse bool, expire time.Duration, realIPHeader string, bpfFilter string, timestampType string, bufferSize int64) (i *RAWInput) {
 	i = new(RAWInput)
 	i.data = make(chan *raw.TCPMessage)
 	i.address = address
@@ -105,6 +105,7 @@ func (i *RAWInput) String() string {
 	return "Intercepting traffic from: " + i.address
 }
 
+// Close closes the input raw listener
 func (i *RAWInput) Close() error {
 	i.listener.Close()
 	close(i.quit)

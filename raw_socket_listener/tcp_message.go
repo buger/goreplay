@@ -199,7 +199,9 @@ func (t *TCPMessage) checkSeqIntegrity() {
 
 var bEmptyLine = []byte("\r\n\r\n")
 var bBR = []byte("\r\n")
-var bChunkEnd = []byte("\r\n0\r\n\r\n")
+
+// last-chunk always is 0\r\n\r\n\. More info https://tools.ietf.org/html/rfc2616#section-3.6.1
+var bChunkEnd = []byte("0\r\n\r\n")
 
 func (t *TCPMessage) updateHeadersPacket() {
 	if len(t.packets) == 1 {

@@ -48,10 +48,12 @@ func TestHTTPOutput(t *testing.T) {
 		wg.Done()
 	})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{http_output, output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{http_output, output},
+	}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	for i := 0; i < 1; i++ {
 		// 2 http-output, 2 - test output request, 2 - test output http response
@@ -88,10 +90,12 @@ func TestHTTPOutputKeepOriginalHost(t *testing.T) {
 
 	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{Debug: false, OriginalHost: true})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	wg.Add(1)
 	input.EmitGET()
@@ -115,10 +119,12 @@ func TestOutputHTTPSSL(t *testing.T) {
 	input := NewTestInput()
 	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	wg.Add(2)
 
@@ -142,10 +148,12 @@ func BenchmarkHTTPOutput(b *testing.B) {
 	input := NewTestInput()
 	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{})
 
-	Plugins.Inputs = []io.Reader{input}
-	Plugins.Outputs = []io.Writer{output}
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
 
-	go Start(quit)
+	go Start(plugins, quit)
 
 	for i := 0; i < b.N; i++ {
 		wg.Add(1)
