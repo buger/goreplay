@@ -18,6 +18,7 @@ require (
 	github.com/mailru/easyjson v0.7.1 // indirect
 	github.com/mattbaird/elastigo v0.0.0-20170123220020-2fe47fd29e4b
 	github.com/olivere/elastic v6.2.27+incompatible
+	github.com/mdlayher/raw v0.0.0-20191009151244-50f2db8cc065 // indirect
 	github.com/pierrec/lz4 v0.0.0-20161206202305-5c9560bfa9ac // indirect
 	github.com/pierrec/xxHash v0.0.0-20160112165351-5a004441f897 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
