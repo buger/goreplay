@@ -1,10 +1,15 @@
 package main
 
 import (
-	"context"
+	"encoding/json"
 	"log"
+	"net/url"
+	"strings"
 	"time"
+
 	"github.com/buger/goreplay/proto"
+
+	elastigo "github.com/mattbaird/elastigo/lib"
 	"github.com/olivere/elastic"
 )
 
