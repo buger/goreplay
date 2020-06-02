@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"runtime"
 	"strconv"
 	"sync"
 	"time"
@@ -152,6 +153,10 @@ func init() {
 	flag.StringVar(&Settings.inputRAWRealIPHeader, "input-raw-realip-header", "", "If not blank, injects header with given name and real IP value to the request payload. Usually this header should be named: X-Real-IP")
 
 	flag.DurationVar(&Settings.inputRAWExpire, "input-raw-expire", time.Second*2, "How much it should wait for the last TCP packet, till consider that TCP message complete.")
+	// libpcap has bug in mac os x. More info: https://github.com/buger/goreplay/issues/730
+	if Settings.inputRAWExpire == time.Second*2 && runtime.GOOS == "darwin" {
+		Settings.inputRAWExpire = time.Second
+	}
 
 	flag.StringVar(&Settings.inputRAWBpfFilter, "input-raw-bpf-filter", "", "BPF filter to write custom expressions. Can be useful in case of non standard network interfaces like tunneling or SPAN port. Example: --input-raw-bpf-filter 'dst port 80'")
 
