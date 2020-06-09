@@ -715,6 +715,12 @@ function TEST_httpBody() {
     if (body != "hello") {
         fail(`'${body}' != 'hello'`)
     }
+
+    const exampleInvalidPayload = "Invalid HTTP Response by Network issue";
+    let invalidBody = httpBody(Buffer.from(exampleInvalidPayload));
+    if (invalidBody != null) {
+        fail(`'${invalidBody}' != 'null'`)
+    }
 }
 
 function TEST_setHttpBody() {
