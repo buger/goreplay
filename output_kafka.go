@@ -31,8 +31,11 @@ func NewKafkaOutput(address string, config *KafkaConfig) io.Writer {
 	if mock, ok := config.producer.(*mocks.AsyncProducer); ok && mock != nil {
 		producer = config.producer
 	} else {
-		c.Producer.RequiredAcks = sarama.WaitForLocal
+		c.Version = sarama.V1_1_1_0
+		c.Producer.RequiredAcks = sarama.WaitForAll
 		c.Producer.Compression = sarama.CompressionSnappy
+		c.Producer.Retry.Max = 30
+		c.Producer.Retry.Backoff = 500 * time.Millisecond
 		c.Producer.Flush.Frequency = KafkaOutputFrequency * time.Millisecond
 
 		brokerList := strings.Split(config.host, ",")
