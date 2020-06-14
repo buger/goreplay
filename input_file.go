@@ -107,16 +107,18 @@ type FileInput struct {
 	readers     []*fileInputReader
 	speedFactor float64
 	loop        bool
+	maxWait     time.Duration
 }
 
 // NewFileInput constructor for FileInput. Accepts file path as argument.
-func NewFileInput(path string, loop bool) (i *FileInput) {
+func NewFileInput(path string, loop bool, maxWait time.Duration) (i *FileInput) {
 	i = new(FileInput)
-	i.data = make(chan []byte, 1000)
+	i.data = make(chan []byte, 8000)
 	i.exit = make(chan bool, 1)
 	i.path = path
 	i.speedFactor = 1
 	i.loop = loop
+	i.maxWait = maxWait
 
 	if err := i.init(); err != nil {
 		return
@@ -204,6 +206,10 @@ func (i *FileInput) emit() {
 		if lastTime != -1 {
 			diff := reader.timestamp - lastTime
 			lastTime = reader.timestamp
+
+			if diff > i.maxWait.Nanoseconds() {
+				diff = i.maxWait.Nanoseconds()
+			}
 
 			if i.speedFactor != 1 {
 				diff = int64(float64(diff) / i.speedFactor)
