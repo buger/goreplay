@@ -225,17 +225,17 @@ func (o *FileOutput) Write(data []byte) (n int, err error) {
 		o.queueLength = 0
 	}
 
-	o.writer.Write(data)
+	n, _ = o.writer.Write(data)
 	o.writer.Write([]byte(payloadSeparator))
 
-	o.totalFileSize += int64(len(data) + len(payloadSeparator))
+	o.totalFileSize += int64(n + len(payloadSeparator))
 	o.queueLength++
 
 	if Settings.outputFileConfig.outputFileMaxSize > 0 && o.totalFileSize >= Settings.outputFileConfig.outputFileMaxSize {
-		return len(data), errors.New("File output reached size limit")
+		return n, errors.New("File output reached size limit")
 	}
 
-	return len(data), nil
+	return n, nil
 }
 
 func (o *FileOutput) flush() {
