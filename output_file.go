@@ -226,9 +226,11 @@ func (o *FileOutput) Write(data []byte) (n int, err error) {
 	}
 
 	n, _ = o.writer.Write(data)
-	o.writer.Write([]byte(payloadSeparator))
+	nSeparator, _ := o.writer.Write([]byte(payloadSeparator))
 
-	o.totalFileSize += int64(n + len(payloadSeparator))
+	n += nSeparator
+
+	o.totalFileSize += int64(n)
 	o.queueLength++
 
 	if Settings.outputFileConfig.outputFileMaxSize > 0 && o.totalFileSize >= Settings.outputFileConfig.outputFileMaxSize {
