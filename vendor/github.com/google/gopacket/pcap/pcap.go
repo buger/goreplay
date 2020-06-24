@@ -524,13 +524,13 @@ func (p *Handle) NewBPF(expr string) (*BPF, error) {
 // This allows to match packets obtained from a-non GoPacket capture source
 // to be matched.
 //
-// buf := make([]byte, MaxFrameSize)
-// bpfi, _ := pcap.NewBPF(layers.LinkTypeEthernet, MaxFrameSize, "icmp")
-// n, _ := someIO.Read(buf)
-// ci := gopacket.CaptureInfo{CaptureLength: n, Length: n}
-// if bpfi.Matches(ci, buf) {
-//     doSomething()
-// }
+// 	buf := make([]byte, MaxFrameSize)
+// 	bpfi, _ := pcap.NewBPF(layers.LinkTypeEthernet, MaxFrameSize, "icmp")
+// 	n, _ := someIO.Read(buf)
+// 	ci := gopacket.CaptureInfo{CaptureLength: n, Length: n}
+// 	if bpfi.Matches(ci, buf) {
+// 		doSomething()
+// 	}
 func NewBPF(linkType layers.LinkType, captureLength int, expr string) (*BPF, error) {
 	h, err := pcapOpenDead(linkType, captureLength)
 	if err != nil {

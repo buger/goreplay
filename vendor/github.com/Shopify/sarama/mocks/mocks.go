@@ -15,8 +15,6 @@ package mocks
 
 import (
 	"errors"
-
-	"github.com/Shopify/sarama"
 )
 
 // ErrorReporter is a simple interface that includes the testing.T methods we use to report
@@ -40,9 +38,4 @@ const AnyOffset int64 = -1000
 type producerExpectation struct {
 	Result        error
 	CheckFunction ValueChecker
-}
-
-type consumerExpectation struct {
-	Err error
-	Msg *sarama.ConsumerMessage
 }

@@ -8,7 +8,10 @@ import (
 var errInvalidArrayLength = PacketDecodingError{"invalid array length"}
 var errInvalidByteSliceLength = PacketDecodingError{"invalid byteslice length"}
 var errInvalidStringLength = PacketDecodingError{"invalid string length"}
-var errInvalidSubsetSize = PacketDecodingError{"invalid subset size"}
+var errVarintOverflow = PacketDecodingError{"varint overflow"}
+var errUVarintOverflow = PacketDecodingError{"uvarint overflow"}
+var errInvalidBool = PacketDecodingError{"invalid bool"}
+var errUnsupportedTaggedFields = PacketDecodingError{"non-empty tagged fields are not supported yet"}
 
 type realDecoder struct {
 	raw   []byte
@@ -58,12 +61,42 @@ func (rd *realDecoder) getInt64() (int64, error) {
 	return tmp, nil
 }
 
+func (rd *realDecoder) getVarint() (int64, error) {
+	tmp, n := binary.Varint(rd.raw[rd.off:])
+	if n == 0 {
+		rd.off = len(rd.raw)
+		return -1, ErrInsufficientData
+	}
+	if n < 0 {
+		rd.off -= n
+		return -1, errVarintOverflow
+	}
+	rd.off += n
+	return tmp, nil
+}
+
+func (rd *realDecoder) getUVarint() (uint64, error) {
+	tmp, n := binary.Uvarint(rd.raw[rd.off:])
+	if n == 0 {
+		rd.off = len(rd.raw)
+		return 0, ErrInsufficientData
+	}
+
+	if n < 0 {
+		rd.off -= n
+		return 0, errUVarintOverflow
+	}
+
+	rd.off += n
+	return tmp, nil
+}
+
 func (rd *realDecoder) getArrayLength() (int, error) {
 	if rd.remaining() < 4 {
 		rd.off = len(rd.raw)
 		return -1, ErrInsufficientData
 	}
-	tmp := int(binary.BigEndian.Uint32(rd.raw[rd.off:]))
+	tmp := int(int32(binary.BigEndian.Uint32(rd.raw[rd.off:])))
 	rd.off += 4
 	if tmp > rd.remaining() {
 		rd.off = len(rd.raw)
@@ -74,58 +107,160 @@ func (rd *realDecoder) getArrayLength() (int, error) {
 	return tmp, nil
 }
 
+func (rd *realDecoder) getCompactArrayLength() (int, error) {
+	n, err := rd.getUVarint()
+	if err != nil {
+		return 0, err
+	}
+
+	if n == 0 {
+		return 0, nil
+	}
+
+	return int(n) - 1, nil
+}
+
+func (rd *realDecoder) getBool() (bool, error) {
+	b, err := rd.getInt8()
+	if err != nil || b == 0 {
+		return false, err
+	}
+	if b != 1 {
+		return false, errInvalidBool
+	}
+	return true, nil
+}
+
+func (rd *realDecoder) getEmptyTaggedFieldArray() (int, error) {
+	tagCount, err := rd.getUVarint()
+	if err != nil {
+		return 0, err
+	}
+
+	if tagCount != 0 {
+		return 0, errUnsupportedTaggedFields
+	}
+
+	return 0, nil
+}
+
 // collections
 
 func (rd *realDecoder) getBytes() ([]byte, error) {
 	tmp, err := rd.getInt32()
-
 	if err != nil {
 		return nil, err
 	}
+	if tmp == -1 {
+		return nil, nil
+	}
 
-	n := int(tmp)
+	return rd.getRawBytes(int(tmp))
+}
+
+func (rd *realDecoder) getVarintBytes() ([]byte, error) {
+	tmp, err := rd.getVarint()
+	if err != nil {
+		return nil, err
+	}
+	if tmp == -1 {
+		return nil, nil
+	}
+
+	return rd.getRawBytes(int(tmp))
+}
+
+func (rd *realDecoder) getStringLength() (int, error) {
+	length, err := rd.getInt16()
+	if err != nil {
+		return 0, err
+	}
+
+	n := int(length)
 
 	switch {
 	case n < -1:
-		return nil, errInvalidByteSliceLength
-	case n == -1:
-		return nil, nil
-	case n == 0:
-		return make([]byte, 0), nil
+		return 0, errInvalidStringLength
 	case n > rd.remaining():
 		rd.off = len(rd.raw)
-		return nil, ErrInsufficientData
+		return 0, ErrInsufficientData
 	}
 
-	tmpStr := rd.raw[rd.off : rd.off+n]
-	rd.off += n
-	return tmpStr, nil
+	return n, nil
 }
 
 func (rd *realDecoder) getString() (string, error) {
-	tmp, err := rd.getInt16()
-
-	if err != nil {
+	n, err := rd.getStringLength()
+	if err != nil || n == -1 {
 		return "", err
-	}
-
-	n := int(tmp)
-
-	switch {
-	case n < -1:
-		return "", errInvalidStringLength
-	case n == -1:
-		return "", nil
-	case n == 0:
-		return "", nil
-	case n > rd.remaining():
-		rd.off = len(rd.raw)
-		return "", ErrInsufficientData
 	}
 
 	tmpStr := string(rd.raw[rd.off : rd.off+n])
 	rd.off += n
 	return tmpStr, nil
+}
+
+func (rd *realDecoder) getNullableString() (*string, error) {
+	n, err := rd.getStringLength()
+	if err != nil || n == -1 {
+		return nil, err
+	}
+
+	tmpStr := string(rd.raw[rd.off : rd.off+n])
+	rd.off += n
+	return &tmpStr, err
+}
+
+func (rd *realDecoder) getCompactString() (string, error) {
+	n, err := rd.getUVarint()
+	if err != nil {
+		return "", err
+	}
+
+	var length = int(n - 1)
+
+	tmpStr := string(rd.raw[rd.off : rd.off+length])
+	rd.off += length
+	return tmpStr, nil
+}
+
+func (rd *realDecoder) getCompactNullableString() (*string, error) {
+	n, err := rd.getUVarint()
+
+	if err != nil {
+		return nil, err
+	}
+
+	var length = int(n - 1)
+
+	if length < 0 {
+		return nil, err
+	}
+
+	tmpStr := string(rd.raw[rd.off : rd.off+length])
+	rd.off += length
+	return &tmpStr, err
+}
+
+func (rd *realDecoder) getCompactInt32Array() ([]int32, error) {
+	n, err := rd.getUVarint()
+	if err != nil {
+		return nil, err
+	}
+
+	if n == 0 {
+		return nil, nil
+	}
+
+	arrayLength := int(n) - 1
+
+	ret := make([]int32, arrayLength)
+
+	for i := range ret {
+		ret[i] = int32(binary.BigEndian.Uint32(rd.raw[rd.off:]))
+		rd.off += 4
+	}
+	return ret, nil
 }
 
 func (rd *realDecoder) getInt32Array() ([]int32, error) {
@@ -204,11 +339,12 @@ func (rd *realDecoder) getStringArray() ([]string, error) {
 
 	ret := make([]string, n)
 	for i := range ret {
-		if str, err := rd.getString(); err != nil {
+		str, err := rd.getString()
+		if err != nil {
 			return nil, err
-		} else {
-			ret[i] = str
 		}
+
+		ret[i] = str
 	}
 	return ret, nil
 }
@@ -220,8 +356,16 @@ func (rd *realDecoder) remaining() int {
 }
 
 func (rd *realDecoder) getSubset(length int) (packetDecoder, error) {
+	buf, err := rd.getRawBytes(length)
+	if err != nil {
+		return nil, err
+	}
+	return &realDecoder{raw: buf}, nil
+}
+
+func (rd *realDecoder) getRawBytes(length int) ([]byte, error) {
 	if length < 0 {
-		return nil, errInvalidSubsetSize
+		return nil, errInvalidByteSliceLength
 	} else if length > rd.remaining() {
 		rd.off = len(rd.raw)
 		return nil, ErrInsufficientData
@@ -229,7 +373,23 @@ func (rd *realDecoder) getSubset(length int) (packetDecoder, error) {
 
 	start := rd.off
 	rd.off += length
-	return &realDecoder{raw: rd.raw[start:rd.off]}, nil
+	return rd.raw[start:rd.off], nil
+}
+
+func (rd *realDecoder) peek(offset, length int) (packetDecoder, error) {
+	if rd.remaining() < offset+length {
+		return nil, ErrInsufficientData
+	}
+	off := rd.off + offset
+	return &realDecoder{raw: rd.raw[off : off+length]}, nil
+}
+
+func (rd *realDecoder) peekInt8(offset int) (int8, error) {
+	const byteLen = 1
+	if rd.remaining() < offset+byteLen {
+		return -1, ErrInsufficientData
+	}
+	return int8(rd.raw[rd.off+offset]), nil
 }
 
 // stacks
@@ -237,10 +397,17 @@ func (rd *realDecoder) getSubset(length int) (packetDecoder, error) {
 func (rd *realDecoder) push(in pushDecoder) error {
 	in.saveOffset(rd.off)
 
-	reserve := in.reserveLength()
-	if rd.remaining() < reserve {
-		rd.off = len(rd.raw)
-		return ErrInsufficientData
+	var reserve int
+	if dpd, ok := in.(dynamicPushDecoder); ok {
+		if err := dpd.decode(rd); err != nil {
+			return err
+		}
+	} else {
+		reserve = in.reserveLength()
+		if rd.remaining() < reserve {
+			rd.off = len(rd.raw)
+			return ErrInsufficientData
+		}
 	}
 
 	rd.stack = append(rd.stack, in)

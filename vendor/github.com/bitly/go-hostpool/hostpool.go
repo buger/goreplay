@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// Returns current version
+// Version returns current version
 func Version() string {
 	return "0.1"
 }
@@ -110,7 +110,7 @@ func doMark(err error, r HostPoolResponse) {
 	}
 }
 
-// return an entry from the HostPool
+// Get returns an entry from the HostPool
 func (p *standardHostPool) Get() HostPoolResponse {
 	p.Lock()
 	defer p.Unlock()

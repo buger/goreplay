@@ -296,6 +296,16 @@ func Debug(args ...interface{}) {
 	}
 }
 
+// the following regexes follow Go semantics https://golang.org/ref/spec#Letters_and_digits
+var (
+	rB   = regexp.MustCompile(`(?i)^(?:0b|0x|0o)?[\da-f_]+$`)
+	rKB  = regexp.MustCompile(`(?i)^(?:0b|0x|0o)?[\da-f_]+kb$`)
+	rMB  = regexp.MustCompile(`(?i)^(?:0b|0x|0o)?[\da-f_]+mb$`)
+	rGB  = regexp.MustCompile(`(?i)^(?:0b|0x|0o)?[\da-f_]+gb$`)
+	rTB  = regexp.MustCompile(`(?i)^(?:0b|0x|0o)?[\da-f_]+tb$`)
+	empt = regexp.MustCompile(`^[\n\t\r 0.\f\a]*$`)
+)
+
 // bufferParser parses buffer to bytes from different bases and data units
 // size is the buffer in string, rpl act as a replacement for empty buffer.
 // e.g: (--output-file-size-limit "") may override default 32mb with empty buffer,
@@ -310,14 +320,6 @@ func bufferParser(size, rpl string) (buffer int64, err error) {
 	)
 
 	var (
-		// the following regexes follow Go semantics https://golang.org/ref/spec#Letters_and_digits
-		rB   = regexp.MustCompile(`(?i)^(?:0b|0x|0o)?[\da-f_]+$`)
-		rKB  = regexp.MustCompile(`(?i)^(?:0b|0x|0o)?[\da-f_]+kb$`)
-		rMB  = regexp.MustCompile(`(?i)^(?:0b|0x|0o)?[\da-f_]+mb$`)
-		rGB  = regexp.MustCompile(`(?i)^(?:0b|0x|0o)?[\da-f_]+gb$`)
-		rTB  = regexp.MustCompile(`(?i)^(?:0b|0x|0o)?[\da-f_]+tb$`)
-		empt = regexp.MustCompile(`^[\n\t\r 0.\f\a]*$`)
-
 		lmt = len(size) - 2
 		s   = []byte(size)
 	)

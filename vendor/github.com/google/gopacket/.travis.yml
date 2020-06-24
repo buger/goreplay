@@ -1,18 +1,55 @@
 language: go
-before_install:
- - sudo apt-get install libpcap-dev
-install:
- - go get github.com/google/gopacket
- - go get github.com/google/gopacket/layers
- - go get github.com/google/gopacket/pcapgo
- - go get github.com/google/gopacket/tcpassembly
- - go get github.com/google/gopacket/reassembly
-script:
- - go test github.com/google/gopacket
- - go test github.com/google/gopacket/layers
- - go test github.com/google/gopacket/pcapgo 
- - go test github.com/google/gopacket/tcpassembly
- - go test github.com/google/gopacket/reassembly
- - ./.travis.gofmt.sh
- - ./.travis.govet.sh
- - ./.travis.golint.sh
+go:
+ - 1.11.x
+ - 1.12.x
+ - master
+
+addons:
+  apt:
+    packages:
+      libpcap-dev
+
+# use modules except for older versions (see below)
+install: true
+
+env:
+  - GO111MODULE=on
+
+script: ./.travis.script.sh
+
+matrix:
+  fast_finish: true
+  allow_failures:
+    - go: master
+
+jobs:
+  include:
+    - go: 1.5.x
+      install: ./.travis.install.sh
+    - go: 1.6.x
+      install: ./.travis.install.sh
+    - go: 1.7.x
+      install: ./.travis.install.sh
+    - go: 1.8.x
+      install: ./.travis.install.sh
+    - go: 1.9.x
+      install: ./.travis.install.sh
+    - go: 1.10.x
+      install: ./.travis.install.sh
+    - os: osx
+      go: 1.x
+    - os: windows
+      go: 1.x
+      # winpcap does not work on travis ci - so install nmap to get libpcap
+      before_install: choco install nmap
+    - stage: style
+      name: "fmt/vet/lint"
+      go: 1.x
+      script:
+        - ./.travis.gofmt.sh
+        - ./.travis.govet.sh
+        - ./.travis.golint.sh
+
+stages:
+  - style
+  - test

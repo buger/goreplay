@@ -21,6 +21,8 @@ import (
 	"github.com/google/gopacket/layers"
 )
 
+var pcapLoaded = false
+
 const npcapPath = "\\Npcap"
 
 func initDllPath(kernel32 syscall.Handle) {
@@ -152,9 +154,18 @@ var (
 )
 
 func init() {
+	LoadWinPCAP()
+}
+
+// LoadWinPCAP attempts to dynamically load the wpcap DLL and resolve necessary functions
+func LoadWinPCAP() error {
+	if pcapLoaded {
+		return nil
+	}
+
 	kernel32, err := syscall.LoadLibrary("kernel32.dll")
 	if err != nil {
-		panic("couldn't load kernel32.dll")
+		return fmt.Errorf("couldn't load kernel32.dll")
 	}
 	defer syscall.FreeLibrary(kernel32)
 
@@ -162,16 +173,16 @@ func init() {
 
 	wpcapHandle, err = syscall.LoadLibrary("wpcap.dll")
 	if err != nil {
-		panic("Couldn't load wpcap.dll")
+		return fmt.Errorf("couldn't load wpcap.dll")
 	}
 	initLoadedDllPath(kernel32)
 	msvcrtHandle, err = syscall.LoadLibrary("msvcrt.dll")
 	if err != nil {
-		panic("Couldn't load msvcrt.dll")
+		return fmt.Errorf("couldn't load msvcrt.dll")
 	}
 	callocPtr, err = syscall.GetProcAddress(msvcrtHandle, "calloc")
 	if err != nil {
-		panic("Couldn't get calloc function")
+		return fmt.Errorf("couldn't get calloc function")
 	}
 
 	pcapStrerrorPtr = mustLoad("pcap_strerror")
@@ -223,6 +234,9 @@ func init() {
 	//libpcap <1.5 does not have pcap_set_immediate_mode
 	pcapSetImmediateModePtr = mightLoad("pcap_set_immediate_mode")
 	pcapHopenOfflinePtr = mustLoad("pcap_hopen_offline")
+
+	pcapLoaded = true
+	return nil
 }
 
 func (h *pcapPkthdr) getSec() int64 {
@@ -271,6 +285,11 @@ func pcapSetTstampPrecision(cptr pcapTPtr, precision int) error {
 }
 
 func pcapOpenLive(device string, snaplen int, pro int, timeout int) (*Handle, error) {
+	err := LoadWinPCAP()
+	if err != nil {
+		return nil, err
+	}
+
 	buf := make([]byte, errorBufferSize)
 	dev, err := syscall.BytePtrFromString(device)
 	if err != nil {
@@ -286,6 +305,11 @@ func pcapOpenLive(device string, snaplen int, pro int, timeout int) (*Handle, er
 }
 
 func openOffline(file string) (handle *Handle, err error) {
+	err = LoadWinPCAP()
+	if err != nil {
+		return nil, err
+	}
+
 	buf := make([]byte, errorBufferSize)
 	f, err := syscall.BytePtrFromString(file)
 	if err != nil {
@@ -385,6 +409,11 @@ func pcapBpfProgramFromInstructions(bpfInstructions []BPFInstruction) pcapBpfPro
 }
 
 func pcapLookupnet(device string) (netp, maskp uint32, err error) {
+	err = LoadWinPCAP()
+	if err != nil {
+		return 0, 0, err
+	}
+
 	buf := make([]byte, errorBufferSize)
 	dev, err := syscall.BytePtrFromString(device)
 	if err != nil {
@@ -439,6 +468,11 @@ func (p *Handle) pcapListDatalinks() (datalinks []Datalink, err error) {
 }
 
 func pcapOpenDead(linkType layers.LinkType, captureLength int) (*Handle, error) {
+	err := LoadWinPCAP()
+	if err != nil {
+		return nil, err
+	}
+
 	cptr, _, _ := syscall.Syscall(pcapOpenDeadPtr, 2, uintptr(linkType), uintptr(captureLength), 0)
 	if cptr == 0 {
 		return nil, errors.New("error opening dead capture")
@@ -473,16 +507,28 @@ func (p *Handle) pcapSetDatalink(dlt layers.LinkType) error {
 }
 
 func pcapDatalinkValToName(dlt int) string {
+	err := LoadWinPCAP()
+	if err != nil {
+		panic(err)
+	}
 	ret, _, _ := syscall.Syscall(pcapDatalinkValToNamePtr, 1, uintptr(dlt), 0, 0)
 	return bytePtrToString(ret)
 }
 
 func pcapDatalinkValToDescription(dlt int) string {
+	err := LoadWinPCAP()
+	if err != nil {
+		panic(err)
+	}
 	ret, _, _ := syscall.Syscall(pcapDatalinkValToDescriptionPtr, 1, uintptr(dlt), 0, 0)
 	return bytePtrToString(ret)
 }
 
 func pcapDatalinkNameToVal(name string) int {
+	err := LoadWinPCAP()
+	if err != nil {
+		panic(err)
+	}
 	cptr, err := syscall.BytePtrFromString(name)
 	if err != nil {
 		return 0
@@ -492,6 +538,10 @@ func pcapDatalinkNameToVal(name string) int {
 }
 
 func pcapLibVersion() string {
+	err := LoadWinPCAP()
+	if err != nil {
+		panic(err)
+	}
 	ret, _, _ := syscall.Syscall(pcapLibVersionPtr, 0, 0, 0, 0)
 	return bytePtrToString(ret)
 }
@@ -575,8 +625,13 @@ func (p pcapDevices) addresses() pcapAddresses {
 }
 
 func pcapFindAllDevs() (pcapDevices, error) {
-	buf := make([]byte, errorBufferSize)
 	var alldevsp pcapDevices
+	err := LoadWinPCAP()
+	if err != nil {
+		return alldevsp, err
+	}
+
+	buf := make([]byte, errorBufferSize)
 
 	ret, _, _ := syscall.Syscall(pcapFindalldevsPtr, 2, uintptr(unsafe.Pointer(&alldevsp.all)), uintptr(unsafe.Pointer(&buf[0])), 0)
 
@@ -608,6 +663,11 @@ func (p *Handle) pcapSnapshot() int {
 }
 
 func (t TimestampSource) pcapTstampTypeValToName() string {
+	err := LoadWinPCAP()
+	if err != nil {
+		return err.Error()
+	}
+
 	//libpcap <1.2 doesn't have pcap_*_tstamp_* functions
 	if pcapTstampTypeValToNamePtr == 0 {
 		return "pcap timestamp types not supported"
@@ -617,6 +677,11 @@ func (t TimestampSource) pcapTstampTypeValToName() string {
 }
 
 func pcapTstampTypeNameToVal(s string) (TimestampSource, error) {
+	err := LoadWinPCAP()
+	if err != nil {
+		return 0, err
+	}
+
 	//libpcap <1.2 doesn't have pcap_*_tstamp_* functions
 	if pcapTstampTypeNameToValPtr == 0 {
 		return 0, statusError(pcapCint(pcapError))
@@ -659,6 +724,11 @@ func (p *InactiveHandle) pcapClose() {
 }
 
 func pcapCreate(device string) (*InactiveHandle, error) {
+	err := LoadWinPCAP()
+	if err != nil {
+		return nil, err
+	}
+
 	buf := make([]byte, errorBufferSize)
 	dev, err := syscall.BytePtrFromString(device)
 	if err != nil {
@@ -793,6 +863,11 @@ func (p *Handle) waitForPacket() {
 
 // openOfflineFile returns contents of input file as a *Handle.
 func openOfflineFile(file *os.File) (handle *Handle, err error) {
+	err = LoadWinPCAP()
+	if err != nil {
+		return nil, err
+	}
+
 	buf := make([]byte, errorBufferSize)
 	cf := file.Fd()
 

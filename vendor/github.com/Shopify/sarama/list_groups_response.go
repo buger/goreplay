@@ -24,11 +24,12 @@ func (r *ListGroupsResponse) encode(pe packetEncoder) error {
 }
 
 func (r *ListGroupsResponse) decode(pd packetDecoder, version int16) error {
-	if kerr, err := pd.getInt16(); err != nil {
+	kerr, err := pd.getInt16()
+	if err != nil {
 		return err
-	} else {
-		r.Err = KError(kerr)
 	}
+
+	r.Err = KError(kerr)
 
 	n, err := pd.getArrayLength()
 	if err != nil {
@@ -60,6 +61,10 @@ func (r *ListGroupsResponse) key() int16 {
 }
 
 func (r *ListGroupsResponse) version() int16 {
+	return 0
+}
+
+func (r *ListGroupsResponse) headerVersion() int16 {
 	return 0
 }
 

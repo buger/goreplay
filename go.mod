@@ -3,25 +3,17 @@ module github.com/buger/goreplay
 go 1.14
 
 require (
-	github.com/Shopify/sarama v1.11.0
-	github.com/Shopify/toxiproxy v2.1.4+incompatible // indirect
+	github.com/Shopify/sarama v1.26.4
 	github.com/araddon/gou v0.0.0-20190110011759-c797efecbb61 // indirect
-	github.com/aws/aws-sdk-go v1.19.28
-	github.com/bitly/go-hostpool v0.0.0-20171023180738-a3a6125de932 // indirect
+	github.com/aws/aws-sdk-go v1.32.7
+	github.com/bitly/go-hostpool v0.1.0 // indirect
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
-	github.com/eapache/go-resiliency v0.0.0-20160104191539-b86b1ec0dd42 // indirect
-	github.com/eapache/go-xerial-snappy v0.0.0-20160609142408-bb955e01b934 // indirect
-	github.com/eapache/queue v1.1.0 // indirect
-	github.com/golang/snappy v0.0.0-20160529050041-d9eb7a3d35ec // indirect
-	github.com/google/gopacket v0.0.0-20190211013929-f86faeb88894
-	github.com/klauspost/crc32 v0.0.0-20161016154125-cb6bfca970f6 // indirect
-	github.com/kr/pretty v0.0.0-20130510082846-bc9499caa0f4 // indirect
-	github.com/kr/text v0.0.0-20130911015532-6807e777504f // indirect
+	github.com/google/gopacket v1.1.17
+	github.com/klauspost/compress v1.10.10 // indirect
 	github.com/mattbaird/elastigo v0.0.0-20170123220020-2fe47fd29e4b
-	github.com/mdlayher/raw v0.0.0-20191009151244-50f2db8cc065 // indirect
-	github.com/pierrec/lz4 v0.0.0-20161206202305-5c9560bfa9ac // indirect
-	github.com/pierrec/xxHash v0.0.0-20160112165351-5a004441f897 // indirect
-	github.com/rcrowley/go-metrics v0.0.0-20161128210544-1f30fe9094a5 // indirect
+	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
+	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
 	github.com/smartystreets/goconvey v1.6.4 // indirect
-	github.com/stretchr/testify v1.5.1 // indirect
+	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9 // indirect
+	golang.org/x/net v0.0.0-20200602114024-627f9648deb9 // indirect
 )

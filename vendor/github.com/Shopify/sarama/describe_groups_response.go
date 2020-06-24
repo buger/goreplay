@@ -43,6 +43,10 @@ func (r *DescribeGroupsResponse) version() int16 {
 	return 0
 }
 
+func (r *DescribeGroupsResponse) headerVersion() int16 {
+	return 0
+}
+
 func (r *DescribeGroupsResponse) requiredVersion() KafkaVersion {
 	return V0_9_0_0
 }
@@ -89,11 +93,12 @@ func (gd *GroupDescription) encode(pe packetEncoder) error {
 }
 
 func (gd *GroupDescription) decode(pd packetDecoder) (err error) {
-	if kerr, err := pd.getInt16(); err != nil {
+	kerr, err := pd.getInt16()
+	if err != nil {
 		return err
-	} else {
-		gd.Err = KError(kerr)
 	}
+
+	gd.Err = KError(kerr)
 
 	if gd.GroupId, err = pd.getString(); err != nil {
 		return

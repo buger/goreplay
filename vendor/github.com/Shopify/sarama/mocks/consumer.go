@@ -20,7 +20,7 @@ type Consumer struct {
 
 // NewConsumer returns a new mock Consumer instance. The t argument should
 // be the *testing.T instance of your test method. An error will be written to it if
-// an expectation is violated. The config argument is currently unused and can be set to nil.
+// an expectation is violated. The config argument can be set to nil.
 func NewConsumer(t ErrorReporter, config *sarama.Config) *Consumer {
 	if config == nil {
 		config = sarama.NewConfig()
@@ -63,13 +63,13 @@ func (c *Consumer) ConsumePartition(topic string, partition int32, offset int64)
 	return pc, nil
 }
 
-// Topics returns a list of topics, as registered with SetMetadata
+// Topics returns a list of topics, as registered with SetTopicMetadata
 func (c *Consumer) Topics() ([]string, error) {
 	c.l.Lock()
 	defer c.l.Unlock()
 
 	if c.metadata == nil {
-		c.t.Errorf("Unexpected call to Topics. Initialize the mock's topic metadata with SetMetadata.")
+		c.t.Errorf("Unexpected call to Topics. Initialize the mock's topic metadata with SetTopicMetadata.")
 		return nil, sarama.ErrOutOfBrokers
 	}
 
@@ -80,13 +80,13 @@ func (c *Consumer) Topics() ([]string, error) {
 	return result, nil
 }
 
-// Partitions returns the list of parititons for the given topic, as registered with SetMetadata
+// Partitions returns the list of parititons for the given topic, as registered with SetTopicMetadata
 func (c *Consumer) Partitions(topic string) ([]int32, error) {
 	c.l.Lock()
 	defer c.l.Unlock()
 
 	if c.metadata == nil {
-		c.t.Errorf("Unexpected call to Partitions. Initialize the mock's topic metadata with SetMetadata.")
+		c.t.Errorf("Unexpected call to Partitions. Initialize the mock's topic metadata with SetTopicMetadata.")
 		return nil, sarama.ErrOutOfBrokers
 	}
 	if c.metadata[topic] == nil {
@@ -178,6 +178,7 @@ func (c *Consumer) ExpectConsumePartition(topic string, partition int32, offset 
 // Errors and Messages channel, you should specify what values will be provided on these
 // channels using YieldMessage and YieldError.
 type PartitionConsumer struct {
+	highWaterMarkOffset     int64 // must be at the top of the struct because https://golang.org/pkg/sync/atomic/#pkg-note-BUG
 	l                       sync.Mutex
 	t                       ErrorReporter
 	topic                   string
@@ -189,7 +190,6 @@ type PartitionConsumer struct {
 	consumed                bool
 	errorsShouldBeDrained   bool
 	messagesShouldBeDrained bool
-	highWaterMarkOffset     int64
 }
 
 ///////////////////////////////////////////////////
@@ -244,7 +244,7 @@ func (pc *PartitionConsumer) Close() error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		for _ = range pc.messages {
+		for range pc.messages {
 			// drain
 		}
 	}()

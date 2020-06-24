@@ -5,7 +5,6 @@ import (
 	"crypto/sha1"
 	"encoding/binary"
 	"encoding/hex"
-	"log"
 	"net"
 	"strconv"
 	"strings"
@@ -13,8 +12,6 @@ import (
 
 	"github.com/buger/goreplay/proto"
 )
-
-var _ = log.Println
 
 // TCPProtocol is a number to indicate type of protocol
 type TCPProtocol uint8

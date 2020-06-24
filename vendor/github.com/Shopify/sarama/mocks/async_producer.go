@@ -33,7 +33,7 @@ func NewAsyncProducer(t ErrorReporter, config *sarama.Config) *AsyncProducer {
 	}
 	mp := &AsyncProducer{
 		t:            t,
-		closed:       make(chan struct{}, 0),
+		closed:       make(chan struct{}),
 		expectations: make([]*producerExpectation, 0),
 		input:        make(chan *sarama.ProducerMessage, config.ChannelBufferSize),
 		successes:    make(chan *sarama.ProducerMessage, config.ChannelBufferSize),
@@ -44,6 +44,7 @@ func NewAsyncProducer(t ErrorReporter, config *sarama.Config) *AsyncProducer {
 		defer func() {
 			close(mp.successes)
 			close(mp.errors)
+			close(mp.closed)
 		}()
 
 		for msg := range mp.input {
@@ -86,8 +87,6 @@ func NewAsyncProducer(t ErrorReporter, config *sarama.Config) *AsyncProducer {
 			mp.t.Errorf("Expected to exhaust all expectations, but %d are left.", len(mp.expectations))
 		}
 		mp.l.Unlock()
-
-		close(mp.closed)
 	}()
 
 	return mp
@@ -147,7 +146,7 @@ func (mp *AsyncProducer) ExpectInputWithCheckerFunctionAndSucceed(cf ValueChecke
 	mp.expectations = append(mp.expectations, &producerExpectation{Result: errProduceSuccess, CheckFunction: cf})
 }
 
-// ExpectInputWithCheckerFunctionAndSucceed sets an expectation on the mock producer that a message
+// ExpectInputWithCheckerFunctionAndFail sets an expectation on the mock producer that a message
 // will be provided on the input channel. The mock producer will first call the given function to
 // check the message value. If an error is returned it will be made available on the Errors channel
 // otherwise the mock will handle the message as if it failed to produce successfully. This means

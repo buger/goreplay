@@ -10,6 +10,7 @@ package capture
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"io"
 	"log"
 	"net"
@@ -324,10 +325,7 @@ func (t *Listener) readPcap() {
 		log.Fatal(err)
 	}
 
-	bpfSupported := true
-	if runtime.GOOS == "darwin" {
-		bpfSupported = false
-	}
+	const BPFSupported = runtime.GOOS != "darwin"
 
 	var wg sync.WaitGroup
 	wg.Add(len(devices))
@@ -402,17 +400,17 @@ func (t *Listener) readPcap() {
 				}
 			}
 
-			if bpfSupported {
+			if BPFSupported {
 				var bpf string
-
-				if t.trackResponse {
-					bpf = "(tcp dst port " + strconv.Itoa(int(t.port)) + " and (" + bpfDstHost + ")) or (" + "tcp src port " + strconv.Itoa(int(t.port)) + " and (" + bpfSrcHost + "))"
-				} else {
-					bpf = "tcp dst port " + strconv.Itoa(int(t.port)) + " and (" + bpfDstHost + ")"
-				}
 
 				if t.bpfFilter != "" {
 					bpf = t.bpfFilter
+				} else {
+					if t.trackResponse {
+						bpf = fmt.Sprintf("(tcp dst port %d and (%s)) or (tcp src port %d and (%s))", t.port, bpfDstHost, t.port, bpfSrcHost)
+					} else {
+						bpf = fmt.Sprintf("(tcp dst port %d and (%s))", t.port, bpfDstHost)
+					}
 				}
 
 				if err := handle.SetBPFFilter(bpf); err != nil {
@@ -470,7 +468,6 @@ func (t *Listener) readPcap() {
 					log.Println("Unknown packet layer", decoder, packet)
 					break
 				}
-
 				data = packet.Data()[of:]
 
 				version := uint8(data[0]) >> 4
@@ -528,7 +525,7 @@ func (t *Listener) readPcap() {
 				// We need only packets with data inside
 				// Check that the buffer is larger than the size of the TCP header
 				if len(data) > int(dataOffset*4) || isFIN {
-					if !bpfSupported {
+					if !BPFSupported {
 						destPort := binary.BigEndian.Uint16(data[2:4])
 						srcPort := binary.BigEndian.Uint16(data[0:2])
 

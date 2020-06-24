@@ -46,28 +46,27 @@ func (sp *SyncProducer) SendMessage(msg *sarama.ProducerMessage) (partition int3
 		expectation := sp.expectations[0]
 		sp.expectations = sp.expectations[1:]
 		if expectation.CheckFunction != nil {
-			if val, err := msg.Value.Encode(); err != nil {
+			val, err := msg.Value.Encode()
+			if err != nil {
 				sp.t.Errorf("Input message encoding failed: %s", err.Error())
 				return -1, -1, err
-			} else {
-				err := expectation.CheckFunction(val)
-				if err != nil {
-					sp.t.Errorf("Check function returned an error: %s", err.Error())
-					return -1, -1, err
-				}
+			}
+
+			errCheck := expectation.CheckFunction(val)
+			if errCheck != nil {
+				sp.t.Errorf("Check function returned an error: %s", errCheck.Error())
+				return -1, -1, errCheck
 			}
 		}
 		if expectation.Result == errProduceSuccess {
 			sp.lastOffset++
 			msg.Offset = sp.lastOffset
 			return 0, msg.Offset, nil
-		} else {
-			return -1, -1, expectation.Result
 		}
-	} else {
-		sp.t.Errorf("No more expectation set on this mock producer to handle the input message.")
-		return -1, -1, errOutOfExpectations
+		return -1, -1, expectation.Result
 	}
+	sp.t.Errorf("No more expectation set on this mock producer to handle the input message.")
+	return -1, -1, errOutOfExpectations
 }
 
 // SendMessages corresponds with the SendMessages method of sarama's SyncProducer implementation.
@@ -79,20 +78,30 @@ func (sp *SyncProducer) SendMessages(msgs []*sarama.ProducerMessage) error {
 	defer sp.l.Unlock()
 
 	if len(sp.expectations) >= len(msgs) {
-		expectations := sp.expectations[0 : len(msgs)-1]
+		expectations := sp.expectations[0:len(msgs)]
 		sp.expectations = sp.expectations[len(msgs):]
 
-		for _, expectation := range expectations {
+		for i, expectation := range expectations {
+			if expectation.CheckFunction != nil {
+				val, err := msgs[i].Value.Encode()
+				if err != nil {
+					sp.t.Errorf("Input message encoding failed: %s", err.Error())
+					return err
+				}
+				errCheck := expectation.CheckFunction(val)
+				if errCheck != nil {
+					sp.t.Errorf("Check function returned an error: %s", errCheck.Error())
+					return errCheck
+				}
+			}
 			if expectation.Result != errProduceSuccess {
 				return expectation.Result
 			}
-
 		}
 		return nil
-	} else {
-		sp.t.Errorf("Insufficient expectations set on this mock producer to handle the input messages.")
-		return errOutOfExpectations
 	}
+	sp.t.Errorf("Insufficient expectations set on this mock producer to handle the input messages.")
+	return errOutOfExpectations
 }
 
 // Close corresponds with the Close method of sarama's SyncProducer implementation.
@@ -123,7 +132,7 @@ func (sp *SyncProducer) ExpectSendMessageWithCheckerFunctionAndSucceed(cf ValueC
 	sp.expectations = append(sp.expectations, &producerExpectation{Result: errProduceSuccess, CheckFunction: cf})
 }
 
-// ExpectSendMessageAndFail sets an expectation on the mock producer that SendMessage will be
+// ExpectSendMessageWithCheckerFunctionAndFail sets an expectation on the mock producer that SendMessage will be
 // called. The mock producer will first call the given function to check the message value.
 // It will cascade the error of the function, if any, or handle the message as if it failed
 // to produce successfully, i.e. by returning the provided error.
