@@ -116,3 +116,7 @@ func isOriginPayload(payload []byte) bool {
 func isRequestPayload(payload []byte) bool {
 	return payload[0] == RequestPayload
 }
+
+func isResponsePayload(payload []byte) bool {
+	return payload[0] == ResponsePayload
+}

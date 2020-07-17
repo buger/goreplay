@@ -11,11 +11,12 @@ import (
 // KafkaConfig should contains required information to
 // build producers.
 type KafkaConfig struct {
-	host     string
-	topic    string
-	producer sarama.AsyncProducer
-	consumer sarama.Consumer
-	useJSON  bool
+	host                 string
+	topic                string
+	producer             sarama.AsyncProducer
+	consumer             sarama.Consumer
+	useJSON              bool
+	trackResponseHeaders bool
 }
 
 // KafkaMessage should contains catched request information that should be
@@ -28,6 +29,8 @@ type KafkaMessage struct {
 	ReqMethod  string            `json:"Req_Method"`
 	ReqBody    string            `json:"Req_Body,omitempty"`
 	ReqHeaders map[string]string `json:"Req_Headers,omitempty"`
+	ResHeaders map[string]string `json:"Res_Headers,omitempty"`
+	ResStatus  string            `json:"Res_Status,omitempty"`
 }
 
 // Dump returns the given request in its HTTP/1.x wire
