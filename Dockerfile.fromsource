@@ -1,0 +1,35 @@
+FROM golang:1.14 as builder-base
+
+RUN apt-get update && apt-get install ruby vim-common -y
+
+RUN apt-get install flex bison -y
+RUN wget http://www.tcpdump.org/release/libpcap-1.9.1.tar.gz && tar xzf libpcap-1.9.1.tar.gz 
+RUN cd libpcap-1.9.1 && ./configure && make install || (cat config.log; exit 1)
+
+RUN go get github.com/google/gopacket
+RUN go get -u golang.org/x/lint/golint
+
+WORKDIR /go/src/github.com/buger/goreplay/
+ADD go.mod go.sum /go/src/github.com/buger/goreplay/
+RUN go mod download
+
+FROM builder-base as builder
+# NOTE split between builder-base and builder is to isolate the LDFLAGS var which causes the c compiler to fail
+ARG GOOS=linux
+ARG GOARCH=amd64
+ARG LDFLAGS="-ldflags \"-X main.VERSION=dev -extldflags \"-static\" -X main.DEMO=\""
+ADD . /go/src/github.com/buger/goreplay/
+# not sure best way to exand LDFLAGS, would be better to remote -ldflags from the var and use : -ldflags "${LDFLAGS}"
+RUN bash -c "go build -o gor -tags netgo ${LDFLAGS}"  
+
+
+# base on alpine as its very handy for debugging in docker
+FROM alpine:latest as alpine
+RUN apk add --no-cache bash
+COPY --from=builder /go/src/github.com/buger/goreplay/gor .
+ENTRYPOINT ["./gor"]
+
+FROM scratch as scratch
+COPY --from=builder /go/src/github.com/buger/goreplay/gor .
+ENTRYPOINT ["./gor"]
+
