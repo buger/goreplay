@@ -56,7 +56,6 @@ func TestInputHTTPLargePayload(t *testing.T) {
 		if _len >= n { // considering http body CRLF
 			t.Errorf("expected body to be >= %d", n)
 		}
-		t.Log("here")
 		wg.Done()
 	})
 	plugins := &InOutPlugins{

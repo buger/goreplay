@@ -55,8 +55,7 @@ func TestMessageParserWithHint(t *testing.T) {
 	pool.End = func(m *Message) bool {
 		return proto.HasFullPayload(m.Data())
 	}
-	var packets []gopacket.Packet
-	packets = GetPackets(1, 30, nil)
+	packets := GetPackets(1, 30, nil)
 	packets[0].Data()[14:][20:][13] = 2  // SYN flag
 	packets[10].Data()[14:][20:][13] = 2 // SYN flag
 	packets[29].Data()[14:][20:][13] = 1 // FIN flag

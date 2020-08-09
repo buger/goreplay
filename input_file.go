@@ -37,9 +37,10 @@ func (f *fileInputReader) parseNext() error {
 
 		if err != nil {
 			if err != io.EOF {
-				log.Println(err)
+				Debug(1, err)
+			} else {
+				f.Close()
 			}
-			f.Close()
 			return err
 		}
 

@@ -358,21 +358,21 @@ func TestHasRequestTitle(t *testing.T) {
 
 func TestCheckChunks(t *testing.T) {
 	var m = "4\r\nWiki\r\n5\r\npedia\r\nE\r\n in\r\n\r\nchunks.\r\n0\r\n\r\n"
-	chunkEnd := CheckChunked(bytes.NewBuffer([]byte(m)))
+	chunkEnd := CheckChunked([]byte(m))
 	expected := bytes.Index([]byte(m), []byte("0\r\n")) + 5
 	if chunkEnd != expected {
 		t.Errorf("expected %d to equal %d", chunkEnd, expected)
 	}
 
 	m = "7\r\nMozia\r\n9\r\nDeveloper\r\n7\r\nNetwork\r\n0\r\n\r\n"
-	chunkEnd = CheckChunked(bytes.NewBuffer([]byte(m)))
+	chunkEnd = CheckChunked([]byte(m))
 	if chunkEnd != -1 {
 		t.Errorf("expected %d to equal %d", chunkEnd, -1)
 	}
 
 	// with trailers
 	m = "4\r\nWiki\r\n5\r\npedia\r\nE\r\n in\r\n\r\nchunks.\r\n0\r\n\r\nEXpires"
-	chunkEnd = CheckChunked(bytes.NewBuffer([]byte(m)))
+	chunkEnd = CheckChunked([]byte(m))
 	expected = bytes.Index([]byte(m), []byte("0\r\n")) + 5
 	if chunkEnd != expected {
 		t.Errorf("expected %d to equal %d", chunkEnd, expected)
@@ -381,7 +381,7 @@ func TestCheckChunks(t *testing.T) {
 	// last chunk inside the the body
 	// with trailers
 	m = "4\r\nWiki\r\n5\r\npedia\r\nE\r\n in\r\n\r\nchunks.\r\n3\r\n0\r\n\r\n0\r\n\r\nEXpires"
-	chunkEnd = CheckChunked(bytes.NewBuffer([]byte(m)))
+	chunkEnd = CheckChunked([]byte(m))
 	expected = bytes.Index([]byte(m), []byte("0\r\n")) + 10
 	if chunkEnd != expected {
 		t.Errorf("expected %d to equal %d", chunkEnd, expected)
@@ -389,7 +389,7 @@ func TestCheckChunks(t *testing.T) {
 
 	// checks with chucks-extensions
 	m = "4\r\nWiki\r\n5\r\npedia\r\nE; name='quoted string'\r\n in\r\n\r\nchunks.\r\n3\r\n0\r\n\r\n0\r\n\r\nEXpires"
-	chunkEnd = CheckChunked(bytes.NewBuffer([]byte(m)))
+	chunkEnd = CheckChunked([]byte(m))
 	expected = bytes.Index([]byte(m), []byte("0\r\n")) + 10
 	if chunkEnd != expected {
 		t.Errorf("expected %d to equal %d", chunkEnd, expected)
@@ -466,7 +466,7 @@ func BenchmarkHasFullPayload(b *testing.B) {
 		return
 	}
 	for i := 0; i < b.N; i++ {
-		data = append(data, append([]byte(fmt.Sprintf("fc00\r\n%s\r\n", payload)))...)
+		data = append(data, []byte(fmt.Sprintf("fc00\r\n%s\r\n", payload))...)
 		if ok = HasFullPayload(data); ok {
 			b.Error("HasFullPayload should fail")
 			return

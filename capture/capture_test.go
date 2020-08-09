@@ -230,7 +230,11 @@ func BenchmarkPcapFile(b *testing.B) {
 		b.Error(err)
 		return
 	}
-	l.Activate()
+	err = l.Activate()
+	if err != nil {
+		b.Error(err)
+		return
+	}
 	now := time.Now()
 	pckts := 0
 	ctx, cancel := context.WithCancel(context.Background())

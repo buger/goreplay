@@ -28,7 +28,6 @@ type Stats struct {
 
 // Message is the representation of a tcp message
 type Message struct {
-	sync.Mutex
 	Stats
 
 	packets []*Packet
@@ -48,8 +47,6 @@ func NewMessage(srcAddr, dstAddr string, ipVersion uint8) (m *Message) {
 
 // UUID the unique id of a TCP session it is not granted to be unique overtime
 func (m *Message) UUID() []byte {
-	m.Lock()
-	defer m.Unlock()
 	var src, dst string
 	if m.IsIncoming {
 		src = m.SrcAddr
@@ -147,9 +144,14 @@ func (pool *MessagePool) Handler(packet gopacket.Packet) {
 		go pool.say(4, fmt.Sprintf("error decoding packet(%dBytes):%s\n", packet.Metadata().CaptureLength, err))
 		return
 	}
+	pool.Lock()
+	defer pool.Unlock()
 	srcKey := pckt.Src()
 	dstKey := srcKey + "=" + pckt.Dst()
-	m, ok := pool.get(srcKey, dstKey)
+	m, ok := pool.pool[srcKey]
+	if !ok {
+		m, ok = pool.pool[dstKey]
+	}
 	switch {
 	case ok:
 		pool.addPacket(m, pckt)
@@ -170,52 +172,43 @@ func (pool *MessagePool) Handler(packet gopacket.Packet) {
 	if !m.IsIncoming {
 		key = dstKey
 	}
-	pool.add(key, m)
+	pool.pool[key] = m
 	m.Start = pckt.Timestamp
 	go pool.dispatch(key, m)
 	pool.addPacket(m, pckt)
 }
 
 func (pool *MessagePool) dispatch(key string, m *Message) {
-	defer m.Unlock()
 	select {
 	case <-m.done:
+		defer func() { m.done <- true }()
 	case <-time.After(pool.messageExpire):
-		m.Lock()
+		pool.Lock()
+		defer pool.Unlock()
 		m.TimedOut = true
 	}
-	m.done = nil
-	pool.del(key)
+	delete(pool.pool, key)
 	pool.handler(m)
 }
 
 func (pool *MessagePool) addPacket(m *Message, pckt *Packet) {
-	// lock is released by this goroutine if this message is still in progress
-	// otherwise lock will be released in pool.dispatch
-	m.Lock()
-	if m.done == nil {
-		m.Unlock()
-		return
-	}
-	big := m.Length + len(pckt.Payload) - int(pool.maxSize)
-	if big > 0 {
+	trunc := m.Length + len(pckt.Payload) - int(pool.maxSize)
+	if trunc > 0 {
 		m.Truncated = true
 		pckt.Payload = pckt.Payload[:int(pool.maxSize)-m.Length]
 	}
 	m.add(pckt)
-	if big >= 0 {
-		m.done <- true
-		return
-	}
 	switch {
+	case trunc >= 0:
 	case pool.End != nil && pool.End(m):
-		m.done <- true
-		return
-	case pckt.FIN || pckt.RST:
-		m.done <- true
+	case pckt.FIN:
+	case pckt.RST:
+		go pool.say(4, fmt.Sprintf("RST flag from %s to %s at %s\n", pckt.Src(), pckt.Dst(), pckt.Timestamp))
+	default:
 		return
 	}
-	m.Unlock()
+	m.done <- true
+	<-m.done
 }
 
 // this function should not block other pool operations
@@ -223,26 +216,4 @@ func (pool *MessagePool) say(level int, args ...interface{}) {
 	if pool.debug != nil {
 		pool.debug(level, args...)
 	}
-}
-
-func (pool *MessagePool) add(key string, m *Message) {
-	pool.Lock()
-	defer pool.Unlock()
-	pool.pool[key] = m
-}
-
-func (pool *MessagePool) get(srcKey string, dstKey string) (m *Message, ok bool) {
-	pool.Lock()
-	defer pool.Unlock()
-	m, ok = pool.pool[srcKey]
-	if !ok {
-		m, ok = pool.pool[dstKey]
-	}
-	return
-}
-
-func (pool *MessagePool) del(key string) {
-	pool.Lock()
-	defer pool.Unlock()
-	delete(pool.pool, key)
 }

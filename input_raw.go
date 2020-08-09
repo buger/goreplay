@@ -71,7 +71,6 @@ type RAWInput struct {
 	messageStats   []tcp.Stats
 	listener       *capture.Listener
 	message        chan *tcp.Message
-	quit           chan bool
 	cancelListener context.CancelFunc
 }
 

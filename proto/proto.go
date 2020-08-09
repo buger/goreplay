@@ -397,53 +397,42 @@ func HasTitle(payload []byte) bool {
 // CheckChunked checks HTTP/1 chunked data integrity and return the final index
 // of chunks(index after '0\r\n\r\n') or -1 if there is missing data
 // or there is bad format
-func CheckChunked(buf *bytes.Buffer) (chunkEnd int) {
+func CheckChunked(buf []byte) (chunkEnd int) {
 	var (
-		arr         []byte
-		err         error
-		ok          bool
-		chunkLength int
-		b           byte
-		ext         int
+		ok     bool
+		chkLen int
+		sz     int
+		ext    int
 	)
 	for {
-		arr, err = buf.ReadBytes('\r')
-		if err != nil || len(arr) < 1 {
+		sz = bytes.IndexByte(buf[chunkEnd:], '\r')
+		if sz < 1 {
 			return -1
 		}
-		chunkEnd += len(arr)
-
 		// ignoring chunks extensions https://github.com/golang/go/issues/13135
 		// but chunks extensions are no longer a thing
-		ext = bytes.IndexByte(arr, ';')
-		if ext > 0 {
-			arr = arr[:ext]
-		} else {
-			arr = arr[:len(arr)-1]
+		ext = bytes.IndexByte(buf[chunkEnd:chunkEnd+sz], ';')
+		if ext < 0 {
+			ext = sz
 		}
-		chunkLength, ok = atoI(arr, 16)
+		chkLen, ok = atoI(buf[chunkEnd:chunkEnd+ext], 16)
 		if !ok {
 			return -1
 		}
-
-		b, _ = buf.ReadByte() // advance byte
-		if b != '\n' {
-			return -1
-		}
-		chunkEnd++
-		if chunkLength == 0 {
-			arr = buf.Next(2)
-			if !bytes.Equal(arr, CRLF) {
+		chunkEnd += (sz + 2)
+		if chkLen == 0 {
+			if !bytes.Equal(buf[chunkEnd:chunkEnd+2], CRLF) {
 				return -1
 			}
 			return chunkEnd + 2
 		}
-		if len(buf.Next(chunkLength)) != chunkLength {
+		// ideally chunck length and at least len("\r\n0\r\n\r\n")
+		if len(buf[chunkEnd:]) < chkLen+7 {
 			return -1
 		}
-		chunkEnd += chunkLength
+		chunkEnd += chkLen
 		// chunks must end with CRLF
-		if !bytes.Equal(buf.Next(2), CRLF) {
+		if !bytes.Equal(buf[chunkEnd:chunkEnd+2], CRLF) {
 			return -1
 		}
 		chunkEnd += 2
@@ -452,11 +441,10 @@ func CheckChunked(buf *bytes.Buffer) (chunkEnd int) {
 
 // HasFullPayload reports if this http has full payloads
 func HasFullPayload(payload []byte) bool {
-	var header, body []byte
-	body = Body(payload)
+	body := Body(payload)
 
 	// check for chunked transfer-encoding
-	header = Header(payload, []byte("Transfer-Encoding"))
+	header := Header(payload, []byte("Transfer-Encoding"))
 	if bytes.Contains(header, []byte("chunked")) {
 
 		// check chunks
@@ -464,8 +452,7 @@ func HasFullPayload(payload []byte) bool {
 			return false
 		}
 		var chunkEnd int
-		buf := bytes.NewBuffer(body)
-		if chunkEnd = CheckChunked(buf); chunkEnd < 1 {
+		if chunkEnd = CheckChunked(body); chunkEnd < 1 {
 			return false
 		}
 
@@ -491,8 +478,8 @@ func HasFullPayload(payload []byte) bool {
 
 // this works with positive integers
 func atoI(s []byte, base int) (num int, ok bool) {
-	var v, i int
-	for i < len(s) {
+	var v int
+	for i := 0; i < len(s); i++ {
 		if s[i] > 127 {
 			return 0, false
 		}
@@ -501,7 +488,6 @@ func atoI(s []byte, base int) (num int, ok bool) {
 			return 0, false
 		}
 		num = (num * base) + v
-		i++
 	}
 	return num, true
 }

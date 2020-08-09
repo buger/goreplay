@@ -51,9 +51,8 @@ type Listener struct {
 	port          uint16 // src or/and dst port
 	trackResponse bool
 
-	quit      chan bool
-	packets   chan gopacket.Packet
-	activated bool
+	quit    chan bool
+	packets chan gopacket.Packet
 }
 
 // EngineType ...
