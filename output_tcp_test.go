@@ -27,7 +27,7 @@ func TestTCPOutput(t *testing.T) {
 	plugins.All = append(plugins.All, input, output)
 
 	emitter := NewEmitter(quit)
-	go emitter.Start(plugins, Settings.Middleware)
+	go emitter.Start(plugins, Settings.middleware())
 
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
@@ -82,7 +82,7 @@ func BenchmarkTCPOutput(b *testing.B) {
 	plugins.All = append(plugins.All, input, output)
 
 	emitter := NewEmitter(quit)
-	go emitter.Start(plugins, Settings.Middleware)
+	go emitter.Start(plugins, Settings.middleware())
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

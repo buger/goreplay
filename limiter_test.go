@@ -25,7 +25,7 @@ func TestOutputLimiter(t *testing.T) {
 	plugins.All = append(plugins.All, input, output)
 
 	emitter := NewEmitter(quit)
-	go emitter.Start(plugins, Settings.Middleware)
+	go emitter.Start(plugins, Settings.middleware())
 
 	for i := 0; i < 100; i++ {
 		input.EmitGET()
@@ -52,7 +52,7 @@ func TestInputLimiter(t *testing.T) {
 	plugins.All = append(plugins.All, input, output)
 
 	emitter := NewEmitter(quit)
-	go emitter.Start(plugins, Settings.Middleware)
+	go emitter.Start(plugins, Settings.middleware())
 
 	for i := 0; i < 100; i++ {
 		input.(*Limiter).plugin.(*TestInput).EmitGET()
@@ -79,7 +79,7 @@ func TestPercentLimiter1(t *testing.T) {
 	plugins.All = append(plugins.All, input, output)
 
 	emitter := NewEmitter(quit)
-	go emitter.Start(plugins, Settings.Middleware)
+	go emitter.Start(plugins, Settings.middleware())
 
 	for i := 0; i < 100; i++ {
 		input.EmitGET()
@@ -107,7 +107,7 @@ func TestPercentLimiter2(t *testing.T) {
 	plugins.All = append(plugins.All, input, output)
 
 	emitter := NewEmitter(quit)
-	go emitter.Start(plugins, Settings.Middleware)
+	go emitter.Start(plugins, Settings.middleware())
 
 	for i := 0; i < 100; i++ {
 		input.EmitGET()

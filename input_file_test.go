@@ -329,7 +329,7 @@ func CreateCaptureFile(requestGenerator *RequestGenerator) *CaptureFile {
 	plugins.All = append(plugins.All, output, outputFile)
 
 	emitter := NewEmitter(quit)
-	go emitter.Start(plugins, Settings.Middleware)
+	go emitter.Start(plugins, Settings.middleware())
 
 	requestGenerator.emit()
 	requestGenerator.wg.Wait()
@@ -359,7 +359,7 @@ func ReadFromCaptureFile(captureFile *os.File, count int, callback writeCallback
 
 	wg.Add(count)
 	emitter := NewEmitter(quit)
-	go emitter.Start(plugins, Settings.Middleware)
+	go emitter.Start(plugins, Settings.middleware())
 
 	done := make(chan int, 1)
 	go func() {

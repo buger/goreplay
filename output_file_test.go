@@ -27,7 +27,7 @@ func TestFileOutput(t *testing.T) {
 	plugins.All = append(plugins.All, input, output)
 
 	emitter := NewEmitter(quit)
-	go emitter.Start(plugins, Settings.Middleware)
+	go emitter.Start(plugins, Settings.middleware())
 
 	for i := 0; i < 100; i++ {
 		wg.Add(2)
@@ -53,7 +53,7 @@ func TestFileOutput(t *testing.T) {
 
 	quit2 := make(chan int)
 	emitter2 := NewEmitter(quit2)
-	go emitter2.Start(plugins2, Settings.Middleware)
+	go emitter2.Start(plugins2, Settings.middleware())
 
 	wg.Wait()
 	emitter2.Close()

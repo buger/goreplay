@@ -61,7 +61,7 @@ func NewKafkaInput(address string, config *InputKafkaConfig) *KafkaInput {
 			}
 		}(consumer)
 
-		if Settings.Verbose {
+		if Settings.verbose() {
 			// Start infinite loop for tracking errors for kafka producer.
 			go i.ErrorHandler(consumer)
 		}

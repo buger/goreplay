@@ -31,12 +31,12 @@ var dateFileNameFuncs = map[string]func(*FileOutput) string{
 
 // FileOutputConfig ...
 type FileOutputConfig struct {
-	FlushInterval     time.Duration `json:"output-file-flush-interval"`
+	FlushInterval     time.Duration `json:"output-file-flush-interval" mapstructure:"output-file-flush-interval"`
 	sizeLimit         int64
 	outputFileMaxSize int64
-	QueueLimit        int64  `json:"output-file-queue-limit"`
-	Append            bool   `json:"output-file-append"`
-	BufferPath        string `json:"output-file-buffer"`
+	QueueLimit        int64  `json:"output-file-queue-limit" mapstructure:"output-file-queue-limit"`
+	Append            bool   `json:"output-file-append" mapstructure:"output-file-append"`
+	BufferPath        string `json:"output-file-buffer" mapstructure:"output-file-buffer"`
 	onClose           func(string)
 }
 

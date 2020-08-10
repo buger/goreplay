@@ -22,8 +22,8 @@ type TCPOutput struct {
 }
 
 type TCPOutputConfig struct {
-	Secure bool `json:"output-tcp-secure"`
-	Sticky bool `json:"output-tcp-sticky"`
+	Secure bool `json:"output-tcp-secure" mapstructure:"output-tcp-secure"`
+	Sticky bool `json:"output-tcp-sticky" mapstructure:"output-tcp-sticky"`
 }
 
 // NewTCPOutput constructor for TCPOutput
@@ -34,7 +34,7 @@ func NewTCPOutput(address string, config *TCPOutputConfig) io.Writer {
 	o.address = address
 	o.config = config
 
-	if Settings.OutputTCPStats {
+	if Settings.outputTCPStats() {
 		o.bufStats = NewGorStat("output_tcp", 5000)
 	}
 
@@ -114,7 +114,7 @@ func (o *TCPOutput) Write(data []byte) (n int, err error) {
 	bufferIndex := o.getBufferIndex(data)
 	o.buf[bufferIndex] <- newBuf
 
-	if Settings.OutputTCPStats {
+	if Settings.outputTCPStats() {
 		o.bufStats.Write(len(o.buf[bufferIndex]))
 	}
 

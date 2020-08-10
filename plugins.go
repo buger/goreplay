@@ -82,46 +82,46 @@ func InitPlugins() *InOutPlugins {
 	pluginMu.Lock()
 	defer pluginMu.Unlock()
 
-	for _, options := range Settings.InputDummy {
+	for _, options := range Settings.inputDummy() {
 		registerPlugin(NewDummyInput, options)
 	}
 
-	for range Settings.OutputDummy {
+	for range Settings.outputDummy() {
 		registerPlugin(NewDummyOutput)
 	}
 
-	if Settings.OutputStdout {
+	if Settings.outputStdout() {
 		registerPlugin(NewDummyOutput)
 	}
 
-	if Settings.OutputNull {
+	if Settings.outputNull() {
 		registerPlugin(NewNullOutput)
 	}
 
 	engine := EnginePcap
-	if Settings.InputRAWConfig.Engine == "raw_socket" {
+	if Settings.inputRAWConfigEngine() == "raw_socket" {
 		engine = EngineRawSocket
-	} else if Settings.InputRAWConfig.Engine == "pcap_file" {
+	} else if Settings.inputRAWConfigEngine() == "pcap_file" {
 		engine = EnginePcapFile
 	}
 
-	for _, options := range Settings.InputRAW {
-		registerPlugin(NewRAWInput, options, engine, Settings.InputRAWConfig.TrackResponse, Settings.InputRAWConfig.Expire, Settings.InputRAWConfig.RealIPHeader, Settings.InputRAWConfig.Protocol, Settings.InputRAWConfig.BpfFilter, Settings.InputRAWConfig.TimestampType, Settings.InputRAWConfig.BufferSize)
+	for _, options := range Settings.inputRAW() {
+		registerPlugin(NewRAWInput, options, engine, Settings.inputRAWConfigTrackResponse(), Settings.inputRAWConfigExpire, Settings.inputRAWConfigRealIPHeader, Settings.inputRAWConfigProtocol, Settings.inputRAWConfigBpfFilter, Settings.inputRAWConfigTimestampType, Settings.InputRAWConfig.bufferSize)
 	}
 
-	for _, options := range Settings.InputTCP {
+	for _, options := range Settings.inputTCP() {
 		registerPlugin(NewTCPInput, options, &Settings.InputTCPConfig)
 	}
 
-	for _, options := range Settings.OutputTCP {
+	for _, options := range Settings.outputTCP() {
 		registerPlugin(NewTCPOutput, options, &Settings.OutputTCPConfig)
 	}
 
-	for _, options := range Settings.InputFile {
-		registerPlugin(NewFileInput, options, Settings.InputFileLoop)
+	for _, options := range Settings.inputFile() {
+		registerPlugin(NewFileInput, options, Settings.inputFileLoop())
 	}
 
-	for _, path := range Settings.OutputFile {
+	for _, path := range Settings.outputFile() {
 		if strings.HasPrefix(path, "s3://") {
 			registerPlugin(NewS3Output, path, &Settings.OutputFileConfig)
 		} else {

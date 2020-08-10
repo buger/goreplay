@@ -10,19 +10,19 @@ import (
 
 // HTTPModifierConfig holds configuration options for built-in traffic modifier
 type HTTPModifierConfig struct {
-	UrlNegativeRegexp      HTTPUrlRegexp              `json:"http-disallow-url"`
-	UrlRegexp              HTTPUrlRegexp              `json:"http-allow-url"`
-	UrlRewrite             UrlRewriteMap              `json:"http-rewrite-url"`
-	HeaderRewrite          HeaderRewriteMap           `json:"http-rewrite-header"`
-	HeaderFilters          HTTPHeaderFilters          `json:"http-allow-header"`
-	HeaderNegativeFilters  HTTPHeaderFilters          `json:"http-disallow-header"`
-	HeaderBasicAuthFilters HTTPHeaderBasicAuthFilters `json:"http-basic-auth-filter"`
-	HeaderHashFilters      HTTPHashFilters            `json:"http-header-limiter"`
-	ParamHashFilters       HTTPHashFilters            `json:"http-param-limiter"`
+	UrlNegativeRegexp      HTTPUrlRegexp              `json:"http-disallow-url" mapstructure:"http-disallow-url"`
+	UrlRegexp              HTTPUrlRegexp              `json:"http-allow-url" mapstructure:"http-allow-url"`
+	UrlRewrite             UrlRewriteMap              `json:"http-rewrite-url" mapstructure:"http-rewrite-url"`
+	HeaderRewrite          HeaderRewriteMap           `json:"http-rewrite-header" mapstructure:"http-rewrite-header"`
+	HeaderFilters          HTTPHeaderFilters          `json:"http-allow-header" mapstructure:"http-allow-header"`
+	HeaderNegativeFilters  HTTPHeaderFilters          `json:"http-disallow-header" mapstructure:"http-disallow-header"`
+	HeaderBasicAuthFilters HTTPHeaderBasicAuthFilters `json:"http-basic-auth-filter" mapstructure:"http-basic-auth-filter"`
+	HeaderHashFilters      HTTPHashFilters            `json:"http-header-limiter" mapstructure:"http-header-limiter"`
+	ParamHashFilters       HTTPHashFilters            `json:"http-param-limiter" mapstructure:"http-param-limiter"`
 
-	Params  HTTPParams  `json:"http-set-param"`
-	Headers HTTPHeaders `json:"http-set-header"`
-	Methods HTTPMethods `json:"http-allow-method"`
+	Params  HTTPParams  `json:"http-set-param" mapstructure:"http-set-param"`
+	Headers HTTPHeaders `json:"http-set-header" mapstructure:"http-set-header"`
+	Methods HTTPMethods `json:"http-allow-method" mapstructure:"http-allow-method"`
 }
 
 //

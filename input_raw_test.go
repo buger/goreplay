@@ -58,7 +58,7 @@ func TestRAWInputIPv4(t *testing.T) {
 			atomic.AddInt64(&respCounter, 1)
 		}
 
-		if Settings.Debug {
+		if Settings.debug() {
 			log.Println(reqCounter, respCounter)
 		}
 
@@ -74,7 +74,7 @@ func TestRAWInputIPv4(t *testing.T) {
 	client := NewHTTPClient("http://"+listener.Addr().String(), &HTTPClientConfig{})
 
 	emitter := NewEmitter(quit)
-	go emitter.Start(plugins, Settings.Middleware)
+	go emitter.Start(plugins, Settings.middleware())
 
 	for i := 0; i < 100; i++ {
 		// request + response
@@ -125,7 +125,7 @@ func TestRAWInputNoKeepAlive(t *testing.T) {
 	client := NewHTTPClient("http://"+listener.Addr().String(), &HTTPClientConfig{})
 
 	emitter := NewEmitter(quit)
-	go emitter.Start(plugins, Settings.Middleware)
+	go emitter.Start(plugins, Settings.middleware())
 
 	for i := 0; i < 100; i++ {
 		// request + response
@@ -168,7 +168,7 @@ func TestRAWInputIPv6(t *testing.T) {
 			atomic.AddInt64(&respCounter, 1)
 		}
 
-		if Settings.Debug {
+		if Settings.debug() {
 			log.Println(reqCounter, respCounter)
 		}
 
@@ -184,7 +184,7 @@ func TestRAWInputIPv6(t *testing.T) {
 	client := NewHTTPClient("http://"+listener.Addr().String(), &HTTPClientConfig{})
 
 	emitter := NewEmitter(quit)
-	go emitter.Start(plugins, Settings.Middleware)
+	go emitter.Start(plugins, Settings.middleware())
 
 	for i := 0; i < 100; i++ {
 		// request + response
@@ -251,7 +251,7 @@ func TestInputRAW100Expect(t *testing.T) {
 	plugins.All = append(plugins.All, input, testOutput, httpOutput)
 
 	emitter := NewEmitter(quit)
-	go emitter.Start(plugins, Settings.Middleware)
+	go emitter.Start(plugins, Settings.middleware())
 
 	// Origin + Response/Request Test Output + Request Http Output
 	wg.Add(4)
@@ -305,7 +305,7 @@ func TestInputRAWChunkedEncoding(t *testing.T) {
 	plugins.All = append(plugins.All, input, httpOutput)
 
 	emitter := NewEmitter(quit)
-	go emitter.Start(plugins, Settings.Middleware)
+	go emitter.Start(plugins, Settings.middleware())
 	wg.Add(2)
 
 	curl := exec.Command("curl", "http://"+originAddr, "--header", "Transfer-Encoding: chunked", "--header", "Expect:", "--data-binary", "@README.md")
@@ -373,7 +373,7 @@ func TestInputRAWLargePayload(t *testing.T) {
 	plugins.All = append(plugins.All, input, httpOutput)
 
 	emitter := NewEmitter(quit)
-	go emitter.Start(plugins, Settings.Middleware)
+	go emitter.Start(plugins, Settings.middleware())
 
 	wg.Add(2)
 	curl := exec.Command("curl", "http://"+originAddr, "--header", "Transfer-Encoding: chunked", "--header", "Expect:", "--data-binary", "@/tmp/large")
@@ -421,7 +421,7 @@ func BenchmarkRAWInput(b *testing.B) {
 	plugins.All = append(plugins.All, input, output, httpOutput)
 
 	emitter := NewEmitter(quit)
-	go emitter.Start(plugins, Settings.Middleware)
+	go emitter.Start(plugins, Settings.middleware())
 
 	emitted := 0
 	fileContent, _ := ioutil.ReadFile("LICENSE.txt")

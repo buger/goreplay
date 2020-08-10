@@ -49,7 +49,7 @@ func NewKafkaOutput(address string, config *OutputKafkaConfig) io.Writer {
 		producer: producer,
 	}
 
-	if Settings.Verbose {
+	if Settings.verbose() {
 		// Start infinite loop for tracking errors for kafka producer.
 		go o.ErrorHandler()
 	}
