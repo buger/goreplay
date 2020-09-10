@@ -17,16 +17,16 @@ import (
 const (
 	// ETHALL htons(ETH_P_ALL)
 	ETHALL uint16 = unix.ETH_P_ALL<<8 | unix.ETH_P_ALL>>8
-	// PAGESIZE represents multiples of 4kb in powers of 2
-	PAGESIZE = 0x1000
 	// BLOCKSIZE ring buffer block_size
-	BLOCKSIZE = PAGESIZE * 512
+	BLOCKSIZE = 64 << 10
 	// BLOCKNR ring buffer block_nr
-	BLOCKNR = 4
+	BLOCKNR = (2 << 20) / BLOCKSIZE // 2mb / 64kb
 	// FRAMESIZE ring buffer frame_size
-	FRAMESIZE = unix.IP_MAXPACKET
+	FRAMESIZE = BLOCKSIZE
 	// FRAMENR ring buffer frame_nr
 	FRAMENR = BLOCKNR * BLOCKSIZE / FRAMESIZE
+	// MAPHUGE2MB 2mb huge map
+	MAPHUGE2MB = 21 << unix.MAP_HUGE_SHIFT
 )
 
 var tpacket2hdrlen = tpAlign(int(unsafe.Sizeof(unix.Tpacket2Hdr{})))
@@ -53,7 +53,7 @@ func NewSocket(ifi net.Interface) (*SockRaw, error) {
 	sock := &SockRaw{
 		fd:          fd,
 		ifindex:     ifi.Index,
-		snaplen:     unix.IP_MAXPACKET,
+		snaplen:     FRAMESIZE,
 		pollTimeout: ^uintptr(0),
 	}
 
@@ -98,7 +98,7 @@ func NewSocket(ifi net.Interface) (*SockRaw, error) {
 		0,
 		BLOCKSIZE*BLOCKNR,
 		unix.PROT_READ|unix.PROT_WRITE,
-		unix.MAP_SHARED|unix.MAP_LOCKED,
+		unix.MAP_SHARED|MAPHUGE2MB,
 	)
 	if err != nil {
 		unix.Close(fd)
@@ -135,7 +135,7 @@ read:
 	tpHdr.Status = unix.TP_STATUS_KERNEL
 	sockAddr := (*unix.RawSockaddrLinklayer)(unsafe.Pointer(&sock.buf[i+tpacket2hdrlen]))
 
-	// parse out repeating packets on loopback, some frames will be wasted obviously!
+	// parse out repeating packets on loopback
 	if sockAddr.Ifindex == sock.loopIndex && sock.frame%2 != 0 {
 		goto read
 	}
@@ -170,8 +170,8 @@ func (sock *SockRaw) SetSnapLen(snap int) error {
 	if snap < 0 {
 		return fmt.Errorf("expected %d snap length to be at least 0", snap)
 	}
-	if snap > unix.IP_MAXPACKET {
-		snap = unix.IP_MAXPACKET
+	if snap > FRAMESIZE {
+		snap = FRAMESIZE
 	}
 	sock.snaplen = snap
 	return nil
