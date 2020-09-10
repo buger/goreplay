@@ -1,10 +1,9 @@
-// +build linux
-
 package capture
 
 import (
 	"fmt"
 	"net"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -21,19 +20,31 @@ const (
 	// PAGESIZE represents multiples of 4kb in powers of 2
 	PAGESIZE = 0x1000
 	// BLOCKSIZE ring buffer block_size
-	BLOCKSIZE = PAGESIZE * 36
+	BLOCKSIZE = PAGESIZE * 512
 	// BLOCKNR ring buffer block_nr
 	BLOCKNR = 4
 	// FRAMESIZE ring buffer frame_size
-	FRAMESIZE = BLOCKSIZE / 2
+	FRAMESIZE = unix.IP_MAXPACKET
 	// FRAMENR ring buffer frame_nr
 	FRAMENR = BLOCKNR * BLOCKSIZE / FRAMESIZE
 )
 
 var tpacket2hdrlen = tpAlign(int(unsafe.Sizeof(unix.Tpacket2Hdr{})))
 
-// NewSockRaw returns new M'maped sock_raw on packet version 2.
-func NewSockRaw(ifi net.Interface) (*SockRaw, error) {
+// SockRaw is a linux M'maped af_packet socket
+type SockRaw struct {
+	mu          sync.Mutex
+	fd          int
+	ifindex     int
+	snaplen     int
+	pollTimeout uintptr
+	frame       uint32 // current frame
+	buf         []byte // points to the memory space of the ring buffer shared with the kernel.
+	loopIndex   int32  // this field must filled to avoid reading packet twice on a loopback device
+}
+
+// NewSocket returns new M'maped sock_raw on packet version 2.
+func NewSocket(ifi net.Interface) (*SockRaw, error) {
 	// sock create
 	fd, err := unix.Socket(unix.AF_PACKET, unix.SOCK_RAW, int(ETHALL))
 	if err != nil {
@@ -121,11 +132,10 @@ read:
 			goto read
 		}
 	}
-
 	tpHdr.Status = unix.TP_STATUS_KERNEL
 	sockAddr := (*unix.RawSockaddrLinklayer)(unsafe.Pointer(&sock.buf[i+tpacket2hdrlen]))
 
-	// parse out repeating packets on loopback, 4 frames will be wasted obviously!
+	// parse out repeating packets on loopback, some frames will be wasted obviously!
 	if sockAddr.Ifindex == sock.loopIndex && sock.frame%2 != 0 {
 		goto read
 	}

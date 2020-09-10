@@ -181,13 +181,8 @@ func TestPcapHandler(t *testing.T) {
 
 func TestSocketHandler(t *testing.T) {
 	l, err := NewListener(LoopBack.Name, 8000, "", EngineRawSocket, true)
-	if err != nil {
-		t.Errorf("expected error to be nil, got %v", err)
-		return
-	}
 	err = l.Activate()
 	if err != nil {
-		t.Errorf("expected error to be nil, got %v", err)
 		return
 	}
 	defer l.Handles[LoopBack.Name].(*SockRaw).Close()
@@ -289,13 +284,8 @@ func BenchmarkRawSocket(b *testing.B) {
 	var err error
 
 	l, err := NewListener(LoopBack.Name, 0, "", EngineRawSocket, true)
-	if err != nil {
-		b.Errorf("expected error to be nil, got %v", err)
-		return
-	}
 	err = l.Activate()
 	if err != nil {
-		b.Errorf("expected error to be nil, got %v", err)
 		return
 	}
 	defer l.Handles[LoopBack.Name].(*SockRaw).Close()

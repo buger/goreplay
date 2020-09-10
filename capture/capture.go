@@ -290,8 +290,8 @@ func (l *Listener) PcapHandle(ifi NetInterface) (handle *pcap.Handle, err error)
 }
 
 // SocketHandle returns new unix ethernet handle associated with this listener settings
-func (l *Listener) SocketHandle(ifi NetInterface) (handle *SockRaw, err error) {
-	handle, err = NewSockRaw(ifi.Interface)
+func (l *Listener) SocketHandle(ifi NetInterface) (handle Socket, err error) {
+	handle, err = NewSocket(ifi.Interface)
 	if err != nil {
 		return nil, fmt.Errorf("sock raw error: %q, interface: %q", err, ifi.Name)
 	}
@@ -349,8 +349,10 @@ func (l *Listener) closeHandles(key string) {
 	l.Lock()
 	defer l.Unlock()
 	if handle, ok := l.Handles[key]; ok {
-		if _, ok = handle.(interface{ Close() }); ok {
-			handle.(interface{ Close() }).Close()
+		if _, ok = handle.(Socket); ok {
+			handle.(Socket).Close()
+		} else {
+			handle.(*pcap.Handle).Close()
 		}
 		delete(l.Handles, key)
 		if len(l.Handles) == 0 {
@@ -384,7 +386,7 @@ func (l *Listener) activateRawSocket() error {
 	var msg string
 	var e error
 	for _, ifi := range l.Interfaces {
-		var handle *SockRaw
+		var handle Socket
 		handle, e = l.SocketHandle(ifi)
 		if e != nil {
 			msg += ("\n" + e.Error())
