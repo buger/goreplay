@@ -7,6 +7,7 @@ PREFIX=
 RUN = docker run -v `pwd`:$(SOURCE_PATH) -e AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) -e AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY) -p 0.0.0.0:$(PORT):$(PORT) -t -i $(CONTAINER)
 BENCHMARK = BenchmarkRAWInput
 TEST = TestRawListenerBench
+BIN_NAME = gor
 VERSION = DEV-$(shell date +%s)
 LDFLAGS = -ldflags "-X main.VERSION=$(VERSION)$(PREFIX) -extldflags \"-static\" -X main.DEMO=$(DEMO)"
 MAC_LDFLAGS = -ldflags "-X main.VERSION=$(VERSION)$(PREFIX) -X main.DEMO=$(DEMO)"
@@ -25,29 +26,35 @@ FPMCOMMON= \
 release: release-x64 release-mac
 
 release-bin:
-	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i gor go build -o gor -tags netgo $(LDFLAGS)
+	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i $(CONTAINER) go build -o $(BIN_NAME) -tags netgo $(LDFLAGS)
+
+release-bin-mac:
+	go build -o $(BIN_NAME) $(MAC_LDFLAGS)
 
 release-x64:
-	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i $(CONTAINER) go build -o gor -tags netgo $(LDFLAGS)
-	tar -czf gor_$(VERSION)$(PREFIX)_x64.tar.gz gor
+	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i $(CONTAINER) go build -o $(BIN_NAME) -tags netgo $(LDFLAGS)
+	tar -czf gor_$(VERSION)$(PREFIX)_x64.tar.gz $(BIN_NAME)
 	mkdir -p /tmp/gor-build
-	mv ./gor /tmp/gor-build/gor
+	mv ./$(BIN_NAME) /tmp/gor-build/$(BIN_NAME)
 	cd /tmp/gor-build
+	rm -f goreplay_$(VERSION)_amd64.deb
+	rm -f goreplay-$(VERSION)-1.x86_64.rpm
 	fpm $(FPMCOMMON) -a amd64 -t deb ./=/usr/local/bin
 	fpm $(FPMCOMMON) -a amd64 -t rpm ./=/usr/local/bin
 	rm -rf /tmp/gor-build
 
 release-x86:
-	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=386 -i $(CONTAINER) go build -o gor -tags netgo $(LDFLAGS)
-	tar -czf gor_$(VERSION)$(PREFIX)_x86.tar.gz gor
-	rm gor
+	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=386 -i $(CONTAINER) go build -o $(BIN_NAME) -tags netgo $(LDFLAGS)
+	tar -czf gor_$(VERSION)$(PREFIX)_x86.tar.gz $(BIN_NAME)
+	rm $(BIN_NAME)
 
 release-mac:
-	go build -o gor $(MAC_LDFLAGS)
-	tar -czf gor_$(VERSION)$(PREFIX)_mac.tar.gz gor
+	go build -o $(BIN_NAME) $(MAC_LDFLAGS)
+	tar -czf gor_$(VERSION)$(PREFIX)_mac.tar.gz $(BIN_NAME)
 	mkdir -p /tmp/gor-build
-	mv ./gor /tmp/gor-build/gor
+	mv ./$(BIN_NAME) /tmp/gor-build/$(BIN_NAME)
 	cd /tmp/gor-build
+	rm -f goreplay-$(VERSION).pkg
 	fpm $(FPMCOMMON) -a amd64 -t osxpkg ./=/usr/local/bin
 	rm -rf /tmp/gor-build
 
@@ -59,7 +66,7 @@ build:
 	docker build -t $(CONTAINER) -f Dockerfile.dev .
 
 profile:
-	go build && ./gor --output-http="http://localhost:9000" --input-dummy 0 --input-raw :9000 --input-http :9000 --memprofile=./mem.out --cpuprofile=./cpu.out --stats --output-http-stats --output-http-timeout 100ms
+	go build && ./$(BIN_NAME) --output-http="http://localhost:9000" --input-dummy 0 --input-raw :9000 --input-http :9000 --memprofile=./mem.out --cpuprofile=./cpu.out --stats --output-http-stats --output-http-timeout 100ms
 
 lint:
 	$(RUN) golint $(PKG)
@@ -134,6 +141,6 @@ FPMCOMMON= \
 
 build_packages:
 	mkdir -p /tmp/gor-build
-	go build -i -o /tmp/gor-build/gor
+	go build -i -o /tmp/gor-build/$(BIN_NAME)
 	fpm $(FPMCOMMON) -a amd64 -t deb ./=/usr/local/bin
 	fpm $(FPMCOMMON) -a amd64 -t rpm ./=/usr/local/bin
