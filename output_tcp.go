@@ -26,10 +26,11 @@ type TCPOutputConfig struct {
 	Secure     bool `json:"output-tcp-secure"`
 	Sticky     bool `json:"output-tcp-sticky"`
 	SkipVerify bool `json:"output-tcp-skip-verify"`
+	Workers    int  `json:"output-tcp-workers"`
 }
 
 // NewTCPOutput constructor for TCPOutput
-// Initialize 10 workers which hold keep-alive connection
+// Initialize X workers which hold keep-alive connection
 func NewTCPOutput(address string, config *TCPOutputConfig) io.Writer {
 	o := new(TCPOutput)
 
@@ -41,9 +42,9 @@ func NewTCPOutput(address string, config *TCPOutputConfig) io.Writer {
 	}
 
 	if o.config.Sticky {
-		// create 10 buffers and send the buffer index to the worker
-		o.buf = make([]chan []byte, 10)
-		for i := 0; i < 10; i++ {
+		// create X buffers and send the buffer index to the worker
+		o.buf = make([]chan []byte, o.config.Workers)
+		for i := 0; i < o.config.Workers; i++ {
 			o.buf[i] = make(chan []byte, 100)
 			go o.worker(i)
 		}
@@ -51,7 +52,7 @@ func NewTCPOutput(address string, config *TCPOutputConfig) io.Writer {
 		// create 1 buffer and send its index (0) to all workers
 		o.buf = make([]chan []byte, 1)
 		o.buf[0] = make(chan []byte, 1000)
-		for i := 0; i < 10; i++ {
+		for i := 0; i < o.config.Workers; i++ {
 			go o.worker(0)
 		}
 	}
@@ -101,7 +102,7 @@ func (o *TCPOutput) getBufferIndex(data []byte) int {
 
 	hasher := fnv.New32a()
 	hasher.Write(payloadMeta(data)[1])
-	return int(hasher.Sum32()) % 10
+	return int(hasher.Sum32()) % o.config.Workers
 }
 
 func (o *TCPOutput) Write(data []byte) (n int, err error) {
