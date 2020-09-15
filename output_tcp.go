@@ -23,8 +23,9 @@ type TCPOutput struct {
 
 // TCPOutputConfig tcp output configuration
 type TCPOutputConfig struct {
-	Secure bool `json:"output-tcp-secure"`
-	Sticky bool `json:"output-tcp-sticky"`
+	Secure     bool `json:"output-tcp-secure"`
+	Sticky     bool `json:"output-tcp-sticky"`
+	SkipVerify bool `json:"output-tcp-skip-verify"`
 }
 
 // NewTCPOutput constructor for TCPOutput
@@ -124,7 +125,7 @@ func (o *TCPOutput) Write(data []byte) (n int, err error) {
 
 func (o *TCPOutput) connect(address string) (conn net.Conn, err error) {
 	if o.config.Secure {
-		conn, err = tls.Dial("tcp", address, &tls.Config{})
+		conn, err = tls.Dial("tcp", address, &tls.Config{InsecureSkipVerify: o.config.SkipVerify})
 	} else {
 		conn, err = net.Dial("tcp", address)
 	}
