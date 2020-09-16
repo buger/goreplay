@@ -29,7 +29,7 @@ release-bin:
 	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i $(CONTAINER) go build -o $(BIN_NAME) -tags netgo $(LDFLAGS)
 
 release-bin-mac:
-	go build -o $(BIN_NAME) $(MAC_LDFLAGS)
+	GOOS=darwin go build -o $(BIN_NAME) $(MAC_LDFLAGS)
 
 release-x64:
 	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i $(CONTAINER) go build -o $(BIN_NAME) -tags netgo $(LDFLAGS)
