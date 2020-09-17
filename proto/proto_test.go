@@ -98,6 +98,10 @@ func TestSetHeader(t *testing.T) {
 	if payload = SetHeader(payload, []byte("User-Agent"), []byte("Gor")); !bytes.Equal(payload, payloadAfter) {
 		t.Error("Should add header if not found", string(payload))
 	}
+	invalidPayload := []byte("POST /post HTTP/1.1")
+	if invalidPayload = SetHeader(invalidPayload, []byte("User-Agent"), []byte("Gor")); !bytes.Equal(invalidPayload, []byte("POST /post HTTP/1.1")) {
+		t.Error("Should not modify payload if request is invalid", string(payload))
+	}
 }
 
 func TestDeleteHeader(t *testing.T) {

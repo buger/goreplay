@@ -163,13 +163,15 @@ func SetHeader(payload, name, value []byte) []byte {
 // AddHeader takes http payload and appends new header to the start of headers section
 // Returns modified request payload
 func AddHeader(payload, name, value []byte) []byte {
+	mimeStart := MIMEHeadersStartPos(payload)
+	if mimeStart < 1 {
+		return payload
+	}
 	header := make([]byte, len(name)+2+len(value)+2)
 	copy(header[0:], name)
 	copy(header[len(name):], HeaderDelim)
 	copy(header[len(name)+2:], value)
 	copy(header[len(header)-2:], CRLF)
-
-	mimeStart := MIMEHeadersStartPos(payload)
 
 	return byteutils.Insert(payload, mimeStart, header)
 }
