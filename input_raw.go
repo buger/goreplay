@@ -60,6 +60,7 @@ type RAWInputConfig struct {
 	RealIPHeader   string             `json:"input-raw-realip-header"`
 	Stats          bool               `json:"input-raw-stats"`
 	quit           chan bool          // Channel used only to indicate goroutine should shutdown
+	quitEng        chan error
 	host           string
 	port           uint16
 }
@@ -126,14 +127,19 @@ func (i *RAWInput) Read(data []byte) (n int, err error) {
 	if len(data) > len(header) {
 		n += copy(data[len(header):], buf)
 	}
-	dis := len(header) + len(buf) - n
-	if dis > 0 {
-		go Debug(2, "[INPUT-RAW] discarded", dis, "bytes increase copy buffer size")
+	// to be removed....
+	if msg.Truncated || len(header)+len(buf)-n > 0 {
+		go Debug(2, "[INPUT-RAW] message truncated, increase copy-buffer-size")
 	}
-	if msg.Truncated {
-		go Debug(2, "[INPUT-RAW] message truncated, copy-buffer-size")
+	// to be removed...
+	if msg.TimedOut {
+		go Debug(2, "[INPUT-RAW] message timeout reached, increase input-raw-expire")
 	}
-	go i.addStats(msg.Stats)
+	if i.Stats {
+		stat := msg.Stats
+		go i.addStats(stat)
+	}
+	msg = nil
 	return n, nil
 }
 
@@ -153,9 +159,9 @@ func (i *RAWInput) listen(address string) {
 	pool.Start = startHint
 	var ctx context.Context
 	ctx, i.cancelListener = context.WithCancel(context.Background())
-	errCh := i.listener.ListenBackground(ctx, pool.Handler)
+	i.quitEng = i.listener.ListenBackground(ctx, pool.Handler)
 	select {
-	case err := <-errCh:
+	case err := <-i.quitEng:
 		log.Fatal(err)
 	case <-i.listener.Reading:
 		Debug(1, i)
@@ -184,23 +190,25 @@ func (i *RAWInput) GetStats() []tcp.Stats {
 func (i *RAWInput) Close() error {
 	i.cancelListener()
 	close(i.quit)
+	<-i.quitEng
 	return nil
 }
 
 func (i *RAWInput) addStats(mStats tcp.Stats) {
-	if i.Stats {
-		i.Lock()
-		if len(i.messageStats) >= 10000 {
-			i.messageStats = []tcp.Stats{}
-		}
-		i.messageStats = append(i.messageStats, mStats)
-
-		i.Unlock()
+	i.Lock()
+	if len(i.messageStats) >= 10000 {
+		i.messageStats = []tcp.Stats{}
 	}
+	i.messageStats = append(i.messageStats, mStats)
+	i.Unlock()
 }
 
 func startHint(pckt *tcp.Packet) (isIncoming, isOutgoing bool) {
-	return proto.HasRequestTitle(pckt.Payload), proto.HasResponseTitle(pckt.Payload)
+	isIncoming = proto.HasRequestTitle(pckt.Payload)
+	if isIncoming {
+		return
+	}
+	return false, proto.HasResponseTitle(pckt.Payload)
 }
 
 func endHint(m *tcp.Message) bool {

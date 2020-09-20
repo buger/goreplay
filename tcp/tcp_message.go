@@ -1,6 +1,7 @@
 package tcp
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
@@ -30,7 +31,7 @@ type Stats struct {
 type Message struct {
 	packets []*Packet
 	done    chan bool
-	data    []byte
+	buf     bytes.Buffer
 	Stats
 }
 
@@ -44,7 +45,7 @@ func NewMessage(srcAddr, dstAddr string, ipVersion uint8) (m *Message) {
 	return
 }
 
-// UUID the unique id of a TCP session it is not granted to be unique overtime
+// UUID the unique id of a TCP session it is not granted to be unique!
 func (m *Message) UUID() []byte {
 	var src, dst string
 	if m.IsIncoming {
@@ -70,7 +71,9 @@ func (m *Message) add(pckt *Packet) {
 	m.Length += len(pckt.Payload)
 	m.LostData += int(pckt.Lost)
 	m.packets = append(m.packets, pckt)
-	m.data = append(m.data, pckt.Payload...)
+	if len(pckt.Payload) > 0 {
+		m.buf.Write(pckt.Payload)
+	}
 	m.End = pckt.Timestamp
 }
 
@@ -81,7 +84,7 @@ func (m *Message) Packets() []*Packet {
 
 // Data returns data in this message
 func (m *Message) Data() []byte {
-	return m.data
+	return m.buf.Bytes()
 }
 
 // Sort a helper to sort packets
@@ -105,13 +108,12 @@ type HintEnd func(*Message) bool
 type HintStart func(*Packet) (IsIncoming, IsOutgoing bool)
 
 // MessagePool holds data of all tcp messages in progress(still receiving/sending packets).
-// Incoming message is identified by its source port and address e.g: 127.0.0.1:45785.
-// Outgoing message is identified by  server.addr and dst.addr e.g: localhost:80=internet:45785.
+// message is identified by its source port and dst port, and last 4bytes of src IP.
 type MessagePool struct {
 	sync.Mutex
 	debug         Debugger
 	maxSize       size.Size // maximum message size, default 5mb
-	pool          map[string]*Message
+	pool          map[uint64]*Message
 	handler       Handler
 	messageExpire time.Duration // the maximum time to wait for the final packet, minimum is 100ms
 	End           HintEnd
@@ -131,7 +133,7 @@ func NewMessagePool(maxSize size.Size, messageExpire time.Duration, debugger Deb
 	if pool.maxSize < 1 {
 		pool.maxSize = 5 << 20
 	}
-	pool.pool = make(map[string]*Message)
+	pool.pool = make(map[uint64]*Message)
 	return pool
 }
 
@@ -145,20 +147,23 @@ func (pool *MessagePool) Handler(packet gopacket.Packet) {
 	}
 	pool.Lock()
 	defer pool.Unlock()
-	srcKey := pckt.Src()
-	dstKey := srcKey + "=" + pckt.Dst()
-	m, ok := pool.pool[srcKey]
-	if !ok {
-		m, ok = pool.pool[dstKey]
+	lst := 3
+	if pckt.Version == 6 {
+		lst = 15
 	}
+	key := uint64(pckt.SrcPort)<<48 | uint64(pckt.DstPort)<<32 |
+		uint64(pckt.SrcIP[lst])<<24 | uint64(pckt.SrcIP[lst-1])<<16 |
+		uint64(pckt.SrcIP[lst-2])<<8 | uint64(pckt.SrcIP[lst-3])
+	m, ok := pool.pool[key]
 	if pckt.RST {
 		if ok {
 			m.done <- true
 			<-m.done
 		}
-		if m, ok = pool.pool[pckt.Dst()]; !ok {
-			m, ok = pool.pool[pckt.Dst()+"="+srcKey]
-		}
+		key = uint64(pckt.DstPort)<<48 | uint64(pckt.SrcPort)<<32 |
+			uint64(pckt.DstIP[lst])<<24 | uint64(pckt.DstIP[lst-1])<<16 |
+			uint64(pckt.DstIP[lst-2])<<8 | uint64(pckt.DstIP[lst-3])
+		m, ok = pool.pool[key]
 		if ok {
 			m.done <- true
 			<-m.done
@@ -179,25 +184,25 @@ func (pool *MessagePool) Handler(packet gopacket.Packet) {
 	default:
 		return
 	}
-	m = NewMessage(srcKey, pckt.Dst(), pckt.Version)
+	m = NewMessage(pckt.Src(), pckt.Dst(), pckt.Version)
 	m.IsIncoming = in
-	key := srcKey
-	if !m.IsIncoming {
-		key = dstKey
-	}
 	pool.pool[key] = m
 	m.Start = pckt.Timestamp
 	go pool.dispatch(key, m)
 	pool.addPacket(m, pckt)
 }
 
-func (pool *MessagePool) dispatch(key string, m *Message) {
+func (pool *MessagePool) dispatch(key uint64, m *Message) {
 	select {
 	case <-m.done:
-		defer func() { m.done <- true }()
+		defer func() { m.done <- true }() // signal that message was dispatched
 	case <-time.After(pool.messageExpire):
 		pool.Lock()
 		defer pool.Unlock()
+		// avoid dispathing message twice
+		if _, ok := pool.pool[key]; !ok {
+			return
+		}
 		m.TimedOut = true
 	}
 	delete(pool.pool, key)

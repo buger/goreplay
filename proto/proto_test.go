@@ -2,10 +2,8 @@ package proto
 
 import (
 	"bytes"
-	"fmt"
 	"reflect"
 	"testing"
-	"time"
 )
 
 func TestHeader(t *testing.T) {
@@ -458,28 +456,24 @@ func TestHasFullPayload(t *testing.T) {
 }
 
 func BenchmarkHasFullPayload(b *testing.B) {
-	now := time.Now()
-	payload := make([]byte, 0xfc00)
-	for i := 0; i < 0xfc00; i++ {
-		payload[i] = '1'
+	var payload [32]byte
+	payload[30] = '\r'
+	payload[31] = '\n'
+	var buf bytes.Buffer
+	buf.Write([]byte("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nTransfer-Encoding: chunked\r\n\r\n"))
+	var chunk = []byte("1e\r\n111111111111111111111111111111\r\n")
+	for i := 0; i < 5000; i++ {
+		buf.Write(chunk)
 	}
+	buf.Write([]byte("0\r\n\r\n"))
+	data := buf.Bytes()
 	var ok bool
-	data := []byte("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nTransfer-Encoding: chunked\r\n\r\n")
-	if ok = HasFullPayload(data); ok {
-		b.Error("HasFullPayload should fail")
-		return
-	}
+	b.ResetTimer() // ignores the upper initialization
+	b.ReportMetric(float64(5000), "chunks/op")
 	for i := 0; i < b.N; i++ {
-		data = append(data, []byte(fmt.Sprintf("fc00\r\n%s\r\n", payload))...)
-		if ok = HasFullPayload(data); ok {
-			b.Error("HasFullPayload should fail")
-			return
-		}
+		ok = HasFullPayload(data)
 	}
-	data = append(data, []byte("0\r\n\r\n")...)
-	if ok = HasFullPayload(data); !ok {
-		b.Error("HasFullPayload should pass")
-		return
+	if !ok {
+		b.Fail()
 	}
-	b.Logf("%dKB chunks in %s", b.N*64, time.Since(now))
 }

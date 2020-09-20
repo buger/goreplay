@@ -3,7 +3,6 @@ package tcp
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"testing"
 	"time"
 
@@ -205,75 +204,63 @@ func TestMessageUUID(t *testing.T) {
 }
 
 func BenchmarkPacketParseAndSort(b *testing.B) {
-	if b.N < 3 {
-		return
-	}
-	now := time.Now()
 	m := new(Message)
-	m.packets = make([]*Packet, b.N)
-	for i, v := range GetPackets(1, b.N, nil) {
+	m.packets = make([]*Packet, 100)
+	for i, v := range GetPackets(1, 100, nil) {
 		m.packets[i], _ = ParsePacket(v)
 	}
-	m.Sort()
-	b.Logf("%d packets in %s", b.N, time.Since(now))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.Sort()
+	}
 }
 
 func BenchmarkMessageParserWithoutHint(b *testing.B) {
 	var mssg = make(chan *Message, 1)
-	if b.N < 3 {
-		return
-	}
-	now := time.Now()
-	n := b.N
-	packets := GetPackets(1, n, nil)
-	packets[0].Data()[14:][20:][13] = 2     // SYN flag
-	packets[b.N-1].Data()[14:][20:][13] = 1 // FIN flag
+	var chunk = []byte("111111111111111111111111111111")
+	packets := GetPackets(1, 1000, chunk)
+	packets[0].Data()[14:][20:][13] = 2      // SYN flag
+	packets[1000-1].Data()[14:][20:][13] = 1 // FIN flag
 	p := NewMessagePool(1<<20, time.Second*2, nil, func(m *Message) {
-		b.Logf("%d/%d packets in %s", len(m.packets), n, time.Since(now))
 		mssg <- m
 	})
-	for _, v := range packets {
-		p.Handler(v)
+	b.ResetTimer()
+	b.ReportMetric(float64(1000), "packets/op")
+	for i := 0; i < b.N; i++ {
+		for _, v := range packets {
+			p.Handler(v)
+		}
+		<-mssg
 	}
-	<-mssg
 }
 
 func BenchmarkMessageParserWithHint(b *testing.B) {
-	if b.N < 3 {
-		return
+	var buf [1002][]byte
+	var chunk = []byte("1e\r\n111111111111111111111111111111\r\n")
+	buf[0] = []byte("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nTransfer-Encoding: chunked\r\n\r\n")
+	for i := 1; i < 1000; i++ {
+		buf[i] = chunk
 	}
-	now := time.Now()
-	n := b.N
+	buf[1001] = []byte("0\r\n\r\n")
+	packets := make([]gopacket.Packet, len(buf))
+	for i := 0; i < len(buf); i++ {
+		packets[i] = GetPackets(uint32(i+10), 1, buf[i])[0]
+	}
 	var mssg = make(chan *Message, 1)
-	payload := make([]byte, 0xfc00)
-	for i := 0; i < 0xfc00; i++ {
-		payload[i] = '1'
-	}
 	pool := NewMessagePool(1<<30, time.Second*10, nil, func(m *Message) { mssg <- m })
 	pool.Start = func(pckt *Packet) (bool, bool) {
-		return proto.HasRequestTitle(pckt.Payload), proto.HasResponseTitle(pckt.Payload)
+		return false, proto.HasResponseTitle(pckt.Payload)
 	}
 	pool.End = func(m *Message) bool {
 		return proto.HasFullPayload(m.Data())
 	}
-	pool.Handler(GetPackets(1, 1, []byte("POST / HTTP/1.1\r\nContent-Type: text/plain\r\nTransfer-Encoding: chunked\r\n\r\n"))[0])
-	i := 0
-	var d []byte
-	for {
-		select {
-		case m := <-mssg:
-			b.Logf("%d/%d packets, %dbytes, truncated: %v, timedout: %v in %s", len(m.packets), n, m.Length, m.Truncated, m.TimedOut, time.Since(now))
-			return
-		default:
-			if i > n-2 {
-				break
-			} else if i < n-2 {
-				d = []byte(fmt.Sprintf("fc00\r\n%s\r\n", payload))
-			} else {
-				d = []byte("0\r\n\r\n")
-			}
-			pool.Handler(GetPackets(1, i+2, d)[0])
-			i++
+	b.ResetTimer()
+	b.ReportMetric(float64(len(packets)), "packets/op")
+	b.ReportMetric(float64(1000), "chunks/op")
+	for i := 0; i < b.N; i++ {
+		for j := range packets {
+			pool.Handler(packets[j])
 		}
+		<-mssg
 	}
 }

@@ -332,8 +332,7 @@ const (
 
 // HasResponseTitle reports whether this payload has an HTTP/1 response title
 func HasResponseTitle(payload []byte) bool {
-	var s string
-	byteutils.SliceToString(&payload, &s)
+	s := byteutils.SliceToString(payload)
 	if len(s) < MinResponseCount {
 		return false
 	}
@@ -361,8 +360,7 @@ func HasResponseTitle(payload []byte) bool {
 
 // HasRequestTitle reports whether this payload has an HTTP/1 request title
 func HasRequestTitle(payload []byte) bool {
-	var s string
-	byteutils.SliceToString(&payload, &s)
+	s := byteutils.SliceToString(payload)
 	if len(s) < MinRequestCount {
 		return false
 	}
