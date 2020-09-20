@@ -16,7 +16,9 @@ func NewDummyOutput() (di *DummyOutput) {
 }
 
 func (i *DummyOutput) Write(data []byte) (int, error) {
-	return os.Stdout.Write(data)
+	n, err := os.Stdout.Write(data)
+	os.Stdout.Write([]byte{'\n'})
+	return n, err
 }
 
 func (i *DummyOutput) String() string {

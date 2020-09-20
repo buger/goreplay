@@ -60,7 +60,6 @@ type RAWInputConfig struct {
 	RealIPHeader   string             `json:"input-raw-realip-header"`
 	Stats          bool               `json:"input-raw-stats"`
 	quit           chan bool          // Channel used only to indicate goroutine should shutdown
-	quitEng        chan error
 	host           string
 	port           uint16
 }
@@ -159,9 +158,9 @@ func (i *RAWInput) listen(address string) {
 	pool.Start = startHint
 	var ctx context.Context
 	ctx, i.cancelListener = context.WithCancel(context.Background())
-	i.quitEng = i.listener.ListenBackground(ctx, pool.Handler)
+	errCh := i.listener.ListenBackground(ctx, pool.Handler)
 	select {
-	case err := <-i.quitEng:
+	case err := <-errCh:
 		log.Fatal(err)
 	case <-i.listener.Reading:
 		Debug(1, i)
@@ -190,7 +189,6 @@ func (i *RAWInput) GetStats() []tcp.Stats {
 func (i *RAWInput) Close() error {
 	i.cancelListener()
 	close(i.quit)
-	<-i.quitEng
 	return nil
 }
 

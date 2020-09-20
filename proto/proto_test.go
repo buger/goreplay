@@ -456,9 +456,6 @@ func TestHasFullPayload(t *testing.T) {
 }
 
 func BenchmarkHasFullPayload(b *testing.B) {
-	var payload [32]byte
-	payload[30] = '\r'
-	payload[31] = '\n'
 	var buf bytes.Buffer
 	buf.Write([]byte("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nTransfer-Encoding: chunked\r\n\r\n"))
 	var chunk = []byte("1e\r\n111111111111111111111111111111\r\n")
