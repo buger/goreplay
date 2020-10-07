@@ -111,14 +111,13 @@ func header(payload []byte, name []byte) (value []byte, headerStart, headerEnd, 
 	return
 }
 
-// ParseHeaders Parsing headers from multiple payloads
-func ParseHeaders(payloads [][]byte, cb func(header []byte, value []byte)) {
-	p := bytes.Join(payloads, nil)
+// ParseHeaders Parsing headers from the payload
+func ParseHeaders(p []byte) textproto.MIMEHeader {
 	// trimming off the title of the request
-	if HasRequestTitle(p) || HasResponseTitle(p) {
+	if HasTitle(p) {
 		headerStart := MIMEHeadersStartPos(p)
 		if headerStart > len(p)-1 {
-			return
+			return nil
 		}
 		p = p[headerStart:]
 	}
@@ -126,17 +125,12 @@ func ParseHeaders(payloads [][]byte, cb func(header []byte, value []byte)) {
 	if headerEnd > 1 {
 		p = p[:headerEnd]
 	}
-	reader := textproto.NewReader(bufio.NewReader(bytes.NewBuffer(p)))
+	reader := textproto.NewReader(bufio.NewReader(bytes.NewReader(p)))
 	mime, err := reader.ReadMIMEHeader()
 	if err != nil {
-		return
+		return nil
 	}
-	for k, v := range mime {
-		for _, value := range v {
-			cb([]byte(k), []byte(value))
-		}
-	}
-	return
+	return mime
 }
 
 // Header returns header value, if header not found, value will be blank

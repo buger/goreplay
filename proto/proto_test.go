@@ -2,6 +2,7 @@ package proto
 
 import (
 	"bytes"
+	"net/textproto"
 	"reflect"
 	"testing"
 )
@@ -124,16 +125,12 @@ func TestDeleteHeader(t *testing.T) {
 func TestParseHeaders(t *testing.T) {
 	payload := [][]byte{[]byte("POST /post HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.or"), []byte("g\r\nUser-Ag"), []byte("ent:Chrome\r\n\r\n"), []byte("Fake-Header: asda")}
 
-	headers := make(map[string]string)
+	headers := ParseHeaders(bytes.Join(payload, nil))
 
-	ParseHeaders(payload, func(header []byte, value []byte) {
-		headers[string(header)] = string(value)
-	})
-
-	expected := map[string]string{
-		"Content-Length": "7",
-		"Host":           "www.w3.org",
-		"User-Agent":     "Chrome",
+	expected := textproto.MIMEHeader{
+		"Content-Length": []string{"7"},
+		"Host":           []string{"www.w3.org"},
+		"User-Agent":     []string{"Chrome"},
 	}
 
 	if !reflect.DeepEqual(headers, expected) {
@@ -148,8 +145,7 @@ func TestFuzzCrashers(t *testing.T) {
 	}
 
 	for _, f := range crashers {
-		ParseHeaders([][]byte{[]byte(f)}, func(header []byte, value []byte) {
-		})
+		ParseHeaders([]byte(f))
 	}
 }
 
@@ -158,17 +154,13 @@ func TestParseHeadersWithComplexUserAgent(t *testing.T) {
 	// Parser should wait for \r\n
 	payload := [][]byte{[]byte("POST /post HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.or"), []byte("g\r\nUser-Ag"), []byte("ent:Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko\r\n\r\n"), []byte("Fake-Header: asda")}
 
-	headers := make(map[string]string)
-
-	ParseHeaders(payload, func(header []byte, value []byte) {
-		headers[string(header)] = string(value)
-	})
+	headers := ParseHeaders(bytes.Join(payload, nil))
 
 	expected := map[string]string{
 		"User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko",
 	}
 
-	if expected["User-Agent"] != headers["User-Agent"] {
+	if expected["User-Agent"] != headers["User-Agent"][0] {
 		t.Errorf("Header 'User-Agent' expected '%s' and parsed: '%s'", expected["User-Agent"], headers["User-Agent"])
 	}
 }
@@ -178,11 +170,7 @@ func TestParseHeadersWithOrigin(t *testing.T) {
 	// Parser should wait for \r\n
 	payload := [][]byte{[]byte("POST /post HTTP/1.1\r\nContent-Length: 7\r\nHost: www.w3.or"), []byte("g\r\nReferrer: http://127.0.0.1:3000\r\nOrigi"), []byte("n: https://www.example.com\r\nUser-Ag"), []byte("ent:Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko\r\n\r\n"), []byte("in:https://www.example.com\r\n\r\n"), []byte("Fake-Header: asda")}
 
-	headers := make(map[string]string)
-
-	ParseHeaders(payload, func(header []byte, value []byte) {
-		headers[string(header)] = string(value)
-	})
+	headers := ParseHeaders(bytes.Join(payload, nil))
 
 	expected := map[string]string{
 		"Origin":     "https://www.example.com",
@@ -190,15 +178,15 @@ func TestParseHeadersWithOrigin(t *testing.T) {
 		"Referrer":   "http://127.0.0.1:3000",
 	}
 
-	if expected["Referrer"] != headers["Referrer"] {
+	if expected["Referrer"] != headers["Referrer"][0] {
 		t.Errorf("Header 'Referrer' expected '%s' and parsed: '%s'", expected["Referrer"], headers["Referrer"])
 	}
 
-	if expected["Origin"] != headers["Origin"] {
+	if expected["Origin"] != headers["Origin"][0] {
 		t.Errorf("Header 'Origin' expected '%s' and parsed: '%s'", expected["Origin"], headers["Origin"])
 	}
 
-	if expected["User-Agent"] != headers["User-Agent"] {
+	if expected["User-Agent"] != headers["User-Agent"][0] {
 		t.Errorf("Header 'User-Agent' expected '%s' and parsed: '%s'", expected["User-Agent"], headers["User-Agent"])
 	}
 }
