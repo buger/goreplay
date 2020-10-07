@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/buger/goreplay/byteutils"
 	"github.com/buger/goreplay/proto"
 
 	"github.com/Shopify/sarama"
@@ -71,27 +72,28 @@ func (o *KafkaOutput) Write(data []byte) (n int, err error) {
 	var message sarama.StringEncoder
 
 	if !o.config.UseJSON {
-		message = sarama.StringEncoder(data)
+		message = sarama.StringEncoder(byteutils.SliceToString(data))
 	} else {
-		headers := make(map[string]string)
-		proto.ParseHeaders([][]byte{data}, func(header []byte, value []byte) {
-			headers[string(header)] = string(value)
-		})
+		mimeHeader := proto.ParseHeaders(data)
+		var header map[string]string
+		for k, v := range mimeHeader {
+			header[k] = strings.Join(v, ", ")
+		}
 
 		meta := payloadMeta(data)
 		req := payloadBody(data)
 
 		kafkaMessage := KafkaMessage{
-			ReqURL:     string(proto.Path(req)),
-			ReqType:    string(meta[0]),
-			ReqID:      string(meta[1]),
-			ReqTs:      string(meta[2]),
-			ReqMethod:  string(proto.Method(req)),
-			ReqBody:    string(proto.Body(req)),
-			ReqHeaders: headers,
+			ReqURL:     byteutils.SliceToString(proto.Path(req)),
+			ReqType:    byteutils.SliceToString(meta[0]),
+			ReqID:      byteutils.SliceToString(meta[1]),
+			ReqTs:      byteutils.SliceToString(meta[2]),
+			ReqMethod:  byteutils.SliceToString(proto.Method(req)),
+			ReqBody:    byteutils.SliceToString(proto.Body(req)),
+			ReqHeaders: header,
 		}
 		jsonMessage, _ := json.Marshal(&kafkaMessage)
-		message = sarama.StringEncoder(jsonMessage)
+		message = sarama.StringEncoder(byteutils.SliceToString(jsonMessage))
 	}
 
 	o.producer.Input() <- &sarama.ProducerMessage{

@@ -32,7 +32,6 @@ func NewKafkaInputWithTLS(address string, config *InputKafkaConfig, tlsConfig *K
 		con = config.consumer
 	} else {
 		var err error
-		//con, err = sarama.NewConsumer([]string{config.Host}, c)
 		con, err = sarama.NewConsumer(strings.Split(config.Host, ","), c)
 
 		if err != nil {
@@ -97,9 +96,9 @@ func (i *KafkaInput) Read(data []byte) (int, error) {
 		return 0, err
 	}
 
-	copy(data, buf)
+	n := copy(data, buf)
 
-	return len(buf), nil
+	return n, nil
 
 }
 

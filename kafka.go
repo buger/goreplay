@@ -12,9 +12,8 @@ import (
 	"github.com/buger/goreplay/proto"
 )
 
-// KafkaConfig should contains required information to
+// InputKafkaConfig should contains required information to
 // build producers.
-
 type InputKafkaConfig struct {
 	producer sarama.AsyncProducer
 	consumer sarama.Consumer
@@ -23,6 +22,7 @@ type InputKafkaConfig struct {
 	UseJSON  bool   `json:"input-kafka-json-format"`
 }
 
+// OutputKafkaConfig is the representation of kfka output configuration
 type OutputKafkaConfig struct {
 	producer sarama.AsyncProducer
 	consumer sarama.Consumer
@@ -34,8 +34,8 @@ type OutputKafkaConfig struct {
 // KafkaTLSConfig should contains TLS certificates for connecting to secured Kafka clusters
 type KafkaTLSConfig struct {
 	CACert     string `json:"kafka-tls-ca-cert"`
-	clientCert string `json:"kafka-tls-client-cert"`
-	clientKey  string `json:"kafka-tls-client-key"`
+	ClientCert string `json:"kafka-tls-client-cert"`
+	ClientKey  string `json:"kafka-tls-client-key"`
 }
 
 // KafkaMessage should contains catched request information that should be
@@ -77,9 +77,9 @@ func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config
 func NewKafkaConfig(tlsConfig *KafkaTLSConfig) *sarama.Config {
 	config := sarama.NewConfig()
 	// Configuration options go here
-	if (tlsConfig != nil) && (tlsConfig.CACert != "") && (tlsConfig.clientCert != "") && (tlsConfig.clientKey != "") {
+	if (tlsConfig != nil) && (tlsConfig.CACert != "") && (tlsConfig.ClientCert != "") && (tlsConfig.ClientKey != "") {
 		config.Net.TLS.Enable = true
-		tlsConfig, err := NewTLSConfig(tlsConfig.clientCert, tlsConfig.clientKey, tlsConfig.CACert)
+		tlsConfig, err := NewTLSConfig(tlsConfig.ClientCert, tlsConfig.ClientKey, tlsConfig.CACert)
 		if err != nil {
 			log.Fatal(err)
 		}
