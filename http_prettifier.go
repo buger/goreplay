@@ -15,6 +15,13 @@ func prettifyHTTP(p []byte) []byte {
 	head := p[:headSize]
 	body := p[headSize:]
 
+	tEnc := bytes.Equal(proto.Header(body, []byte("Transfer-Encoding")), []byte("chunked"))
+	cEnc := bytes.Equal(proto.Header(body, []byte("Content-Encoding")), []byte("gzip"))
+
+	if !(tEnc || cEnc) {
+		return p
+	}
+
 	headersPos := proto.MIMEHeadersEndPos(body)
 
 	if headersPos < 5 || headersPos > len(body) {
@@ -24,23 +31,8 @@ func prettifyHTTP(p []byte) []byte {
 	headers := body[:headersPos]
 	content := body[headersPos:]
 
-	var tEnc, cEnc []byte
-	proto.ParseHeaders([][]byte{headers}, func(header, value []byte) {
-		if bytes.EqualFold(header, []byte("Transfer-Encoding")) {
-			tEnc = value
-		}
-
-		if bytes.EqualFold(header, []byte("Content-Encoding")) {
-			cEnc = value
-		}
-	})
-
-	if len(tEnc) == 0 && len(cEnc) == 0 {
-		return p
-	}
-
-	if bytes.Equal(tEnc, []byte("chunked")) {
-		buf := bytes.NewBuffer(content)
+	if tEnc {
+		buf := bytes.NewReader(content)
 		r := httputil.NewChunkedReader(buf)
 		content, _ = ioutil.ReadAll(r)
 
@@ -50,8 +42,8 @@ func prettifyHTTP(p []byte) []byte {
 		headers = proto.SetHeader(headers, []byte("Content-Length"), []byte(newLen))
 	}
 
-	if bytes.Equal(cEnc, []byte("gzip")) {
-		buf := bytes.NewBuffer(content)
+	if cEnc {
+		buf := bytes.NewReader(content)
 		g, err := gzip.NewReader(buf)
 
 		if err != nil {
@@ -59,7 +51,11 @@ func prettifyHTTP(p []byte) []byte {
 			return []byte{}
 		}
 
-		content, _ = ioutil.ReadAll(g)
+		content, err = ioutil.ReadAll(g)
+		if err != nil {
+			Debug(1, "[HTTP-PRETTIFIER] %q", err)
+			return p
+		}
 
 		headers = proto.DeleteHeader(headers, []byte("Content-Encoding"))
 

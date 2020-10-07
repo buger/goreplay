@@ -79,12 +79,7 @@ func payloadID(payload []byte) (id []byte) {
 }
 
 func isOriginPayload(payload []byte) bool {
-	switch payload[0] {
-	case RequestPayload, ResponsePayload:
-		return true
-	default:
-		return false
-	}
+	return payload[0] == RequestPayload || payload[0] == ResponsePayload
 }
 
 func isRequestPayload(payload []byte) bool {
