@@ -8,7 +8,6 @@ import (
 	_ "net/http/httputil"
 	"sync"
 	"testing"
-	"time"
 )
 
 func TestHTTPOutput(t *testing.T) {
@@ -43,16 +42,16 @@ func TestHTTPOutput(t *testing.T) {
 	methods := HTTPMethods{[]byte("GET"), []byte("PUT"), []byte("POST")}
 	Settings.ModifierConfig = HTTPModifierConfig{Headers: headers, Methods: methods}
 
-	http_output := NewHTTPOutput(server.URL, &HTTPOutputConfig{Debug: true, TrackResponses: true})
+	httpOutput := NewHTTPOutput(server.URL, &HTTPOutputConfig{TrackResponses: true})
 	output := NewTestOutput(func(data []byte) {
 		wg.Done()
 	})
 
 	plugins := &InOutPlugins{
 		Inputs:  []io.Reader{input},
-		Outputs: []io.Writer{http_output, output},
+		Outputs: []io.Writer{httpOutput, output},
 	}
-	plugins.All = append(plugins.All, input, output, http_output)
+	plugins.All = append(plugins.All, input, output, httpOutput)
 
 	emitter := NewEmitter(quit)
 	go emitter.Start(plugins, Settings.Middleware)
@@ -89,7 +88,7 @@ func TestHTTPOutputKeepOriginalHost(t *testing.T) {
 	headers := HTTPHeaders{HTTPHeader{"Host", "custom-host.com"}}
 	Settings.ModifierConfig = HTTPModifierConfig{Headers: headers}
 
-	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{Debug: false, OriginalHost: true})
+	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{OriginalHost: true, SkipVerify: true})
 
 	plugins := &InOutPlugins{
 		Inputs:  []io.Reader{input},
@@ -118,7 +117,7 @@ func TestHTTPOutputSSL(t *testing.T) {
 	}))
 
 	input := NewTestInput()
-	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{})
+	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{SkipVerify: true})
 
 	plugins := &InOutPlugins{
 		Inputs:  []io.Reader{input},
@@ -151,7 +150,7 @@ func TestHTTPOutputSessions(t *testing.T) {
 	defer server.Close()
 
 	Settings.RecognizeTCPSessions = true
-	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{Debug: true})
+	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{})
 
 	plugins := &InOutPlugins{
 		Inputs:  []io.Reader{input},
@@ -186,14 +185,43 @@ func BenchmarkHTTPOutput(b *testing.B) {
 	wg := new(sync.WaitGroup)
 	quit := make(chan int)
 
-	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(50 * time.Millisecond)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		wg.Done()
 	}))
 	defer server.Close()
 
 	input := NewTestInput()
 	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{})
+
+	plugins := &InOutPlugins{
+		Inputs:  []io.Reader{input},
+		Outputs: []io.Writer{output},
+	}
+	plugins.All = append(plugins.All, input, output)
+
+	emitter := NewEmitter(quit)
+	go emitter.Start(plugins, Settings.Middleware)
+
+	for i := 0; i < b.N; i++ {
+		wg.Add(1)
+		input.EmitPOST()
+	}
+
+	wg.Wait()
+	emitter.Close()
+}
+
+func BenchmarkHTTPOutputTLS(b *testing.B) {
+	wg := new(sync.WaitGroup)
+	quit := make(chan int)
+
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		wg.Done()
+	}))
+	defer server.Close()
+
+	input := NewTestInput()
+	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{SkipVerify: true})
 
 	plugins := &InOutPlugins{
 		Inputs:  []io.Reader{input},
