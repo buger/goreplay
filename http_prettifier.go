@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io/ioutil"
 	"net/http/httputil"
 	"strconv"
@@ -53,7 +54,7 @@ func prettifyHTTP(p []byte) []byte {
 
 		content, err = ioutil.ReadAll(g)
 		if err != nil {
-			Debug(1, "[HTTP-PRETTIFIER] %q", err)
+			Debug(1, fmt.Sprintf("[HTTP-PRETTIFIER] %q", err))
 			return p
 		}
 
