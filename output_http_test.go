@@ -191,7 +191,7 @@ func BenchmarkHTTPOutput(b *testing.B) {
 	defer server.Close()
 
 	input := NewTestInput()
-	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{})
+	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{WorkersMax: 1})
 
 	plugins := &InOutPlugins{
 		Inputs:  []io.Reader{input},
@@ -221,7 +221,7 @@ func BenchmarkHTTPOutputTLS(b *testing.B) {
 	defer server.Close()
 
 	input := NewTestInput()
-	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{SkipVerify: true})
+	output := NewHTTPOutput(server.URL, &HTTPOutputConfig{SkipVerify: true, WorkersMax: 1})
 
 	plugins := &InOutPlugins{
 		Inputs:  []io.Reader{input},

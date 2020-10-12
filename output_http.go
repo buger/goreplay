@@ -42,6 +42,7 @@ type HTTPOutputConfig struct {
 	QueueLen       int           `json:"output-http-queue-len"`
 	ElasticSearch  string        `json:"output-http-elasticsearch"`
 	Timeout        time.Duration `json:"output-http-timeout"`
+	WorkerTimeout  time.Duration `json:"output-http-worker-timeout"`
 	BufferSize     size.Size     `json:"output-http-response-buffer"`
 	SkipVerify     bool          `json:"output-http-skip-verify"`
 	rawURL         string
@@ -100,6 +101,9 @@ func NewHTTPOutput(address string, config *HTTPOutputConfig) io.Writer {
 	if config.RedirectLimit < 0 {
 		config.RedirectLimit = 0
 	}
+	if config.WorkerTimeout <= 0 {
+		config.WorkerTimeout = time.Second * 2
+	}
 	o.config = config
 	o.stop = make(chan bool)
 	if o.config.Stats {
@@ -125,7 +129,7 @@ func NewHTTPOutput(address string, config *HTTPOutputConfig) io.Writer {
 }
 
 func (o *HTTPOutput) workerMaster() {
-	var timer = time.NewTimer(2 * time.Second)
+	var timer = time.NewTimer(o.config.WorkerTimeout)
 	defer func() {
 		// recover from panics caused by trying to send in
 		// a closed chan(o.stopWorker)
@@ -147,7 +151,7 @@ func (o *HTTPOutput) workerMaster() {
 			atomic.AddInt32(&o.activeWorkers, -1)
 			goto rollback
 		}
-		timer.Reset(2 * time.Second)
+		timer.Reset(o.config.WorkerTimeout)
 	}
 }
 
