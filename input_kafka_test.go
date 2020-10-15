@@ -20,7 +20,7 @@ func TestInputKafkaRAW(t *testing.T) {
 		consumer: consumer,
 		Topic:    "test",
 		UseJSON:  false,
-	})
+	},nil)
 
 	buf := make([]byte, 1024)
 	n, err := input.Read(buf)
@@ -47,7 +47,7 @@ func TestInputKafkaJSON(t *testing.T) {
 		consumer: consumer,
 		Topic:    "test",
 		UseJSON:  true,
-	})
+	},nil)
 
 	buf := make([]byte, 1024)
 	n, err := input.Read(buf)

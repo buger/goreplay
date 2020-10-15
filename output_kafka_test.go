@@ -17,7 +17,7 @@ func TestOutputKafkaRAW(t *testing.T) {
 		producer: producer,
 		Topic:    "test",
 		UseJSON:  false,
-	})
+	},nil)
 
 	output.Write([]byte("1 2 3\nGET / HTTP1.1\r\nHeader: 1\r\n\r\n"))
 
@@ -40,7 +40,7 @@ func TestOutputKafkaJSON(t *testing.T) {
 		producer: producer,
 		Topic:    "test",
 		UseJSON:  true,
-	})
+	}, nil)
 
 	output.Write([]byte("1 2 3\nGET / HTTP1.1\r\nHeader: 1\r\n\r\n"))
 

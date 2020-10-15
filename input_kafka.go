@@ -17,13 +17,8 @@ type KafkaInput struct {
 	messages  chan *sarama.ConsumerMessage
 }
 
-// NewKafkaInput creates instance of kafka consumer client.
-func NewKafkaInput(address string, config *InputKafkaConfig) *KafkaInput {
-	return NewKafkaInputWithTLS(address, config, nil)
-}
-
-// NewKafkaInputWithTLS creates instance of kafka consumer client with TLS
-func NewKafkaInputWithTLS(address string, config *InputKafkaConfig, tlsConfig *KafkaTLSConfig) *KafkaInput {
+// NewKafkaInput creates instance of kafka consumer client with TLS config
+func NewKafkaInput(address string, config *InputKafkaConfig, tlsConfig *KafkaTLSConfig) *KafkaInput {
 	c := NewKafkaConfig(tlsConfig)
 
 	var con sarama.Consumer
