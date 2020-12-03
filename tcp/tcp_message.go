@@ -1,6 +1,7 @@
 package tcp
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -29,9 +30,11 @@ type Stats struct {
 
 // Message is the representation of a tcp message
 type Message struct {
-	packets []*Packet
-	done    chan bool
-	pool    *MessagePool
+	packets  []*Packet
+	done     chan bool
+	pool     *MessagePool
+	buf      *bytes.Buffer
+	feedback interface{}
 	Stats
 }
 
@@ -42,6 +45,7 @@ func NewMessage(srcAddr, dstAddr string, ipVersion uint8) (m *Message) {
 	m.SrcAddr = srcAddr
 	m.IPversion = ipVersion
 	m.done = make(chan bool)
+	m.buf = &bytes.Buffer{}
 	return
 }
 
@@ -88,25 +92,27 @@ func (m *Message) add(pckt *Packet) {
 	m.LostData += int(pckt.Lost)
 	m.packets = append(m.packets, pckt)
 	m.End = pckt.Timestamp
+	m.buf.Write(pckt.Payload)
 }
 
-// Packets returns packets of this message
+// Packets returns packets of the message
 func (m *Message) Packets() []*Packet {
 	return m.packets
 }
 
 // Data returns data in this message
 func (m *Message) Data() []byte {
-	buf := make([]byte, m.Length, m.Length)
-	var n, nn int
-	for _, p := range m.packets {
-		if len(p.Payload) < 1 {
-			continue
-		}
-		nn = copy(buf[n:], p.Payload)
-		n += nn
-	}
-	return buf
+	return m.buf.Bytes()
+}
+
+// SetFeedback set feedback/data that can be used later, e.g with End or Start hint
+func (m *Message) SetFeedback(feedback interface{}) {
+	m.feedback = feedback
+}
+
+// Feedback returns feedback associated to this message
+func (m *Message) Feedback() interface{} {
+	return m.feedback
 }
 
 // Sort a helper to sort packets
@@ -266,16 +272,9 @@ func (pool *MessagePool) addPacket(m *Message, pckt *Packet) {
 	// if one of this cases matches, we dispatch the message
 	case trunc >= 0:
 	case pckt.FIN:
+	case pool.End != nil && pool.End(m):
 	default:
-		if pool.End != nil {
-			if pool.End(m) {
-				break
-			}
-		} else if m.Length > 0 && len(pckt.Payload) < 1 {
-			// generally, data are chunked and sent sequentially in packets, if one packets is empty we assume
-			// that it's just an acknowledgement packet after the final chunk.
-			break
-		}
+		// continue to receive packets
 		return
 	}
 	m.done <- true

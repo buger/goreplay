@@ -125,6 +125,11 @@ func ParseHeaders(p []byte) textproto.MIMEHeader {
 	if headerEnd > 1 {
 		p = p[:headerEnd]
 	}
+	return GetHeaders(p)
+}
+
+// GetHeaders returns mime headers from the payload
+func GetHeaders(p []byte) textproto.MIMEHeader {
 	reader := textproto.NewReader(bufio.NewReader(bytes.NewReader(p)))
 	mime, err := reader.ReadMIMEHeader()
 	if err != nil {
@@ -182,7 +187,7 @@ func DeleteHeader(payload, name []byte) []byte {
 // Body returns request/response body
 func Body(payload []byte) []byte {
 	pos := MIMEHeadersEndPos(payload)
-	if pos == -1 {
+	if pos == -1 || len(payload) <= pos {
 		return nil
 	}
 	return payload[pos:]
@@ -435,14 +440,55 @@ func CheckChunked(buf []byte) (chunkEnd int) {
 	}
 }
 
+// Feedback is an interface used to provide feedback or store dummy data for future use
+type Feedback interface {
+	SetFeedback(interface{})
+	Feedback() interface{}
+}
+
+type feedback struct {
+	body     int // body index
+	hdrStart int
+	headers  textproto.MIMEHeader
+}
+
 // HasFullPayload reports if this http has full payloads
-func HasFullPayload(payload []byte) bool {
-	body := Body(payload)
+func HasFullPayload(data []byte, f Feedback) bool {
+	var feed *feedback
+	var ok bool
+	var body []byte
+	if f != nil {
+		feed, ok = f.Feedback().(*feedback)
+	}
+	if !ok {
+		feed = new(feedback)
+	}
+	if f != nil {
+		f.SetFeedback(feed)
+	}
+	if feed.hdrStart < 1 {
+		feed.hdrStart = MIMEHeadersStartPos(data)
+		if feed.hdrStart < 0 {
+			return false
+		}
+	}
+	if feed.body < 1 {
+		feed.body = MIMEHeadersEndPos(data)
+		if feed.body < 0 {
+			return false
+		}
+	}
+	if feed.headers == nil {
+		feed.headers = GetHeaders(data[feed.hdrStart:feed.body])
+		if feed.headers == nil {
+			return false
+		}
+	}
+	if len(data) > feed.body {
+		body = data[feed.body:]
+	}
 
-	// check for chunked transfer-encoding
-	header := Header(payload, []byte("Transfer-Encoding"))
-	if bytes.Contains(header, []byte("chunked")) {
-
+	if feed.headers.Get("Transfer-Encoding") == "chunked" {
 		// check chunks
 		if len(body) < 1 {
 			return false
@@ -453,7 +499,7 @@ func HasFullPayload(payload []byte) bool {
 		}
 
 		// check trailer headers
-		if len(Header(payload, []byte("Trailer"))) < 1 {
+		if feed.headers.Get("Trailer") == "" {
 			return true
 		}
 		// trailer headers(whether chunked or plain) should end with empty line
@@ -461,15 +507,12 @@ func HasFullPayload(payload []byte) bool {
 	}
 
 	// check for content-length header
-	// trailers are generally not allowed in non-chunks body
-	header = Header(payload, []byte("Content-Length"))
-	if len(header) > 1 {
-		num, ok := atoI(header, 10)
+	if header := feed.headers.Get("Content-Length"); header != "" {
+		num, ok := atoI([]byte(header), 10)
+		// trailers are generally not allowed in non-chunks body
 		return ok && num == len(body)
 	}
-
-	// for empty body, check for emptyline
-	return MIMEHeadersEndPos(payload) != -1
+	return true
 }
 
 // this works with positive integers

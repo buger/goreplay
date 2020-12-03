@@ -51,6 +51,9 @@ func TestMessageParserWithHint(t *testing.T) {
 	pool.Start = func(pckt *Packet) (bool, bool) {
 		return proto.HasRequestTitle(pckt.Payload), proto.HasResponseTitle(pckt.Payload)
 	}
+	pool.End = func(m *Message) bool {
+		return proto.HasFullPayload(m.Data(), m)
+	}
 	packets := GetPackets(1, 30, nil)
 	packets[0].Data()[14:][20:][13] = 2  // SYN flag
 	packets[10].Data()[14:][20:][13] = 2 // SYN flag
@@ -72,9 +75,6 @@ func TestMessageParserWithHint(t *testing.T) {
 		return
 	case m = <-mssg:
 	}
-	if len(m.packets) != 8 {
-		t.Errorf("expected to have 8 packets got %d", len(m.packets))
-	}
 	if !bytes.HasSuffix(m.Data(), []byte("\n7\r\nNetwork\r\n0\r\n\r\n")) {
 		t.Errorf("expected to %q to have suffix %q", m.Data(), []byte("\n7\r\nNetwork\r\n0\r\n\r\n"))
 	}
@@ -85,9 +85,6 @@ func TestMessageParserWithHint(t *testing.T) {
 		return
 	case m = <-mssg:
 	}
-	if len(m.packets) != 8 {
-		t.Errorf("expected to have 8 packets got %d", len(m.packets))
-	}
 	if !bytes.HasSuffix(m.Data(), []byte("Network")) {
 		t.Errorf("expected to %q to have suffix %q", m.Data(), []byte("Network"))
 	}
@@ -97,9 +94,6 @@ func TestMessageParserWithHint(t *testing.T) {
 		t.Errorf("can't parse packets fast enough")
 		return
 	case m = <-mssg:
-	}
-	if len(m.packets) != 2 {
-		t.Errorf("expected to have 2 packets got %d", len(m.packets))
 	}
 	if !bytes.HasSuffix(m.Data(), []byte("Content-Length: 0\r\n\r")) {
 		t.Errorf("expected to %q to have suffix %q", m.Data(), []byte("Content-Length: 0\r\n\r"))
@@ -263,7 +257,7 @@ func BenchmarkMessageParserWithoutHint(b *testing.B) {
 }
 
 func BenchmarkMessageParserWithHint(b *testing.B) {
-	var buf [1003][]byte
+	var buf [1002][]byte
 	var chunk = []byte("1e\r\n111111111111111111111111111111\r\n")
 	buf[0] = []byte("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nTransfer-Encoding: chunked\r\n\r\n")
 	for i := 1; i < 1000; i++ {
@@ -274,11 +268,13 @@ func BenchmarkMessageParserWithHint(b *testing.B) {
 	for i := 0; i < len(buf); i++ {
 		packets[i] = GetPackets(uint32(i+10), 1, buf[i])[0]
 	}
-	packets[1002] = GetPackets(1020, 1, nil)[0]
 	var mssg = make(chan *Message, 1)
 	pool := NewMessagePool(1<<30, time.Second*10, nil, func(m *Message) { mssg <- m })
 	pool.Start = func(pckt *Packet) (bool, bool) {
 		return false, proto.HasResponseTitle(pckt.Payload)
+	}
+	pool.End = func(m *Message) bool {
+		return proto.HasFullPayload(m.Data(), m)
 	}
 	b.ResetTimer()
 	b.ReportMetric(float64(len(packets)), "packets/op")

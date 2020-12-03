@@ -152,6 +152,7 @@ func (i *RAWInput) listen(address string) {
 	pool.MatchUUID(i.TrackResponse)
 	if i.Protocol == ProtocolHTTP {
 		pool.Start = http1StartHint
+		pool.End = http1EndHint
 	}
 	var ctx context.Context
 	ctx, i.cancelListener = context.WithCancel(context.Background())
@@ -204,4 +205,8 @@ func http1StartHint(pckt *tcp.Packet) (isIncoming, isOutgoing bool) {
 		return
 	}
 	return false, proto.HasResponseTitle(pckt.Payload)
+}
+
+func http1EndHint(m *tcp.Message) bool {
+	return proto.HasFullPayload(m.Data(), m)
 }
