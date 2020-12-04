@@ -7,7 +7,6 @@ import (
 	"sort"
 	"sync"
 	"time"
-	"unsafe"
 
 	"github.com/buger/goreplay/size"
 	"github.com/google/gopacket"
@@ -55,10 +54,10 @@ func (m *Message) UUID() []byte {
 		lst := len(pckt.SrcIP) - 4
 		if m.IsIncoming {
 			key = uint64(pckt.SrcPort)<<48 | uint64(pckt.DstPort)<<32 |
-				uint64(_uint32(&pckt.SrcIP[lst]))
+				uint64(_uint32(pckt.SrcIP[lst:]))
 		} else {
 			key = uint64(pckt.DstPort)<<48 | uint64(pckt.SrcPort)<<32 |
-				uint64(_uint32(&pckt.DstIP[lst]))
+				uint64(_uint32(pckt.DstIP[lst:]))
 		}
 		if uuidHex, ok := m.pool.uuids[key]; ok {
 			delete(m.pool.uuids, key)
@@ -69,9 +68,7 @@ func (m *Message) UUID() []byte {
 	id := make([]byte, 12, 12)
 	binary.BigEndian.PutUint32(id, pckt.Seq)
 	tStamp := m.End.UnixNano()
-	for i, v := range _8byte(&tStamp) {
-		id[i+4] = v
-	}
+	binary.BigEndian.PutUint64(id[4:], uint64(tStamp))
 	uuidHex := make([]byte, 24, 24)
 	hex.Encode(uuidHex[:], id[:])
 	if m.pool.uuids != nil {
@@ -175,7 +172,7 @@ func (pool *MessagePool) Handler(packet gopacket.Packet) {
 	defer pool.Unlock()
 	lst := len(pckt.SrcIP) - 4
 	key := uint64(pckt.SrcPort)<<48 | uint64(pckt.DstPort)<<32 |
-		uint64(_uint32(&pckt.SrcIP[lst]))
+		uint64(_uint32(pckt.SrcIP[lst:]))
 	m, ok := pool.pool[key]
 	if pckt.RST {
 		if ok {
@@ -183,7 +180,7 @@ func (pool *MessagePool) Handler(packet gopacket.Packet) {
 			<-m.done
 		}
 		key = uint64(pckt.DstPort)<<48 | uint64(pckt.SrcPort)<<32 |
-			uint64(_uint32(&pckt.DstIP[lst]))
+			uint64(_uint32(pckt.DstIP[lst:]))
 		m, ok = pool.pool[key]
 		if ok {
 			m.done <- true
@@ -230,8 +227,8 @@ func (pool *MessagePool) cleanUUIDs() {
 	now := time.Now().UnixNano()
 	for k, v := range pool.uuids {
 		// there is a timestamp wrapped in every ID
-		tStamp = _int64(&v[4])
-		if time.Duration(now-tStamp) >= pool.messageExpire {
+		tStamp = int64(binary.BigEndian.Uint64(v[4:]))
+		if time.Duration(now-tStamp) > pool.messageExpire {
 			delete(pool.uuids, k)
 		}
 	}
@@ -289,16 +286,6 @@ func (pool *MessagePool) say(level int, args ...interface{}) {
 	}
 }
 
-type void = unsafe.Pointer
-
-func _uint32(b *byte) uint32 {
-	return *(*uint32)(void(b))
-}
-
-func _int64(b *byte) int64 {
-	return *(*int64)(void(b))
-}
-
-func _8byte(i *int64) [8]byte {
-	return *(*[8]byte)(void(i))
+func _uint32(b []byte) uint32 {
+	return binary.BigEndian.Uint32(b)
 }
