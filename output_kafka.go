@@ -70,7 +70,7 @@ func (o *KafkaOutput) PluginWrite(msg *Message) (n int, err error) {
 		message = sarama.StringEncoder(byteutils.SliceToString(msg.Meta) + byteutils.SliceToString(msg.Data))
 	} else {
 		mimeHeader := proto.ParseHeaders(msg.Data)
-		var header map[string]string
+		header := make(map[string]string)
 		for k, v := range mimeHeader {
 			header[k] = strings.Join(v, ", ")
 		}
