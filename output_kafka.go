@@ -78,9 +78,17 @@ func (o *KafkaOutput) PluginWrite(msg *Message) (n int, err error) {
 		meta := payloadMeta(msg.Meta)
 		req := msg.Data
 
+		var reqType = byteutils.SliceToString(meta[0])
+		var reqURL string
+		if reqType == "1" {
+			reqURL = byteutils.SliceToString(proto.Path(req))
+		} else {
+			reqURL = byteutils.SliceToString(proto.Status(req))
+		}
+
 		kafkaMessage := KafkaMessage{
-			ReqURL:     byteutils.SliceToString(proto.Path(req)),
-			ReqType:    byteutils.SliceToString(meta[0]),
+			ReqURL:     reqURL,
+			ReqType:    reqType,
 			ReqID:      byteutils.SliceToString(meta[1]),
 			ReqTs:      byteutils.SliceToString(meta[2]),
 			ReqMethod:  byteutils.SliceToString(proto.Method(req)),

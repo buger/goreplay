@@ -307,7 +307,8 @@ func Method(payload []byte) []byte {
 }
 
 // Status returns response status.
-// It happens to be in same position as request payload path
+// Status-Line = HTTP-Version SP Status-Code SP Reason-Phrase CRLF
+// Reason-Phrase is optional
 func Status(payload []byte) []byte {
 	if !HasResponseTitle(payload) {
 		return nil
