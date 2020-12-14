@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/buger/goreplay/capture"
 	"github.com/buger/goreplay/size"
-	"github.com/google/gopacket"
 )
 
 // Stats every message carry its own stats object
@@ -164,14 +164,11 @@ func NewMessagePool(maxSize size.Size, messageExpire time.Duration, debugger Deb
 }
 
 // Handler returns packet handler
-func (pool *MessagePool) Handler(packet gopacket.Packet) {
+func (pool *MessagePool) Handler(packet *capture.Packet) {
 	var in, out bool
 	pckt, err := ParsePacket(packet)
 	if err != nil {
-		go pool.say(4, fmt.Sprintf("error decoding packet(%dBytes):%s\n", packet.Metadata().CaptureLength, err))
-		return
-	}
-	if pckt == nil {
+		go pool.say(4, fmt.Sprintf("error decoding packet(%dBytes):%s\n", packet.Info.CaptureLength, err))
 		return
 	}
 	pool.Lock()

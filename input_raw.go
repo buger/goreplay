@@ -72,13 +72,14 @@ type RAWInput struct {
 	listener       *capture.Listener
 	message        chan *tcp.Message
 	cancelListener context.CancelFunc
+	closed         bool
 }
 
 // NewRAWInput constructor for RAWInput. Accepts raw input config as arguments.
 func NewRAWInput(address string, config RAWInputConfig) (i *RAWInput) {
 	i = new(RAWInput)
 	i.RAWInputConfig = config
-	i.message = make(chan *tcp.Message, 1000)
+	i.message = make(chan *tcp.Message, 10000)
 	i.quit = make(chan bool)
 	var host, _port string
 	var err error
@@ -157,12 +158,12 @@ func (i *RAWInput) listen(address string) {
 	var ctx context.Context
 	ctx, i.cancelListener = context.WithCancel(context.Background())
 	errCh := i.listener.ListenBackground(ctx, pool.Handler)
-	select {
-	case err := <-errCh:
-		log.Fatal(err)
-	case <-i.listener.Reading:
-		Debug(1, i)
-	}
+	<-i.listener.Reading
+	Debug(1, i)
+	go func() {
+		<-errCh // the listener closed voluntarily
+		i.Close()
+	}()
 }
 
 func (i *RAWInput) handler(m *tcp.Message) {
@@ -185,8 +186,14 @@ func (i *RAWInput) GetStats() []tcp.Stats {
 
 // Close closes the input raw listener
 func (i *RAWInput) Close() error {
+	i.Lock()
+	defer i.Unlock()
+	if i.closed {
+		return nil
+	}
 	i.cancelListener()
 	close(i.quit)
+	i.closed = true
 	return nil
 }
 

@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 )
@@ -61,69 +60,23 @@ func TestBPFFilter(t *testing.T) {
 	}
 }
 
-var decodeOpts = gopacket.DecodeOptions{Lazy: true, NoCopy: true}
-
-func generateHeaders(seq uint32, length uint16) (headers [44]byte) {
-	// set ethernet headers
-	binary.BigEndian.PutUint32(headers[0:4], uint32(layers.ProtocolFamilyIPv4))
-
-	// set ip header
-	ip := headers[4:]
-	copy(ip[0:2], []byte{4<<4 | 5, 0x28<<2 | 0x00})
-	binary.BigEndian.PutUint16(ip[2:4], length+54)
-	ip[9] = uint8(layers.IPProtocolTCP)
-	copy(ip[12:16], []byte{127, 0, 0, 1})
-	copy(ip[16:], []byte{127, 0, 0, 1})
-
-	// set tcp header
-	tcp := ip[20:]
-	binary.BigEndian.PutUint16(tcp[0:2], 45678)
-	binary.BigEndian.PutUint16(tcp[2:4], 8000)
-	tcp[12] = 5 << 4
-	return
-}
-
-func randomPackets(start uint32, _len int, length uint16) []gopacket.Packet {
-	var packets = make([]gopacket.Packet, _len)
-	for i := start; i < start+uint32(_len); i++ {
-		h := generateHeaders(i, length)
-		d := make([]byte, int(length)+len(h))
-		copy(d, h[0:])
-		packet := gopacket.NewPacket(d, layers.LinkTypeLoop, decodeOpts)
-		packets[i-start] = packet
-		inf := packets[i-start].Metadata()
-		_len := len(d)
-		inf.CaptureInfo = gopacket.CaptureInfo{CaptureLength: _len, Length: _len, Timestamp: time.Now()}
-	}
-	return packets
-}
-
 func TestPcapDump(t *testing.T) {
 	f, err := ioutil.TempFile("", "pcap_file")
 	if err != nil {
 		t.Error(err)
 	}
-	waiter := make(chan bool, 1)
-	h, _ := PcapDumpHandler(f, layers.LinkTypeLoop, func(level int, a ...interface{}) {
-		if level != 3 {
-			t.Errorf("expected debug level to be 3, got %d", level)
-		}
-		waiter <- true
-	})
-	packets := randomPackets(1, 5, 5)
+	h, _ := PcapDumpHandler(f, layers.LinkTypeLoop)
+	packets := Packets(1, 5, 5, 4)
 	for i := 0; i < len(packets); i++ {
 		if i == 1 {
-			tcp := packets[i].Data()[4:][20:]
 			// change dst port
-			binary.BigEndian.PutUint16(tcp[2:], 8001)
+			binary.BigEndian.PutUint16(packets[i].TransLayer[2:], 8001)
 		}
 		if i == 4 {
-			inf := packets[i].Metadata()
-			inf.CaptureLength = 40
+			packets[i].Info.CaptureLength = 40
 		}
 		h(packets[i])
 	}
-	<-waiter
 	name := f.Name()
 	f.Close()
 	testPcapDumpEngine(name, t)
@@ -140,9 +93,9 @@ func testPcapDumpEngine(f string, t *testing.T) {
 	pckts := 0
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	err = l.Listen(ctx, func(packet gopacket.Packet) {
-		if packet.Metadata().CaptureLength != 49 {
-			t.Errorf("expected packet length to be %d, got %d", 49, packet.Metadata().CaptureLength)
+	err = l.Listen(ctx, func(packet *Packet) {
+		if packet.Info.CaptureLength != 57 {
+			t.Errorf("expected packet length to be %d, got %d", 57, packet.Info.CaptureLength)
 		}
 		pckts++
 	})
@@ -208,8 +161,8 @@ func BenchmarkPcapDump(b *testing.B) {
 	}
 	now := time.Now()
 	defer os.Remove(f.Name())
-	h, _ := PcapDumpHandler(f, layers.LinkTypeLoop, nil)
-	packets := randomPackets(1, b.N, 5)
+	h, _ := PcapDumpHandler(f, layers.LinkTypeLoop)
+	packets := Packets(1, b.N, 5, 4)
 	for i := 0; i < len(packets); i++ {
 		h(packets[i])
 	}
@@ -224,8 +177,8 @@ func BenchmarkPcapFile(b *testing.B) {
 		return
 	}
 	defer os.Remove(f.Name())
-	h, _ := PcapDumpHandler(f, layers.LinkTypeLoop, nil)
-	packets := randomPackets(1, b.N, 5)
+	h, _ := PcapDumpHandler(f, layers.LinkTypeLoop)
+	packets := Packets(1, b.N, 5, 4)
 	for i := 0; i < len(packets); i++ {
 		h(packets[i])
 	}
@@ -247,9 +200,9 @@ func BenchmarkPcapFile(b *testing.B) {
 	pckts := 0
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	if err = l.Listen(ctx, func(packet gopacket.Packet) {
-		if packet.Metadata().CaptureLength != 49 {
-			b.Errorf("expected packet length to be %d, got %d", 49, packet.Metadata().CaptureLength)
+	if err = l.Listen(ctx, func(packet *Packet) {
+		if packet.Info.CaptureLength != 49 {
+			b.Errorf("expected packet length to be %d, got %d", 49, packet.Info.CaptureLength)
 		}
 		pckts++
 	}); err != nil {
@@ -268,8 +221,8 @@ func init() {
 }
 
 func handler(n, counter *int32) Handler {
-	return func(p gopacket.Packet) {
-		nn := int32(len(p.Data()))
+	return func(p *Packet) {
+		nn := int32(len(p.Data))
 		atomic.AddInt32(n, nn)
 		atomic.AddInt32(counter, 1)
 	}

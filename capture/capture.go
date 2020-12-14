@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"net"
 	"os"
 	"runtime"
@@ -14,10 +16,11 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
+	"golang.org/x/sys/unix"
 )
 
 // Handler is a function that is used to handle packets
-type Handler func(gopacket.Packet)
+type Handler func(*Packet)
 
 // PcapOptions options that can be set on a pcap capture handle,
 // these options take effect on inactive pcap handles
@@ -31,19 +34,13 @@ type PcapOptions struct {
 	Snaplen       bool          `json:"input-raw-override-snaplen"`
 }
 
-// NetInterface represents network interface
-type NetInterface struct {
-	net.Interface
-	IPs []string
-}
-
 // Listener handle traffic capture, this is its representation.
 type Listener struct {
 	sync.Mutex
 	Transport  string       // transport layer default to tcp
 	Activate   func() error // function is used to activate the engine. it must be called before reading packets
 	Handles    map[string]gopacket.PacketDataSource
-	Interfaces []NetInterface
+	Interfaces []net.Interface
 	loopIndex  int
 	Reading    chan bool // this channel is closed when the listener has started reading packets
 	PcapOptions
@@ -53,8 +50,8 @@ type Listener struct {
 
 	host string // pcap file name or interface (name, hardware addr, index or ip address)
 
-	quit    chan bool
-	packets chan gopacket.Packet
+	closeDone chan struct{}
+	quit      chan struct{}
 }
 
 // EngineType ...
@@ -110,9 +107,9 @@ func NewListener(host string, port uint16, transport string, engine EngineType, 
 	}
 	l.Handles = make(map[string]gopacket.PacketDataSource)
 	l.trackResponse = trackResponse
-	l.packets = make(chan gopacket.Packet, 1000)
-	l.quit = make(chan bool, 1)
-	l.Reading = make(chan bool, 1)
+	l.closeDone = make(chan struct{})
+	l.quit = make(chan struct{})
+	l.Reading = make(chan bool)
 	switch engine {
 	default:
 		l.Engine = EnginePcap
@@ -139,30 +136,19 @@ func (l *Listener) SetPcapOptions(opts PcapOptions) {
 }
 
 // Listen listens for packets from the handles, and call handler on every packet received
-// until the context done signal is sent or EOF on handles.
-// this function should be called after activating pcap handles
+// until the context done signal is sent or there is unrecoverable error on all handles.
+// this function must be called after activating pcap handles
 func (l *Listener) Listen(ctx context.Context, handler Handler) (err error) {
-	l.read()
+	l.read(handler)
 	done := ctx.Done()
-	var p gopacket.Packet
-	var ok bool
-	for {
-		select {
-		case <-done:
-			l.quit <- true
-			close(l.quit)
-			err = ctx.Err()
-			done = nil
-		case p, ok = <-l.packets:
-			if !ok {
-				return
-			}
-			if p == nil {
-				continue
-			}
-			handler(p)
-		}
+	select {
+	case <-done:
+		close(l.quit) // signal close on all handles
+		<-l.closeDone // wait all handles to be closed
+		err = ctx.Err()
+	case <-l.closeDone: // all handles closed voluntarily
 	}
+	return
 }
 
 // ListenBackground is like listen but can run concurrently and signal error through channel
@@ -179,7 +165,7 @@ func (l *Listener) ListenBackground(ctx context.Context, handler Handler) chan e
 
 // Filter returns automatic filter applied by goreplay
 // to a pcap handle of a specific interface
-func (l *Listener) Filter(ifi NetInterface) (filter string) {
+func (l *Listener) Filter(ifi net.Interface) (filter string) {
 	// https://www.tcpdump.org/manpages/pcap-filter.7.html
 
 	port := fmt.Sprintf("portrange 0-%d", 1<<16-1)
@@ -201,7 +187,7 @@ func (l *Listener) Filter(ifi NetInterface) (filter string) {
 // PcapDumpHandler returns a handler to write packet data in PCAP
 // format, See http://wiki.wireshark.org/Development/LibpcapFileFormathandler.
 // if link layer is invalid Ethernet is assumed
-func PcapDumpHandler(file *os.File, link layers.LinkType, debugger func(int, ...interface{})) (handler func(packet gopacket.Packet), err error) {
+func PcapDumpHandler(file *os.File, link layers.LinkType) (handler func(packet *Packet) error, err error) {
 	if link.String() == "" {
 		link = layers.LinkTypeEthernet
 	}
@@ -210,25 +196,20 @@ func PcapDumpHandler(file *os.File, link layers.LinkType, debugger func(int, ...
 	if err != nil {
 		return nil, err
 	}
-	return func(packet gopacket.Packet) {
-		err = w.WritePacket(packet.Metadata().CaptureInfo, packet.Data())
-		if err != nil && debugger != nil {
-			go debugger(3, err)
-		}
+	return func(packet *Packet) error {
+		return w.WritePacket(*packet.Info, packet.Data)
 	}, nil
 }
 
 // PcapHandle returns new pcap Handle from dev on success.
 // this function should be called after setting all necessary options for this listener
-func (l *Listener) PcapHandle(ifi NetInterface) (handle *pcap.Handle, err error) {
+func (l *Listener) PcapHandle(ifi net.Interface) (handle *pcap.Handle, err error) {
 	var inactive *pcap.InactiveHandle
 	inactive, err = pcap.NewInactiveHandle(ifi.Name)
-	if inactive != nil && err != nil {
-		defer inactive.CleanUp()
-	}
 	if err != nil {
 		return nil, fmt.Errorf("inactive handle error: %q, interface: %q", err, ifi.Name)
 	}
+	defer inactive.CleanUp()
 	if l.TimestampType != "" {
 		var ts pcap.TimestampSource
 		ts, err = pcap.TimestampSourceFromString(l.TimestampType)
@@ -290,8 +271,8 @@ func (l *Listener) PcapHandle(ifi NetInterface) (handle *pcap.Handle, err error)
 }
 
 // SocketHandle returns new unix ethernet handle associated with this listener settings
-func (l *Listener) SocketHandle(ifi NetInterface) (handle Socket, err error) {
-	handle, err = NewSocket(ifi.Interface)
+func (l *Listener) SocketHandle(ifi net.Interface) (handle Socket, err error) {
+	handle, err = NewSocket(ifi)
 	if err != nil {
 		return nil, fmt.Errorf("sock raw error: %q, interface: %q", err, ifi.Name)
 	}
@@ -313,35 +294,54 @@ func (l *Listener) SocketHandle(ifi NetInterface) (handle Socket, err error) {
 	return
 }
 
-func (l *Listener) read() {
+func (l *Listener) read(handler Handler) {
 	l.Lock()
 	defer l.Unlock()
 	for key, handle := range l.Handles {
-		var source *gopacket.PacketSource
-		linkType := layers.LinkTypeEthernet
-		if _, ok := handle.(*pcap.Handle); ok {
-			linkType = handle.(*pcap.Handle).LinkType()
-		}
-		source = gopacket.NewPacketSource(handle, linkType)
-		source.Lazy = true
-		source.NoCopy = true
-		ch := source.Packets()
-		go func(key string) {
+		go func(key string, hndl gopacket.PacketDataSource) {
 			defer l.closeHandles(key)
+			linkSize := 14
+			linkType := int(layers.LinkTypeEthernet)
+			if _, ok := hndl.(*pcap.Handle); ok {
+				linkType = int(hndl.(*pcap.Handle).LinkType())
+				linkSize, ok = pcapLinkTypeLength(linkType)
+				if !ok {
+					if os.Getenv("GORDEBUG") != "0" {
+						log.Printf("can not identify link type of an interface '%s'\n", key)
+					}
+					return // can't find the linktype size
+				}
+			}
 			for {
 				select {
 				case <-l.quit:
 					return
-				case p, ok := <-ch:
-					if !ok {
+				default:
+					data, ci, err := hndl.ReadPacketData()
+					if err == nil {
+						handler(NewPacket(data, linkType, linkSize, &ci))
+						continue
+					}
+					if enext, ok := err.(pcap.NextError); ok && enext == pcap.NextErrorTimeoutExpired {
+						continue
+					}
+					if eno, ok := err.(unix.Errno); ok && eno.Temporary() {
+						continue
+					}
+					if enet, ok := err.(*net.OpError); ok && (enet.Temporary() || enet.Timeout()) {
+						continue
+					}
+					if err == io.EOF || err == io.ErrClosedPipe {
 						return
 					}
-					l.packets <- p
+					if os.Getenv("GORDEBUG") != "0" {
+						log.Printf("stopped reading from %s interface with error %s\n", key, err)
+					}
+					return
 				}
 			}
-		}(key)
+		}(key, handle)
 	}
-	l.Reading <- true
 	close(l.Reading)
 }
 
@@ -356,7 +356,7 @@ func (l *Listener) closeHandles(key string) {
 		}
 		delete(l.Handles, key)
 		if len(l.Handles) == 0 {
-			close(l.packets)
+			close(l.closeDone)
 		}
 	}
 }
@@ -394,7 +394,10 @@ func (l *Listener) activateRawSocket() error {
 		}
 		l.Handles[ifi.Name] = handle
 	}
-	return e
+	if len(l.Handles) == 0 {
+		return fmt.Errorf("raw socket handles error:%s", msg)
+	}
+	return nil
 }
 
 func (l *Listener) activatePcapFile() (err error) {
@@ -410,7 +413,7 @@ func (l *Listener) activatePcapFile() (err error) {
 	} else {
 		addr := l.host
 		l.host = ""
-		l.BPFFilter = l.Filter(NetInterface{})
+		l.BPFFilter = l.Filter(net.Interface{})
 		l.host = addr
 	}
 	if e = handle.SetBPFFilter(l.BPFFilter); e != nil {
@@ -422,59 +425,36 @@ func (l *Listener) activatePcapFile() (err error) {
 }
 
 func (l *Listener) setInterfaces() (err error) {
-	var Ifis []NetInterface
 	var ifis []net.Interface
 	ifis, err = net.Interfaces()
 	if err != nil {
-		return err
+		return
 	}
-
-	for i := 0; i < len(ifis); i++ {
+	for i := range ifis {
 		if ifis[i].Flags&net.FlagLoopback != 0 {
 			l.loopIndex = ifis[i].Index
 		}
 		if ifis[i].Flags&net.FlagUp == 0 {
 			continue
 		}
-		var addrs []net.Addr
-		addrs, err = ifis[i].Addrs()
-		if err != nil {
-			return err
-		}
-		if len(addrs) == 0 {
-			continue
-		}
-		ifi := NetInterface{}
-		ifi.Interface = ifis[i]
-		ifi.IPs = make([]string, len(addrs))
-		for j, addr := range addrs {
-			ifi.IPs[j] = cutMask(addr)
-		}
-		Ifis = append(Ifis, ifi)
-	}
-
-	if listenAll(l.host) {
-		l.Interfaces = Ifis
-		return
-	}
-	found := false
-	for _, ifi := range Ifis {
-		if isDevice(l.host, ifi) {
-			found = true
-		}
-		for _, ip := range ifi.IPs {
-			if ip == l.host {
-				found = true
-				break
-			}
-		}
-		if found {
-			l.Interfaces = []NetInterface{ifi}
+		if isDevice(l.host, ifis[i]) {
+			l.Interfaces = []net.Interface{ifis[i]}
 			return
 		}
+		addrs, e := ifis[i].Addrs()
+		if e != nil {
+			// don't give up on a failure from a single interface
+			continue
+		}
+		for _, addr := range addrs {
+			if cutMask(addr) == l.host {
+				l.Interfaces = []net.Interface{ifis[i]}
+				return
+			}
+		}
 	}
-	err = fmt.Errorf("can not find interface with addr, name or index %s", l.host)
-	return err
+	l.Interfaces = ifis
+	return
 }
 
 func cutMask(addr net.Addr) string {
@@ -487,7 +467,7 @@ func cutMask(addr net.Addr) string {
 	return mask
 }
 
-func isDevice(addr string, ifi NetInterface) bool {
+func isDevice(addr string, ifi net.Interface) bool {
 	return addr == ifi.Name || addr == fmt.Sprintf("%d", ifi.Index) || addr == ifi.HardwareAddr.String()
 }
 

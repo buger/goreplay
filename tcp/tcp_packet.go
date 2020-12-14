@@ -2,12 +2,12 @@ package tcp
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"net"
 	"time"
 
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
+	"github.com/buger/goreplay/capture"
 )
 
 /*
@@ -17,81 +17,51 @@ calllers must make sure that ParsePacket has'nt returned any error before callin
 function.
 */
 type Packet struct {
-	// Link layer
-	gopacket.LinkLayer
-
-	// IP Header
-	Version uint8 // Ip version
-	SrcIP   net.IP
-	DstIP   net.IP
-	IHL     uint8
-	Length  uint16
-
-	// TCP Segment Header
-	*layers.TCP
-
-	// Data info
-	Lost      uint16
-	Timestamp time.Time
+	SrcIP, DstIP       net.IP
+	Version            uint8
+	SrcPort, DstPort   uint16
+	Ack, Seq           uint32
+	ACK, SYN, FIN, RST bool
+	Lost               uint32
+	Timestamp          time.Time
+	Payload            []byte
 }
 
 // ParsePacket parse raw packets
-func ParsePacket(packet gopacket.Packet) (pckt *Packet, err error) {
+func ParsePacket(packet *capture.Packet) (pckt *Packet, err error) {
 	// early check of error
 	if packet == nil {
-		return
+		return nil, errors.New("empty packet")
 	}
-	defer func() {
-		if packet.ErrorLayer() != nil {
-			err = packet.ErrorLayer().Error()
-			return
-		}
-	}()
-
-	// initialization
-	pckt = new(Packet)
-	pckt.Timestamp = packet.Metadata().Timestamp
-	if pckt.Timestamp.IsZero() {
-		pckt.Timestamp = time.Now()
+	if packet.Err != nil {
+		return nil, packet.Err
 	}
 
-	// parsing link layer
-	pckt.LinkLayer = packet.LinkLayer()
-
-	// parsing network layer
-	if net4, ok := packet.NetworkLayer().(*layers.IPv4); ok {
+	var t Packet
+	pckt = &t
+	// TODO: check resolution
+	pckt.Timestamp = packet.Info.Timestamp
+	if (packet.NetLayer[0] >> 4) == 4 {
+		// IPv4 header
 		pckt.Version = 4
-		pckt.SrcIP = net4.SrcIP
-		pckt.DstIP = net4.DstIP
-		pckt.IHL = net4.IHL * 4
-		pckt.Length = net4.Length
-	} else if net6, ok := packet.NetworkLayer().(*layers.IPv6); ok {
+		pckt.SrcIP = packet.NetLayer[12:16]
+		pckt.DstIP = packet.NetLayer[16:20]
+	} else {
+		// IPv6 header
 		pckt.Version = 6
-		pckt.SrcIP = net6.SrcIP
-		pckt.DstIP = net6.DstIP
-		pckt.IHL = 40
-		pckt.Length = net6.Length
-	} else {
-		pckt = nil
-		return
+		pckt.SrcIP = packet.NetLayer[8:24]
+		pckt.DstIP = packet.NetLayer[24:40]
 	}
-
-	// parsing tcp header(transportation layer)
-	if tcp, ok := packet.TransportLayer().(*layers.TCP); ok {
-		pckt.TCP = tcp
-	} else {
-		pckt = nil
-		return
-	}
-	pckt.DataOffset *= 4
-
-	// calculating lost data
-	headerSize := int(uint32(pckt.DataOffset) + uint32(pckt.IHL))
-	if pckt.Version == 6 {
-		headerSize -= 40 // in ipv6 the length of payload doesn't include the IPheader size
-	}
-	pckt.Lost = pckt.Length - uint16(headerSize+len(pckt.Payload))
-
+	pckt.SrcPort = binary.BigEndian.Uint16(packet.TransLayer[0:2])
+	pckt.DstPort = binary.BigEndian.Uint16(packet.TransLayer[2:4])
+	pckt.Seq = binary.BigEndian.Uint32(packet.TransLayer[4:8])
+	pckt.Ack = binary.BigEndian.Uint32(packet.TransLayer[8:12])
+	pckt.FIN = packet.TransLayer[13]&0x01 != 0
+	pckt.SYN = packet.TransLayer[13]&0x02 != 0
+	pckt.RST = packet.TransLayer[13]&0x04 != 0
+	pckt.ACK = packet.TransLayer[13]&0x10 != 0
+	pckt.Lost = uint32(packet.Info.Length - packet.Info.CaptureLength)
+	pckt.Payload = packet.Payload
 	return
 }
 
@@ -103,95 +73,4 @@ func (pckt *Packet) Src() string {
 // Dst returns destination socket
 func (pckt *Packet) Dst() string {
 	return fmt.Sprintf("%s:%d", pckt.DstIP, pckt.DstPort)
-}
-
-// SYNOptions returns MSS and windowscale of syn packets
-func (pckt *Packet) SYNOptions() (mss uint16, windowscale byte) {
-	if !pckt.SYN {
-		return
-	}
-	for _, v := range pckt.Options {
-		if v.OptionType == layers.TCPOptionKindMSS {
-			mss = binary.BigEndian.Uint16(v.OptionData)
-			continue
-		}
-		if v.OptionType == layers.TCPOptionKindWindowScale {
-			if v.OptionLength > 0 {
-				windowscale = v.OptionData[0]
-			}
-		}
-	}
-	return
-}
-
-// LinkInfo returns info about the link layer
-func (pckt *Packet) LinkInfo() string {
-	if l, ok := pckt.LinkLayer.(*layers.Ethernet); ok {
-		return fmt.Sprintf(
-			"Source Mac: %s\nDestination Mac: %s\nProtocol: %s",
-			l.SrcMAC,
-			l.DstMAC,
-			l.EthernetType,
-		)
-	}
-	return "<Not Ethernet>"
-}
-
-// Flag returns formatted tcp flags
-func (pckt *Packet) Flag() (flag string) {
-	if pckt.FIN {
-		flag += "FIN, "
-	}
-	if pckt.SYN {
-		flag += "SYN, "
-	}
-	if pckt.RST {
-		flag += "RST, "
-	}
-	if pckt.PSH {
-		flag += "PSH, "
-	}
-	if pckt.ACK {
-		flag += "ACK, "
-	}
-	if pckt.URG {
-		flag += "URG, "
-	}
-	if len(flag) != 0 {
-		return flag[:len(flag)-2]
-	}
-	return flag
-}
-
-// String output for a TCP Packet
-func (pckt *Packet) String() string {
-	return fmt.Sprintf(`Time: %s
-%s
-Source: %s
-Destination: %s
-IHL: %d
-Total Length: %d
-Sequence: %d
-Acknowledgment: %d
-DataOffset: %d
-Window: %d
-Flag: %s
-Options: %s
-Data Size: %d
-Lost Data: %d`,
-		pckt.Timestamp.Format(time.StampNano),
-		pckt.LinkInfo(),
-		pckt.Src(),
-		pckt.Dst(),
-		pckt.IHL,
-		pckt.Length,
-		pckt.Seq,
-		pckt.Ack,
-		pckt.DataOffset,
-		pckt.Window,
-		pckt.Flag(),
-		pckt.Options,
-		len(pckt.Payload),
-		pckt.Lost,
-	)
 }
