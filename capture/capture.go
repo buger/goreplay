@@ -468,7 +468,7 @@ func cutMask(addr net.Addr) string {
 }
 
 func isDevice(addr string, ifi net.Interface) bool {
-	return addr == ifi.Name || addr == fmt.Sprintf("%d", ifi.Index) || addr == ifi.HardwareAddr.String()
+	return addr == ifi.Name || addr == fmt.Sprintf("%d", ifi.Index) || (addr != "" && addr == ifi.HardwareAddr.String())
 }
 
 func listenAll(addr string) bool {
