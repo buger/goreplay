@@ -1,0 +1,29 @@
+name: test
+on: [push, pull_request]
+jobs:
+  test:
+    strategy:
+      matrix:
+        go-version: [1.14.x, 1.15.x] # two latest minor versions
+    runs-on: ubuntu-latest
+    steps:
+    - name: update package index
+      run: sudo apt-get update
+    - name: install libpcap
+      run: sudo apt-get install libpcap-dev -y
+    - name: install Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ${{ matrix.go-version }}
+    - name: checkout code
+      uses: actions/checkout@v2
+    - uses: actions/cache@v2
+      with:
+        path: |
+          ~/go/pkg/mod              # Module download cache
+          ~/.cache/go-build         # Build cache (Linux)
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+    - name: test
+      run: sudo go test ./... -v -timeout 120s -race

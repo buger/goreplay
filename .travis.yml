@@ -1,9 +1,0 @@
-dist: focal
-
-language: go
-go: 1.14
-
-script: sudo -E bash -c "source /etc/profile && eval '$(gimme 1.14)' && go test ./... -v -timeout 120s -race"
-
-before_install:
-  - sudo apt-get install libpcap-dev -y
