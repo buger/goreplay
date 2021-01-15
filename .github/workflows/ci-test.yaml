@@ -26,4 +26,4 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
     - name: test
-      run: sudo go test ./... -v -timeout 120s -race
+      run: sudo go test ./... -v -timeout 120s
