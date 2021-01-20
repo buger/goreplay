@@ -307,8 +307,7 @@ func Method(payload []byte) []byte {
 }
 
 // Status returns response status.
-// Status-Line = HTTP-Version SP Status-Code SP Reason-Phrase CRLF
-// Reason-Phrase is optional
+// It happens to be in same position as request payload path
 func Status(payload []byte) []byte {
 	if !HasResponseTitle(payload) {
 		return nil
@@ -352,7 +351,7 @@ func HasResponseTitle(payload []byte) bool {
 		return false
 	}
 	status, ok := atoI(payload[VersionLen+1:VersionLen+4], 10)
-	if !ok || s[VersionLen+4] != ' ' {
+	if !ok {
 		return false
 	}
 	// only validate status codes mentioned in rfc2616.
