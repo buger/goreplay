@@ -136,24 +136,6 @@ func TestParseHeaders(t *testing.T) {
 	if !reflect.DeepEqual(headers, expected) {
 		t.Error("Headers do not properly parsed", headers)
 	}
-
-	// Response with Reason phrase
-	payload = [][]byte{[]byte("HTTP/1.1 200 OK\r\nContent-Length: 7\r\nHost: www.w3.org\r\nUser-Agent:Chrome\r\n\r\nbody")}
-
-	headers = ParseHeaders(bytes.Join(payload, nil))
-
-	if !reflect.DeepEqual(headers, expected) {
-		t.Error("Headers do not properly parsed", headers)
-	}
-
-	// Response without Reason phrase
-	payload = [][]byte{[]byte("HTTP/1.1 200\r\nContent-Length: 7\r\nHost: www.w3.org\r\nUser-Agent:Chrome\r\n\r\nbody")}
-
-	headers = ParseHeaders(bytes.Join(payload, nil))
-
-	if !reflect.DeepEqual(headers, expected) {
-		t.Error("Headers do not properly parsed", headers)
-	}
 }
 
 // See https://github.com/dvyukov/go-fuzz and fuzz.go

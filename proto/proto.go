@@ -352,7 +352,7 @@ func HasResponseTitle(payload []byte) bool {
 		return false
 	}
 	status, ok := atoI(payload[VersionLen+1:VersionLen+4], 10)
-	if !ok {
+	if !ok || s[VersionLen+4] != ' ' {
 		return false
 	}
 	// only validate status codes mentioned in rfc2616.
