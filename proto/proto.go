@@ -355,7 +355,7 @@ func HasResponseTitle(payload []byte) bool {
 		return false
 	}
 	// only validate status codes mentioned in rfc2616.
-	if len(http.StatusText(status)) == 0 {
+	if http.StatusText(status) == "" {
 		return false
 	}
 	// handle cases from #875

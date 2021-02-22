@@ -162,11 +162,10 @@ func (i *FileInput) init() (err error) {
 		for _, c := range resp.Contents {
 			matches = append(matches, "s3://"+bucket+"/"+(*c.Key))
 		}
-	} else {
-		if matches, err = filepath.Glob(i.path); err != nil {
+	} else if matches, err = filepath.Glob(i.path); err != nil{ 
 			Debug(0, "[INPUT-FILE] Wrong file pattern", i.path, err)
 			return
-		}
+		
 	}
 
 	if len(matches) == 0 {

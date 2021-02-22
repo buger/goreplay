@@ -29,10 +29,9 @@ func TestInputFileWithGET(t *testing.T) {
 	// The read request should match the original request
 	if err != nil {
 		t.Error(err)
-	} else {
-		if !expectedCaptureFile.PayloadsEqual(readPayloads) {
+	} else if !expectedCaptureFile.PayloadsEqual(readPayloads){
 			t.Error("Request read back from file should match")
-		}
+		
 	}
 }
 
@@ -53,10 +52,9 @@ func TestInputFileWithPayloadLargerThan64Kb(t *testing.T) {
 	// The read request should match the original request
 	if err != nil {
 		t.Error(err)
-	} else {
-		if !expectedCaptureFile.PayloadsEqual(readPayloads) {
+	} else if !expectedCaptureFile.PayloadsEqual(readPayloads){ 
 			t.Error("Request read back from file should match")
-		}
+		
 	}
 
 }
@@ -82,10 +80,9 @@ func TestInputFileWithGETAndPOST(t *testing.T) {
 	// The read requests should match the original request
 	if err != nil {
 		t.Error(err)
-	} else {
-		if !expectedCaptureFile.PayloadsEqual(readPayloads) {
+	} else if !expectedCaptureFile.PayloadsEqual(readPayloads){ 
 			t.Error("Request read back from file should match")
-		}
+		
 	}
 
 }

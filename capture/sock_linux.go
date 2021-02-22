@@ -197,7 +197,7 @@ func (sock *SockRaw) GetSnapLen() int {
 func (sock *SockRaw) SetBPFFilter(expr string) error {
 	sock.mu.Lock()
 	defer sock.mu.Unlock()
-	if len(expr) == 0 {
+	if expr == "" {
 		return unix.SetsockoptInt(sock.fd, unix.SOL_SOCKET, unix.SO_DETACH_FILTER, 0)
 	}
 	filter, err := pcap.CompileBPFFilter(layers.LinkTypeEthernet, sock.snaplen, expr)

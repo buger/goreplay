@@ -31,7 +31,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
-	if len(os.Getenv("GOMAXPROCS")) == 0 {
+	if os.Getenv("GOMAXPROCS") == "" {
 		runtime.GOMAXPROCS(runtime.NumCPU() * 2)
 	}
 
