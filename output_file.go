@@ -33,12 +33,12 @@ var dateFileNameFuncs = map[string]func(*FileOutput) string{
 
 // FileOutputConfig ...
 type FileOutputConfig struct {
-	FlushInterval     time.Duration `json:"output-file-flush-interval"`
-	SizeLimit         size.Size     `json:"output-file-size-limit"`
-	OutputFileMaxSize size.Size     `json:"output-file-max-size-limit"`
-	QueueLimit        int           `json:"output-file-queue-limit"`
-	Append            bool          `json:"output-file-append"`
-	BufferPath        string        `json:"output-file-buffer"`
+	FlushInterval     time.Duration `json:"output-file-flush-interval" mapstructure:"output-file-flush-interval"`
+	SizeLimit         size.Size     `json:"output-file-size-limit" mapstructure:"output-file-size-limit"`
+	OutputFileMaxSize size.Size     `json:"output-file-max-size-limit" mapstructure:"output-file-max-size-limit"`
+	QueueLimit        int           `json:"output-file-queue-limit" mapstructure:"output-file-queue-limit"`
+	Append            bool          `json:"output-file-append" mapstructure:"output-file-append"`
+	BufferPath        string        `json:"output-file-buffer" mapstructure:"output-file-buffer"`
 	onClose           func(string)
 }
 
@@ -56,6 +56,7 @@ type FileOutput struct {
 	payloadType    []byte
 	closed         bool
 	totalFileSize  size.Size
+	Service        string
 
 	config *FileOutputConfig
 }
@@ -73,6 +74,18 @@ func NewFileOutput(pathTemplate string, config *FileOutputConfig) *FileOutput {
 
 	if config.FlushInterval == 0 {
 		config.FlushInterval = 100 * time.Millisecond
+	}
+
+	if config.QueueLimit == 0 {
+		config.QueueLimit = 256
+	}
+
+	if config.SizeLimit < 1 {
+		config.SizeLimit = 33554432 // 32mb
+	}
+
+	if config.OutputFileMaxSize < 1 {
+		config.OutputFileMaxSize = 1099511627776
 	}
 
 	go func() {
@@ -272,7 +285,7 @@ func (o *FileOutput) flush() {
 }
 
 func (o *FileOutput) String() string {
-	return "File output: " + o.file.Name()
+	return "File output: " + o.pathTemplate
 }
 
 func (o *FileOutput) closeLocked() error {

@@ -16,6 +16,7 @@ type KafkaInput struct {
 	consumers []sarama.PartitionConsumer
 	messages  chan *sarama.ConsumerMessage
 	quit      chan struct{}
+	Service   string
 }
 
 // NewKafkaInput creates instance of kafka consumer client with TLS config

@@ -17,6 +17,8 @@ import (
 type KafkaOutput struct {
 	config   *OutputKafkaConfig
 	producer sarama.AsyncProducer
+
+	Service string
 }
 
 // KafkaOutputFrequency in milliseconds

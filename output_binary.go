@@ -9,11 +9,11 @@ import (
 
 // BinaryOutputConfig struct for holding binary output configuration
 type BinaryOutputConfig struct {
-	Workers        int           `json:"output-binary-workers"`
-	Timeout        time.Duration `json:"output-binary-timeout"`
-	BufferSize     size.Size     `json:"output-tcp-response-buffer"`
-	Debug          bool          `json:"output-binary-debug"`
-	TrackResponses bool          `json:"output-binary-track-response"`
+	Workers        int           `json:"output-binary-workers" mapstructure:"output-binary-workers"`
+	Timeout        time.Duration `json:"output-binary-timeout" mapstructure:"output-binary-timeout"`
+	BufferSize     size.Size     `json:"output-tcp-response-buffer" mapstructure:"output-tcp-response-buffer"`
+	Debug          bool          `json:"output-binary-debug" mapstructure:"output-binary-debug"`
+	TrackResponses bool          `json:"output-binary-track-response" mapstructure:"output-binary-track-response"`
 }
 
 // BinaryOutput plugin manage pool of workers which send request to replayed server
@@ -31,6 +31,8 @@ type BinaryOutput struct {
 	quit          chan struct{}
 	config        *BinaryOutputConfig
 	queueStats    *GorStat
+
+	Service       string
 }
 
 // NewBinaryOutput constructor for BinaryOutput
@@ -138,7 +140,7 @@ func (o *BinaryOutput) PluginRead() (*Message, error) {
 	case resp = <-o.responses:
 	}
 	msg.Data = resp.payload
-	msg.Meta = payloadHeader(ReplayedResponsePayload, resp.uuid, resp.startedAt, resp.roundTripTime)
+	msg.Meta = payloadHeader(ReplayedResponsePayload, resp.uuid, resp.startedAt, resp.roundTripTime, o.Service)
 
 	return &msg, nil
 }

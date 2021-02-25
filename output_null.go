@@ -2,6 +2,7 @@ package main
 
 // NullOutput used for debugging, prints nothing
 type NullOutput struct {
+	Service string
 }
 
 // NewNullOutput constructor for NullOutput

@@ -15,6 +15,7 @@ type TestInput struct {
 	data       chan []byte
 	skipHeader bool
 	stop       chan bool // Channel used only to indicate goroutine should shutdown
+	Service    string
 }
 
 // NewTestInput constructor for TestInput
@@ -32,7 +33,7 @@ func (i *TestInput) PluginRead() (*Message, error) {
 	case buf := <-i.data:
 		msg.Data = buf
 		if !i.skipHeader {
-			msg.Meta = payloadHeader(RequestPayload, uuid(), time.Now().UnixNano(), -1)
+			msg.Meta = payloadHeader(RequestPayload, uuid(), time.Now().UnixNano(), -1, i.Service)
 		} else {
 			msg.Meta, msg.Data = payloadMetaWithBody(msg.Data)
 		}

@@ -24,6 +24,8 @@ type S3Output struct {
 	session *session.Session
 	config  *FileOutputConfig
 	closeCh chan struct{}
+
+	Service string
 }
 
 // NewS3Output constructor for FileOutput, accepts path

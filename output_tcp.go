@@ -18,14 +18,16 @@ type TCPOutput struct {
 	bufStats    *GorStat
 	config      *TCPOutputConfig
 	workerIndex uint32
+
+	Service     string
 }
 
 // TCPOutputConfig tcp output configuration
 type TCPOutputConfig struct {
-	Secure     bool `json:"output-tcp-secure"`
-	Sticky     bool `json:"output-tcp-sticky"`
-	SkipVerify bool `json:"output-tcp-skip-verify"`
-	Workers    int  `json:"output-tcp-workers"`
+	Secure     bool `json:"output-tcp-secure" mapstructure:"output-tcp-secure"`
+	Sticky     bool `json:"output-tcp-sticky" mapstructure:"output-tcp-sticky"`
+	SkipVerify bool `json:"output-tcp-skip-verify" mapstructure:"output-tcp-skip-verify"`
+	Workers    int  `json:"output-tcp-workers" mapstructure:"output-tcp-workers"`
 }
 
 // NewTCPOutput constructor for TCPOutput
@@ -38,6 +40,10 @@ func NewTCPOutput(address string, config *TCPOutputConfig) PluginWriter {
 
 	if Settings.OutputTCPStats {
 		o.bufStats = NewGorStat("output_tcp", 5000)
+	}
+
+	if config.Workers == 0 {
+		config.Workers = 10
 	}
 
 	// create X buffers and send the buffer index to the worker

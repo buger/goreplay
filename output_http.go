@@ -31,19 +31,19 @@ type response struct {
 
 // HTTPOutputConfig struct for holding http output configuration
 type HTTPOutputConfig struct {
-	TrackResponses bool          `json:"output-http-track-response"`
-	Stats          bool          `json:"output-http-stats"`
-	OriginalHost   bool          `json:"output-http-original-host"`
-	RedirectLimit  int           `json:"output-http-redirect-limit"`
-	WorkersMin     int           `json:"output-http-workers-min"`
-	WorkersMax     int           `json:"output-http-workers"`
-	StatsMs        int           `json:"output-http-stats-ms"`
-	QueueLen       int           `json:"output-http-queue-len"`
-	ElasticSearch  string        `json:"output-http-elasticsearch"`
-	Timeout        time.Duration `json:"output-http-timeout"`
-	WorkerTimeout  time.Duration `json:"output-http-worker-timeout"`
-	BufferSize     size.Size     `json:"output-http-response-buffer"`
-	SkipVerify     bool          `json:"output-http-skip-verify"`
+	TrackResponses bool          `json:"output-http-track-response" mapstructure:"output-http-track-response"`
+	Stats          bool          `json:"output-http-stats" mapstructure:"output-http-stats"`
+	OriginalHost   bool          `json:"output-http-original-host" mapstructure:"output-http-original-host"`
+	RedirectLimit  int           `json:"output-http-redirect-limit" mapstructure:"output-http-redirect-limit"`
+	WorkersMin     int           `json:"output-http-workers-min" mapstructure:"output-http-workers-min"`
+	WorkersMax     int           `json:"output-http-workers" mapstructure:"output-http-workers"`
+	StatsMs        int           `json:"output-http-stats-ms" mapstructure:"output-http-stats-ms"`
+	QueueLen       int           `json:"output-http-queue-len" mapstructure:"output-http-queue-len"`
+	ElasticSearch  string        `json:"output-http-elasticsearch" mapstructure:"output-http-elasticsearch"`
+	Timeout        time.Duration `json:"output-http-timeout" mapstructure:"output-http-timeout"`
+	WorkerTimeout  time.Duration `json:"output-http-worker-timeout" mapstructure:"output-http-worker-timeout"`
+	BufferSize     size.Size     `json:"output-http-response-buffer" mapstructure:"output-http-response-buffer"`
+	SkipVerify     bool          `json:"output-http-skip-verify" mapstructure:"output-http-skip-verify"`
 	rawURL         string
 	url            *url.URL
 }
@@ -61,6 +61,8 @@ type HTTPOutput struct {
 	queue         chan *Message
 	responses     chan *response
 	stop          chan bool // Channel used only to indicate goroutine should shutdown
+
+	Service       string
 }
 
 // NewHTTPOutput constructor for HTTPOutput
@@ -103,6 +105,16 @@ func NewHTTPOutput(address string, config *HTTPOutputConfig) PluginReadWriter {
 	if config.WorkerTimeout <= 0 {
 		config.WorkerTimeout = time.Second * 2
 	}
+	if config.StatsMs == 0 {
+		config.StatsMs = 5000
+	}
+	if config.QueueLen == 0 {
+		config.StatsMs = 1000
+	}
+	if config.Timeout == 0 {
+		config.Timeout = 5 * time.Second
+	}
+
 	o.config = config
 	o.stop = make(chan bool)
 	if o.config.Stats {
@@ -206,7 +218,7 @@ func (o *HTTPOutput) PluginRead() (*Message, error) {
 		msg.Data = resp.payload
 	}
 
-	msg.Meta = payloadHeader(ReplayedResponsePayload, resp.uuid, resp.roundTripTime, resp.startedAt)
+	msg.Meta = payloadHeader(ReplayedResponsePayload, resp.uuid, resp.roundTripTime, resp.startedAt, o.Service)
 
 	return &msg, nil
 }

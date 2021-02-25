@@ -116,6 +116,7 @@ type FileInput struct {
 	readers     []*fileInputReader
 	speedFactor float64
 	loop        bool
+	Service     string
 }
 
 // NewFileInput constructor for FileInput. Accepts file path as argument.
