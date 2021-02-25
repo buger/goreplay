@@ -30,7 +30,6 @@ type BinaryOutput struct {
 	needWorker    chan int
 	quit          chan struct{}
 	config        *BinaryOutputConfig
-	queueStats    *GorStat
 }
 
 // NewBinaryOutput constructor for BinaryOutput

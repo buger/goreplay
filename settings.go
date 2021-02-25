@@ -3,7 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
@@ -27,12 +30,10 @@ func (h *MultiOption) Set(value string) error {
 // AppSettings is the struct of main configuration
 type AppSettings struct {
 	Verbose   int           `json:"verbose"`
-	Stats     bool          `json:"stats"`
 	ExitAfter time.Duration `json:"exit-after"`
 
-	SplitOutput          bool   `json:"split-output"`
-	RecognizeTCPSessions bool   `json:"recognize-tcp-sessions"`
-	Pprof                string `json:"http-pprof"`
+	EmitterConfig
+	Pprof string `json:"http-pprof"`
 
 	InputDummy   MultiOption `json:"input-dummy"`
 	OutputDummy  MultiOption
@@ -43,7 +44,6 @@ type AppSettings struct {
 	InputTCPConfig  TCPInputConfig
 	OutputTCP       MultiOption `json:"output-tcp"`
 	OutputTCPConfig TCPOutputConfig
-	OutputTCPStats  bool `json:"output-tcp-stats"`
 
 	InputFile        MultiOption `json:"input-file"`
 	InputFileLoop    bool        `json:"input-file-loop"`
@@ -80,11 +80,10 @@ func usage() {
 	os.Exit(2)
 }
 
-func init() {
+func initFlags() {
 	flag.Usage = usage
 	flag.StringVar(&Settings.Pprof, "http-pprof", "", "Enable profiling. Starts  http server on specified port, exposing special /debug/pprof endpoint. Example: `:8181`")
 	flag.IntVar(&Settings.Verbose, "verbose", 0, "set the level of verbosity, if greater than zero then it will turn on debug output")
-	flag.BoolVar(&Settings.Stats, "stats", false, "Turn on queue stats output")
 
 	if DEMO == "" {
 		flag.DurationVar(&Settings.ExitAfter, "exit-after", 0, "exit after specified duration")
@@ -92,6 +91,7 @@ func init() {
 		Settings.ExitAfter = 5 * time.Minute
 	}
 
+	flag.BoolVar(&Settings.EmitterConfig.Stats, "meta-stats", false, "Turn on stats for meta data.")
 	flag.BoolVar(&Settings.SplitOutput, "split-output", false, "By default each output gets same traffic. If set to `true` it splits traffic equally among all outputs.")
 	flag.BoolVar(&Settings.RecognizeTCPSessions, "recognize-tcp-sessions", false, "[PRO] If turned on http output will create separate worker for each TCP session. Splitting output will session based as well.")
 
@@ -109,7 +109,6 @@ func init() {
 	flag.BoolVar(&Settings.OutputTCPConfig.SkipVerify, "output-tcp-skip-verify", false, "Don't verify hostname on TLS secure connection.")
 	flag.BoolVar(&Settings.OutputTCPConfig.Sticky, "output-tcp-sticky", false, "Use Sticky connection. Request/Response with same ID will be sent to the same connection.")
 	flag.IntVar(&Settings.OutputTCPConfig.Workers, "output-tcp-workers", 10, "Number of parallel tcp connections, default is 10")
-	flag.BoolVar(&Settings.OutputTCPStats, "output-tcp-stats", false, "Report TCP output queue stats to console every 5 seconds.")
 
 	flag.Var(&Settings.InputFile, "input-file", "Read requests from file: \n\tgor --input-file ./requests.gor --output-http staging.com")
 	flag.BoolVar(&Settings.InputFileLoop, "input-file-loop", false, "Loop input files, useful for performance testing.")
@@ -140,7 +139,7 @@ func init() {
 	flag.Var(&Settings.BufferSize, "input-raw-buffer-size", "Controls size of the OS buffer which holds packets until they dispatched. Default value depends by system: in Linux around 2MB. If you see big package drop, increase this value.")
 	flag.BoolVar(&Settings.Promiscuous, "input-raw-promisc", false, "enable promiscuous mode")
 	flag.BoolVar(&Settings.Monitor, "input-raw-monitor", false, "enable RF monitor mode")
-	flag.BoolVar(&Settings.Stats, "input-raw-stats", false, "enable stats generator on raw TCP messages")
+	flag.BoolVar(&Settings.RAWInputConfig.Stats, "input-raw-stats", false, "enable stats generator on raw TCP messages")
 
 	flag.StringVar(&Settings.Middleware, "middleware", "", "Used for modifying traffic using external command")
 
@@ -153,13 +152,9 @@ func init() {
 	flag.IntVar(&Settings.OutputHTTPConfig.QueueLen, "output-http-queue-len", 1000, "Number of requests that can be queued for output, if all workers are busy. default = 1000")
 	flag.BoolVar(&Settings.OutputHTTPConfig.SkipVerify, "output-http-skip-verify", false, "Don't verify hostname on TLS secure connection.")
 	flag.DurationVar(&Settings.OutputHTTPConfig.WorkerTimeout, "output-http-worker-timeout", 2*time.Second, "Duration to rollback idle workers.")
-
 	flag.IntVar(&Settings.OutputHTTPConfig.RedirectLimit, "output-http-redirects", 0, "Enable how often redirects should be followed.")
 	flag.DurationVar(&Settings.OutputHTTPConfig.Timeout, "output-http-timeout", 5*time.Second, "Specify HTTP request/response timeout. By default 5s. Example: --output-http-timeout 30s")
 	flag.BoolVar(&Settings.OutputHTTPConfig.TrackResponses, "output-http-track-response", false, "If turned on, HTTP output responses will be set to all outputs like stdout, file and etc.")
-
-	flag.BoolVar(&Settings.OutputHTTPConfig.Stats, "output-http-stats", false, "Report http output queue stats to console every N milliseconds. See output-http-stats-ms")
-	flag.IntVar(&Settings.OutputHTTPConfig.StatsMs, "output-http-stats-ms", 5000, "Report http output queue stats to console every N milliseconds. default: 5000")
 	flag.BoolVar(&Settings.OutputHTTPConfig.OriginalHost, "http-original-host", false, "Normally gor replaces the Host http header with the host supplied with --output-http.  This option disables that behavior, preserving the original Host header.")
 	flag.StringVar(&Settings.OutputHTTPConfig.ElasticSearch, "output-http-elasticsearch", "", "Send request and response stats to ElasticSearch:\n\tgor --input-raw :8080 --output-http staging.com --output-http-elasticsearch 'es_host:api_port/index_name'")
 	/* outputHTTPConfig */
@@ -233,4 +228,33 @@ func Debug(level int, args ...interface{}) {
 		fmt.Fprintf(os.Stderr, "[DEBUG][elapsed %s]: ", diff)
 		fmt.Fprintln(os.Stderr, args...)
 	}
+}
+
+func initGorDir() {
+	var err error
+	p := os.Getenv("GORDIR")
+	if p == "" {
+		if p, err = os.UserHomeDir(); err != nil {
+			goto errLog
+		}
+		if !strings.Contains(p, "root") {
+			p = filepath.Join(p, ".gor")
+		} else {
+			p = ".gor"
+		}
+	}
+	if err = os.MkdirAll(p, os.ModeDir|os.ModePerm); err != nil {
+		goto errLog
+	}
+	if err = os.Setenv("GORDIR", p); err != nil {
+		goto errLog
+	}
+	return
+errLog:
+	log.Fatalf("init GORDIR error:%q", err)
+}
+
+func init() {
+	initGorDir()
+	initFlags()
 }

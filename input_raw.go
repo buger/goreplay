@@ -12,6 +12,7 @@ import (
 	"github.com/buger/goreplay/capture"
 	"github.com/buger/goreplay/proto"
 	"github.com/buger/goreplay/size"
+	"github.com/buger/goreplay/stat"
 	"github.com/buger/goreplay/tcp"
 )
 
@@ -68,7 +69,7 @@ type RAWInputConfig struct {
 type RAWInput struct {
 	sync.Mutex
 	RAWInputConfig
-	messageStats   []tcp.Stats
+	st             *stat.Writer
 	listener       *capture.Listener
 	message        chan *tcp.Message
 	cancelListener context.CancelFunc
@@ -97,6 +98,13 @@ func NewRAWInput(address string, config RAWInputConfig) (i *RAWInput) {
 	}
 	i.host = host
 	i.port = uint16(port)
+	if i.Stats {
+		i.st = initializeStatWriter("input_raw_message.csv", "type: GOR_STAT\ntitle: raw messages info")
+		statsWriteRecord(i.st, []string{
+			"length", "lostdata", "source", "destination", "ipversion",
+			"timedout", "truncated", "id",
+		}, "[INPUT-RAW]")
+	}
 
 	i.listen(address)
 
@@ -109,30 +117,28 @@ func (i *RAWInput) PluginRead() (*Message, error) {
 	var msg Message
 	select {
 	case <-i.quit:
+		if i.st != nil {
+			i.st.Close()
+			i.st = nil
+		}
 		return nil, ErrorStopped
 	case msgTCP = <-i.message:
 		msg.Data = msgTCP.Data()
 	}
 	var msgType byte = ResponsePayload
+	timestamp := msgTCP.Start.UnixNano()
+	latency := msgTCP.End.UnixNano() - timestamp
 	if msgTCP.IsIncoming {
 		msgType = RequestPayload
 		if i.RealIPHeader != "" {
 			msg.Data = proto.SetHeader(msg.Data, []byte(i.RealIPHeader), []byte(msgTCP.SrcAddr))
 		}
 	}
-	msg.Meta = payloadHeader(msgType, msgTCP.UUID(), msgTCP.Start.UnixNano(), msgTCP.End.UnixNano()-msgTCP.Start.UnixNano())
+	id := msgTCP.UUID()
+	msg.Meta = payloadHeader(msgType, id, timestamp, latency)
 
-	// to be removed....
-	if msgTCP.Truncated {
-		Debug(2, "[INPUT-RAW] message truncated, increase copy-buffer-size")
-	}
-	// to be removed...
-	if msgTCP.TimedOut {
-		Debug(2, "[INPUT-RAW] message timeout reached, increase input-raw-expire")
-	}
-	if i.Stats {
-		stat := msgTCP.Stats
-		go i.addStats(stat)
+	if i.Stats && i.st != nil {
+		statsWriteRecord(i.st, getStats(msgTCP.Stats, id), "[INPUT-RAW]")
 	}
 	msgTCP = nil
 	return &msg, nil
@@ -175,13 +181,26 @@ func (i *RAWInput) String() string {
 }
 
 // GetStats returns the stats so far and reset the stats
-func (i *RAWInput) GetStats() []tcp.Stats {
-	i.Lock()
-	defer func() {
-		i.messageStats = []tcp.Stats{}
-		i.Unlock()
-	}()
-	return i.messageStats
+func getStats(stat tcp.Stats, id []byte) []string {
+	var s [8]string
+
+	s[0] = strconv.Itoa(stat.Length)    // length
+	s[1] = strconv.Itoa(stat.LostData)  // lostdata
+	s[2] = stat.SrcAddr                 // source
+	s[3] = stat.DstAddr                 // destination
+	s[4] = string(stat.IPversion + '0') // ipversion
+	if stat.TimedOut {                  // timedout
+		s[5] = "true"
+	} else {
+		s[5] = "false"
+	}
+	if stat.Truncated { // truncated
+		s[6] = "true"
+	} else {
+		s[6] = "false"
+	}
+	s[7] = string(id)
+	return s[:]
 }
 
 // Close closes the input raw listener
@@ -195,15 +214,6 @@ func (i *RAWInput) Close() error {
 	close(i.quit)
 	i.closed = true
 	return nil
-}
-
-func (i *RAWInput) addStats(mStats tcp.Stats) {
-	i.Lock()
-	if len(i.messageStats) >= 10000 {
-		i.messageStats = []tcp.Stats{}
-	}
-	i.messageStats = append(i.messageStats, mStats)
-	i.Unlock()
 }
 
 func http1StartHint(pckt *tcp.Packet) (isIncoming, isOutgoing bool) {

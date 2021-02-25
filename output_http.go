@@ -32,12 +32,10 @@ type response struct {
 // HTTPOutputConfig struct for holding http output configuration
 type HTTPOutputConfig struct {
 	TrackResponses bool          `json:"output-http-track-response"`
-	Stats          bool          `json:"output-http-stats"`
 	OriginalHost   bool          `json:"output-http-original-host"`
 	RedirectLimit  int           `json:"output-http-redirect-limit"`
 	WorkersMin     int           `json:"output-http-workers-min"`
 	WorkersMax     int           `json:"output-http-workers"`
-	StatsMs        int           `json:"output-http-stats-ms"`
 	QueueLen       int           `json:"output-http-queue-len"`
 	ElasticSearch  string        `json:"output-http-elasticsearch"`
 	Timeout        time.Duration `json:"output-http-timeout"`
@@ -54,7 +52,6 @@ type HTTPOutputConfig struct {
 type HTTPOutput struct {
 	activeWorkers int32
 	config        *HTTPOutputConfig
-	queueStats    *GorStat
 	elasticSearch *ESPlugin
 	client        *HTTPClient
 	stopWorker    chan struct{}
@@ -105,9 +102,6 @@ func NewHTTPOutput(address string, config *HTTPOutputConfig) PluginReadWriter {
 	}
 	o.config = config
 	o.stop = make(chan bool)
-	if o.config.Stats {
-		o.queueStats = NewGorStat("output_http", o.config.StatsMs)
-	}
 
 	o.queue = make(chan *Message, o.config.QueueLen)
 	if o.config.TrackResponses {
@@ -179,9 +173,6 @@ func (o *HTTPOutput) PluginWrite(msg *Message) (n int, err error) {
 	case o.queue <- msg:
 	}
 
-	if o.config.Stats {
-		o.queueStats.Write(len(o.queue))
-	}
 	if len(o.queue) > 0 {
 		// try to start a new worker to serve
 		if atomic.LoadInt32(&o.activeWorkers) < int32(o.config.WorkersMax) {

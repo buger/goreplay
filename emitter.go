@@ -9,12 +9,21 @@ import (
 	"time"
 
 	"github.com/buger/goreplay/byteutils"
+	"github.com/buger/goreplay/stat"
 )
+
+// EmitterConfig configurations associated with emitters
+type EmitterConfig struct {
+	Stats                bool
+	SplitOutput          bool
+	RecognizeTCPSessions bool
+}
 
 // Emitter represents an abject to manage plugins communication
 type Emitter struct {
 	sync.WaitGroup
 	plugins *InOutPlugins
+	st      *stat.Writer
 }
 
 // NewEmitter creates and initializes new Emitter object.
@@ -28,6 +37,10 @@ func (e *Emitter) Start(plugins *InOutPlugins, middlewareCmd string) {
 		Settings.CopyBufferSize = 5 << 20
 	}
 	e.plugins = plugins
+	if Settings.EmitterConfig.Stats {
+		e.st = initializeStatWriter("meta.csv", "type: GOR_STAT\ntitle: Messages Meta")
+		statsWriteRecord(e.st, []string{"type", "id", "timestamp", "latency"}, "[EMITTER]")
+	}
 
 	if middlewareCmd != "" {
 		middleware := NewMiddleware(middlewareCmd)
@@ -41,8 +54,8 @@ func (e *Emitter) Start(plugins *InOutPlugins, middlewareCmd string) {
 		e.Add(1)
 		go func() {
 			defer e.Done()
-			if err := CopyMulty(middleware, plugins.Outputs...); err != nil {
-				Debug(2, fmt.Sprintf("[EMITTER] error during copy: %q", err))
+			if err := e.CopyMulty(middleware, plugins.Outputs...); err != nil {
+				Debug(1, fmt.Sprintf("[EMITTER] error during copy: %q", err))
 			}
 		}()
 	} else {
@@ -50,8 +63,8 @@ func (e *Emitter) Start(plugins *InOutPlugins, middlewareCmd string) {
 			e.Add(1)
 			go func(in PluginReader) {
 				defer e.Done()
-				if err := CopyMulty(in, plugins.Outputs...); err != nil {
-					Debug(2, fmt.Sprintf("[EMITTER] error during copy: %q", err))
+				if err := e.CopyMulty(in, plugins.Outputs...); err != nil {
+					Debug(1, fmt.Sprintf("[EMITTER] error during copy: %q", err))
 				}
 			}(in)
 		}
@@ -70,10 +83,13 @@ func (e *Emitter) Close() {
 		e.Wait()
 	}
 	e.plugins.All = nil // avoid Close to make changes again
+	if e.st != nil {
+		e.st.Close()
+	}
 }
 
 // CopyMulty copies from 1 reader to multiple writers
-func CopyMulty(src PluginReader, writers ...PluginWriter) error {
+func (e *Emitter) CopyMulty(src PluginReader, writers ...PluginWriter) error {
 	wIndex := 0
 	modifier := NewHTTPModifier(&Settings.ModifierConfig)
 	filteredRequests := make(map[string]int64)
@@ -97,13 +113,16 @@ func CopyMulty(src PluginReader, writers ...PluginWriter) error {
 				Debug(2, fmt.Sprintf("[EMITTER] Found malformed record %q from %q", msg.Meta, src))
 				continue
 			}
+			if e.st != nil {
+				statsWriteRecord(e.st, splitUnsafe(meta), "[EMITTER]")
+			}
 			requestID := byteutils.SliceToString(meta[1])
 			// start a subroutine only when necessary
 			if Settings.Verbose >= 3 {
 				Debug(3, "[EMITTER] input: ", byteutils.SliceToString(msg.Meta[:len(msg.Meta)-1]), " from: ", src)
 			}
 			if modifier != nil {
-				Debug(3, "[EMITTER] modifier:", requestID, "from:", src)
+				Debug(3, "[EMITTER] modifier: ", requestID, " from: ", src)
 				if isRequestPayload(msg.Meta) {
 					msg.Data = modifier.Rewrite(msg.Data)
 					// If modifier tells to skip request
@@ -174,4 +193,12 @@ func CopyMulty(src PluginReader, writers ...PluginWriter) error {
 			}
 		}
 	}
+}
+
+func splitUnsafe(data [][]byte) []string {
+	s := make([]string, len(data), len(data))
+	for i := range data {
+		s[i] = byteutils.SliceToString(data[i])
+	}
+	return s
 }

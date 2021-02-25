@@ -15,9 +15,9 @@ type TCPOutput struct {
 	address     string
 	limit       int
 	buf         []chan *Message
-	bufStats    *GorStat
 	config      *TCPOutputConfig
 	workerIndex uint32
+	stop        chan struct{}
 }
 
 // TCPOutputConfig tcp output configuration
@@ -35,10 +35,7 @@ func NewTCPOutput(address string, config *TCPOutputConfig) PluginWriter {
 
 	o.address = address
 	o.config = config
-
-	if Settings.OutputTCPStats {
-		o.bufStats = NewGorStat("output_tcp", 5000)
-	}
+	o.stop = make(chan struct{})
 
 	// create X buffers and send the buffer index to the worker
 	o.buf = make([]chan *Message, o.config.Workers)
@@ -72,7 +69,12 @@ func (o *TCPOutput) worker(bufferIndex int) {
 	defer conn.Close()
 
 	for {
-		msg := <-o.buf[bufferIndex]
+		var msg *Message
+		select {
+		case <-o.stop:
+			return
+		case msg = <-o.buf[bufferIndex]:
+		}
 		if _, err = conn.Write(msg.Meta); err == nil {
 			if _, err = conn.Write(msg.Data); err == nil {
 				_, err = conn.Write(payloadSeparatorAsBytes)
@@ -109,10 +111,6 @@ func (o *TCPOutput) PluginWrite(msg *Message) (n int, err error) {
 	bufferIndex := o.getBufferIndex(msg.Data)
 	o.buf[bufferIndex] <- msg
 
-	if Settings.OutputTCPStats {
-		o.bufStats.Write(len(o.buf[bufferIndex]))
-	}
-
 	return len(msg.Data) + len(msg.Meta), nil
 }
 
@@ -128,4 +126,10 @@ func (o *TCPOutput) connect(address string) (conn net.Conn, err error) {
 
 func (o *TCPOutput) String() string {
 	return fmt.Sprintf("TCP output %s, limit: %d", o.address, o.limit)
+}
+
+// Close closes the data channel so that data
+func (o *TCPOutput) Close() error {
+	close(o.stop)
+	return nil
 }
