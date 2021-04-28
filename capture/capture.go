@@ -29,6 +29,7 @@ type PcapOptions struct {
 	Promiscuous   bool          `json:"input-raw-promisc"`
 	Monitor       bool          `json:"input-raw-monitor"`
 	Snaplen       bool          `json:"input-raw-override-snaplen"`
+	CustomizedSnapLen size.Size     `json:"input-raw-snaplen"`
 }
 
 // NetInterface represents network interface
@@ -250,6 +251,8 @@ func (l *Listener) PcapHandle(ifi NetInterface) (handle *pcap.Handle, err error)
 	var snap int
 	if l.Snaplen {
 		snap = 64<<10 + 200
+	} else if l.CustomizedSnapLen > 0  {
+		snap = max(int(l.CustomizedSnapLen), ifi.MTU) + 200
 	} else if ifi.MTU > 0 {
 		snap = ifi.MTU + 200
 	}
@@ -497,4 +500,11 @@ func listenAll(addr string) bool {
 		return true
 	}
 	return false
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
