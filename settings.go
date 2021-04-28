@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/buger/goreplay/size"
 	"os"
 	"sync"
 	"time"
@@ -136,6 +137,7 @@ func init() {
 	flag.StringVar(&Settings.TimestampType, "input-raw-timestamp-type", "", "Possible values: PCAP_TSTAMP_HOST, PCAP_TSTAMP_HOST_LOWPREC, PCAP_TSTAMP_HOST_HIPREC, PCAP_TSTAMP_ADAPTER, PCAP_TSTAMP_ADAPTER_UNSYNCED. This values not supported on all systems, GoReplay will tell you available values of you put wrong one.")
 	flag.Var(&Settings.CopyBufferSize, "copy-buffer-size", "Set the buffer size for an individual request (default 5MB)")
 	flag.BoolVar(&Settings.Snaplen, "input-raw-override-snaplen", false, "Override the capture snaplen to be 64k. Required for some Virtualized environments")
+	flag.Var(&Settings.CustomizedSnapLen, "input-raw-snaplen", "Override the capture SnapLen to be with len specified. For Jumbo Frame for Virtualized environments")
 	flag.DurationVar(&Settings.BufferTimeout, "input-raw-buffer-timeout", 0, "set the pcap timeout. for immediate mode don't set this flag")
 	flag.Var(&Settings.BufferSize, "input-raw-buffer-size", "Controls size of the OS buffer which holds packets until they dispatched. Default value depends by system: in Linux around 2MB. If you see big package drop, increase this value.")
 	flag.BoolVar(&Settings.Promiscuous, "input-raw-promisc", false, "enable promiscuous mode")
@@ -207,6 +209,8 @@ func init() {
 
 }
 
+const MaxSnapLength = size.Size(64 << 10)
+
 func checkSettings() {
 	if Settings.OutputFileConfig.SizeLimit < 1 {
 		Settings.OutputFileConfig.SizeLimit.Set("32mb")
@@ -216,6 +220,9 @@ func checkSettings() {
 	}
 	if Settings.CopyBufferSize < 1 {
 		Settings.CopyBufferSize.Set("5mb")
+	}
+	if Settings.PcapOptions.CustomizedSnapLen > MaxSnapLength {
+		Settings.PcapOptions.CustomizedSnapLen = MaxSnapLength
 	}
 }
 
