@@ -1,6 +1,6 @@
 package main
 
-type writeCallback func(data []byte)
+type writeCallback func(*Message)
 
 // TestOutput used in testing to intercept any output into callback
 type TestOutput struct {
@@ -8,19 +8,20 @@ type TestOutput struct {
 }
 
 // NewTestOutput constructor for TestOutput, accepts callback which get called on each incoming Write
-func NewTestOutput(cb writeCallback) (i *TestOutput) {
-	i = new(TestOutput)
+func NewTestOutput(cb writeCallback) PluginWriter {
+	i := new(TestOutput)
 	i.cb = cb
 
-	return
+	return i
 }
 
-func (i *TestOutput) Write(data []byte) (int, error) {
-	i.cb(data)
+// PluginWrite write message to this plugin
+func (i *TestOutput) PluginWrite(msg *Message) (int, error) {
+	i.cb(msg)
 
-	return len(data), nil
+	return len(msg.Data) + len(msg.Meta), nil
 }
 
 func (i *TestOutput) String() string {
-	return "Test Input"
+	return "Test Output"
 }

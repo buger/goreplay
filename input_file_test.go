@@ -4,9 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"os"
 	"sync"
@@ -14,54 +12,49 @@ import (
 	"time"
 )
 
-var _ = log.Println
-
 func TestInputFileWithGET(t *testing.T) {
 	input := NewTestInput()
-	rg := NewRequestGenerator([]io.Reader{input}, func() { input.EmitGET() }, 1)
-	readPayloads := [][]byte{}
+	rg := NewRequestGenerator([]PluginReader{input}, func() { input.EmitGET() }, 1)
+	readPayloads := []*Message{}
 
 	// Given a capture file with a GET request
 	expectedCaptureFile := CreateCaptureFile(rg)
 	defer expectedCaptureFile.TearDown()
 
 	// When the request is read from the capture file
-	err := ReadFromCaptureFile(expectedCaptureFile.file, 1, func(data []byte) {
-		readPayloads = append(readPayloads, Duplicate(data))
+	err := ReadFromCaptureFile(expectedCaptureFile.file, 1, func(msg *Message) {
+		readPayloads = append(readPayloads, msg)
 	})
 
 	// The read request should match the original request
 	if err != nil {
 		t.Error(err)
-	} else {
-		if !expectedCaptureFile.PayloadsEqual(readPayloads) {
+	} else if !expectedCaptureFile.PayloadsEqual(readPayloads){
 			t.Error("Request read back from file should match")
-		}
+		
 	}
 }
 
 func TestInputFileWithPayloadLargerThan64Kb(t *testing.T) {
-
 	input := NewTestInput()
-	rg := NewRequestGenerator([]io.Reader{input}, func() { input.EmitSizedPOST(64 * 1024) }, 1)
-	readPayloads := [][]byte{}
+	rg := NewRequestGenerator([]PluginReader{input}, func() { input.EmitSizedPOST(64 * 1024) }, 1)
+	readPayloads := []*Message{}
 
 	// Given a capture file with a request over 64Kb
 	expectedCaptureFile := CreateCaptureFile(rg)
 	defer expectedCaptureFile.TearDown()
 
 	// When the request is read from the capture file
-	err := ReadFromCaptureFile(expectedCaptureFile.file, 1, func(data []byte) {
-		readPayloads = append(readPayloads, Duplicate(data))
+	err := ReadFromCaptureFile(expectedCaptureFile.file, 1, func(msg *Message) {
+		readPayloads = append(readPayloads, msg)
 	})
 
 	// The read request should match the original request
 	if err != nil {
 		t.Error(err)
-	} else {
-		if !expectedCaptureFile.PayloadsEqual(readPayloads) {
+	} else if !expectedCaptureFile.PayloadsEqual(readPayloads){ 
 			t.Error("Request read back from file should match")
-		}
+		
 	}
 
 }
@@ -69,28 +62,27 @@ func TestInputFileWithPayloadLargerThan64Kb(t *testing.T) {
 func TestInputFileWithGETAndPOST(t *testing.T) {
 
 	input := NewTestInput()
-	rg := NewRequestGenerator([]io.Reader{input}, func() {
+	rg := NewRequestGenerator([]PluginReader{input}, func() {
 		input.EmitGET()
 		input.EmitPOST()
 	}, 2)
-	readPayloads := [][]byte{}
+	readPayloads := []*Message{}
 
 	// Given a capture file with a GET request
 	expectedCaptureFile := CreateCaptureFile(rg)
 	defer expectedCaptureFile.TearDown()
 
 	// When the requests are read from the capture file
-	err := ReadFromCaptureFile(expectedCaptureFile.file, 2, func(data []byte) {
-		readPayloads = append(readPayloads, Duplicate(data))
+	err := ReadFromCaptureFile(expectedCaptureFile.file, 2, func(msg *Message) {
+		readPayloads = append(readPayloads, msg)
 	})
 
 	// The read requests should match the original request
 	if err != nil {
 		t.Error(err)
-	} else {
-		if !expectedCaptureFile.PayloadsEqual(readPayloads) {
+	} else if !expectedCaptureFile.PayloadsEqual(readPayloads){ 
 			t.Error("Request read back from file should match")
-		}
+		
 	}
 
 }
@@ -113,12 +105,11 @@ func TestInputFileMultipleFilesWithRequestsOnly(t *testing.T) {
 	file2.Close()
 
 	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false)
-	buf := make([]byte, 1000)
 
 	for i := '1'; i <= '4'; i++ {
-		n, _ := input.Read(buf)
-		if buf[4] != byte(i) {
-			t.Error("Should emit requests in right order", string(buf[:n]))
+		msg, _ := input.PluginRead()
+		if msg.Meta[4] != byte(i) {
+			t.Error("Should emit requests in right order", string(msg.Meta))
 		}
 	}
 
@@ -140,23 +131,17 @@ func TestInputFileRequestsWithLatency(t *testing.T) {
 	file.Write([]byte(payloadSeparator))
 
 	input := NewFileInput(fmt.Sprintf("/tmp/%d", rnd), false)
-	buf := make([]byte, 1000)
 
 	start := time.Now().UnixNano()
 	for i := 0; i < 3; i++ {
-		input.Read(buf)
+		input.PluginRead()
 	}
 	end := time.Now().UnixNano()
 
-	var expectedLatency int64 = 250000000 - 100000000
+	var expectedLatency int64 = 300000000 - 100000000
 	realLatency := end - start
-	if realLatency < expectedLatency {
+	if realLatency > expectedLatency {
 		t.Errorf("Should emit requests respecting latency. Expected: %v, real: %v", expectedLatency, realLatency)
-	}
-
-	if realLatency > expectedLatency+10000000 {
-		t.Errorf("Should emit requests respecting latency. Expected: %v, real: %v", expectedLatency, realLatency)
-
 	}
 }
 
@@ -186,17 +171,16 @@ func TestInputFileMultipleFilesWithRequestsAndResponses(t *testing.T) {
 	file2.Close()
 
 	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false)
-	buf := make([]byte, 1000)
 
 	for i := '1'; i <= '4'; i++ {
-		n, _ := input.Read(buf)
-		if buf[0] != '1' && buf[4] != byte(i) {
-			t.Error("Shound emit requests in right order", string(buf[:n]))
+		msg, _ := input.PluginRead()
+		if msg.Meta[0] != '1' && msg.Meta[4] != byte(i) {
+			t.Error("Shound emit requests in right order", string(msg.Meta))
 		}
 
-		n, _ = input.Read(buf)
-		if buf[0] != '2' && buf[4] != byte(i) {
-			t.Error("Shound emit responses in right order", string(buf[:n]))
+		msg, _ = input.PluginRead()
+		if msg.Meta[0] != '2' && msg.Meta[4] != byte(i) {
+			t.Error("Shound emit responses in right order", string(msg.Meta))
 		}
 	}
 
@@ -215,11 +199,10 @@ func TestInputFileLoop(t *testing.T) {
 	file.Close()
 
 	input := NewFileInput(fmt.Sprintf("/tmp/%d", rnd), true)
-	buf := make([]byte, 1000)
 
 	// Even if we have just 2 requests in file, it should indifinitly loop
 	for i := 0; i < 1000; i++ {
-		input.Read(buf)
+		input.PluginRead()
 	}
 
 	input.Close()
@@ -231,22 +214,21 @@ func TestInputFileCompressed(t *testing.T) {
 
 	output := NewFileOutput(fmt.Sprintf("/tmp/%d_0.gz", rnd), &FileOutputConfig{FlushInterval: time.Minute, Append: true})
 	for i := 0; i < 1000; i++ {
-		output.Write([]byte("1 1 1\r\ntest"))
+		output.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
 	}
 	name1 := output.file.Name()
 	output.Close()
 
 	output2 := NewFileOutput(fmt.Sprintf("/tmp/%d_1.gz", rnd), &FileOutputConfig{FlushInterval: time.Minute, Append: true})
 	for i := 0; i < 1000; i++ {
-		output2.Write([]byte("1 1 1\r\ntest"))
+		output2.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
 	}
 	name2 := output2.file.Name()
 	output2.Close()
 
 	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false)
-	buf := make([]byte, 1000)
 	for i := 0; i < 2000; i++ {
-		input.Read(buf)
+		input.PluginRead()
 	}
 
 	os.Remove(name1)
@@ -254,14 +236,14 @@ func TestInputFileCompressed(t *testing.T) {
 }
 
 type CaptureFile struct {
-	data [][]byte
+	msgs []*Message
 	file *os.File
 }
 
-func NewExpectedCaptureFile(data [][]byte, file *os.File) *CaptureFile {
+func NewExpectedCaptureFile(msgs []*Message, file *os.File) *CaptureFile {
 	ecf := new(CaptureFile)
 	ecf.file = file
-	ecf.data = data
+	ecf.msgs = msgs
 	return ecf
 }
 
@@ -272,12 +254,12 @@ func (expectedCaptureFile *CaptureFile) TearDown() {
 }
 
 type RequestGenerator struct {
-	inputs []io.Reader
+	inputs []PluginReader
 	emit   func()
 	wg     *sync.WaitGroup
 }
 
-func NewRequestGenerator(inputs []io.Reader, emit func(), count int) (rg *RequestGenerator) {
+func NewRequestGenerator(inputs []PluginReader, emit func(), count int) (rg *RequestGenerator) {
 	rg = new(RequestGenerator)
 	rg.inputs = inputs
 	rg.emit = emit
@@ -286,14 +268,17 @@ func NewRequestGenerator(inputs []io.Reader, emit func(), count int) (rg *Reques
 	return
 }
 
-func (expectedCaptureFile *CaptureFile) PayloadsEqual(other [][]byte) bool {
+func (expectedCaptureFile *CaptureFile) PayloadsEqual(other []*Message) bool {
 
-	if len(expectedCaptureFile.data) != len(other) {
+	if len(expectedCaptureFile.msgs) != len(other) {
 		return false
 	}
 
 	for i, payload := range other {
-		if !bytes.Equal(expectedCaptureFile.data[i], payload) {
+		if !bytes.Equal(expectedCaptureFile.msgs[i].Meta, payload.Meta) {
+			return false
+		}
+		if !bytes.Equal(expectedCaptureFile.msgs[i].Data, payload.Data) {
 			return false
 		}
 	}
@@ -308,26 +293,24 @@ func CreateCaptureFile(requestGenerator *RequestGenerator) *CaptureFile {
 		panic(err)
 	}
 
-	quit := make(chan int)
-
-	readPayloads := [][]byte{}
-	output := NewTestOutput(func(data []byte) {
-		readPayloads = append(readPayloads, Duplicate(data))
+	readPayloads := []*Message{}
+	output := NewTestOutput(func(msg *Message) {
+		readPayloads = append(readPayloads, msg)
 		requestGenerator.wg.Done()
 	})
 
-	outputFile := NewFileOutput(f.Name(), &FileOutputConfig{FlushInterval: time.Minute, Append: true})
+	outputFile := NewFileOutput(f.Name(), &FileOutputConfig{FlushInterval: time.Second, Append: true})
 
 	plugins := &InOutPlugins{
 		Inputs:  requestGenerator.inputs,
-		Outputs: []io.Writer{output, outputFile},
+		Outputs: []PluginWriter{output, outputFile},
 	}
 	for _, input := range requestGenerator.inputs {
 		plugins.All = append(plugins.All, input)
 	}
 	plugins.All = append(plugins.All, output, outputFile)
 
-	emitter := NewEmitter(quit)
+	emitter := NewEmitter()
 	go emitter.Start(plugins, Settings.Middleware)
 
 	requestGenerator.emit()
@@ -341,23 +324,22 @@ func CreateCaptureFile(requestGenerator *RequestGenerator) *CaptureFile {
 }
 
 func ReadFromCaptureFile(captureFile *os.File, count int, callback writeCallback) (err error) {
-	quit := make(chan int)
 	wg := new(sync.WaitGroup)
 
 	input := NewFileInput(captureFile.Name(), false)
-	output := NewTestOutput(func(data []byte) {
-		callback(data)
+	output := NewTestOutput(func(msg *Message) {
+		callback(msg)
 		wg.Done()
 	})
 
 	plugins := &InOutPlugins{
-		Inputs:  []io.Reader{input},
-		Outputs: []io.Writer{output},
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{output},
 	}
 	plugins.All = append(plugins.All, input, output)
 
 	wg.Add(count)
-	emitter := NewEmitter(quit)
+	emitter := NewEmitter()
 	go emitter.Start(plugins, Settings.Middleware)
 
 	done := make(chan int, 1)
@@ -375,11 +357,4 @@ func ReadFromCaptureFile(captureFile *os.File, count int, callback writeCallback
 	emitter.Close()
 	return
 
-}
-
-func Duplicate(data []byte) (duplicate []byte) {
-	duplicate = make([]byte, len(data))
-	copy(duplicate, data)
-
-	return
 }

@@ -2,7 +2,6 @@
 package byteutils
 
 import (
-	"reflect"
 	"unsafe"
 )
 
@@ -48,9 +47,6 @@ func Replace(a []byte, from, to int, new []byte) []byte {
 }
 
 // SliceToString preferred for large body payload (zero allocation and faster)
-func SliceToString(buf *[]byte, s *string) {
-	bHeader := (*reflect.SliceHeader)(unsafe.Pointer(buf))
-	sHeader := (*reflect.StringHeader)(unsafe.Pointer(s))
-	sHeader.Data = bHeader.Data
-	sHeader.Len = bHeader.Len
+func SliceToString(buf []byte) string {
+	return *(*string)(unsafe.Pointer(&buf))
 }

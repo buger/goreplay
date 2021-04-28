@@ -66,25 +66,27 @@ func payloadMeta(payload []byte) [][]byte {
 	return bytes.Split(payload[:headerSize], []byte{' '})
 }
 
+func payloadMetaWithBody(payload []byte) (meta, body []byte) {
+	if i := bytes.IndexByte(payload, '\n'); i > 0 && len(payload) > i+1 {
+		meta = payload[:i+1]
+		body = payload[i+1:]
+		return
+	}
+	// we assume the message did not have meta data
+	return nil, payload
+}
+
 func payloadID(payload []byte) (id []byte) {
 	meta := payloadMeta(payload)
 
 	if len(meta) < 2 {
 		return
 	}
-	// id is encoded in hex, we need to revert to how it was
-	id = make([]byte, 20)
-	hex.Decode(id, meta[1])
-	return
+	return meta[1]
 }
 
 func isOriginPayload(payload []byte) bool {
-	switch payload[0] {
-	case RequestPayload, ResponsePayload:
-		return true
-	default:
-		return false
-	}
+	return payload[0] == RequestPayload || payload[0] == ResponsePayload
 }
 
 func isRequestPayload(payload []byte) bool {

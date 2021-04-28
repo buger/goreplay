@@ -27,25 +27,17 @@ func NewHTTPInput(address string) (i *HTTPInput) {
 	return
 }
 
-func (i *HTTPInput) Read(data []byte) (int, error) {
-	var buf []byte
+// PluginRead reads message from this plugin
+func (i *HTTPInput) PluginRead() (*Message, error) {
+	var msg Message
 	select {
 	case <-i.stop:
-		return 0, ErrorStopped
-	case buf = <-i.data:
+		return nil, ErrorStopped
+	case buf := <-i.data:
+		msg.Data = buf
+		msg.Meta = payloadHeader(RequestPayload, uuid(), time.Now().UnixNano(), -1)
+		return &msg, nil
 	}
-	header := payloadHeader(RequestPayload, uuid(), time.Now().UnixNano(), -1)
-
-	n := copy(data, header)
-	if len(data) > len(header) {
-		n += copy(data[len(header):], buf)
-	}
-	dis := len(header) + len(buf) - n
-	if dis > 0 {
-		Debug(2, "[INPUT-HTTP] discarded", dis, "increase copy buffer size")
-	}
-
-	return n, nil
 }
 
 // Close closes this plugin

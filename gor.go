@@ -4,7 +4,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -32,7 +31,7 @@ func loggingMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
-	if len(os.Getenv("GOMAXPROCS")) == 0 {
+	if os.Getenv("GOMAXPROCS") == "" {
 		runtime.GOMAXPROCS(runtime.NumCPU() * 2)
 	}
 
@@ -74,13 +73,13 @@ func main() {
 	}
 
 	closeCh := make(chan int)
-	emitter := NewEmitter(closeCh)
+	emitter := NewEmitter()
 	go emitter.Start(plugins, Settings.Middleware)
 	if Settings.ExitAfter > 0 {
 		log.Printf("Running gor for a duration of %s\n", Settings.ExitAfter)
 
 		time.AfterFunc(Settings.ExitAfter, func() {
-			fmt.Printf("gor run timeout %s\n", Settings.ExitAfter)
+			log.Printf("gor run timeout %s\n", Settings.ExitAfter)
 			close(closeCh)
 		})
 	}

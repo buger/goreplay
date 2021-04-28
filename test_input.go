@@ -25,22 +25,21 @@ func NewTestInput() (i *TestInput) {
 	return
 }
 
-func (i *TestInput) Read(data []byte) (int, error) {
+// PluginRead reads message from this plugin
+func (i *TestInput) PluginRead() (*Message, error) {
+	var msg Message
 	select {
 	case buf := <-i.data:
-		var header []byte
-
+		msg.Data = buf
 		if !i.skipHeader {
-			header = payloadHeader(RequestPayload, uuid(), time.Now().UnixNano(), -1)
-			copy(data[0:len(header)], header)
-			copy(data[len(header):], buf)
+			msg.Meta = payloadHeader(RequestPayload, uuid(), time.Now().UnixNano(), -1)
 		} else {
-			copy(data, buf)
+			msg.Meta, msg.Data = payloadMetaWithBody(msg.Data)
 		}
 
-		return len(buf) + len(header), nil
+		return &msg, nil
 	case <-i.stop:
-		return 0, ErrorStopped
+		return nil, ErrorStopped
 	}
 }
 

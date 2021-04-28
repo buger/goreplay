@@ -20,17 +20,16 @@ func TestInputKafkaRAW(t *testing.T) {
 		consumer: consumer,
 		Topic:    "test",
 		UseJSON:  false,
-	})
+	}, nil)
 
-	buf := make([]byte, 1024)
-	n, err := input.Read(buf)
+	msg, err := input.PluginRead()
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if string(buf[:n]) != "1 2 3\nGET / HTTP1.1\r\nHeader: 1\r\n\r\n" {
-		t.Error("Message not properly decoded: ", string(buf[:n]), n)
+	if string(append(msg.Meta, msg.Data...)) != "1 2 3\nGET / HTTP1.1\r\nHeader: 1\r\n\r\n" {
+		t.Error("Message not properly decoded")
 	}
 }
 
@@ -47,16 +46,15 @@ func TestInputKafkaJSON(t *testing.T) {
 		consumer: consumer,
 		Topic:    "test",
 		UseJSON:  true,
-	})
+	}, nil)
 
-	buf := make([]byte, 1024)
-	n, err := input.Read(buf)
+	msg, err := input.PluginRead()
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if string(buf[:n]) != "1 2 3\nGET / HTTP/1.1\r\nHeader: 1\r\n\r\n" {
-		t.Error("Message not properly decoded: ", string(buf[:n]), n)
+	if string(append(msg.Meta, msg.Data...)) != "1 2 3\nGET / HTTP/1.1\r\nHeader: 1\r\n\r\n" {
+		t.Error("Message not properly decoded")
 	}
 }

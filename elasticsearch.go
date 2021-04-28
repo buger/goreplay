@@ -124,6 +124,7 @@ func (p *ESPlugin) RttDurationToMs(d time.Duration) int64 {
 	return int64(fl)
 }
 
+// ResponseAnalyze send req and resp to ES
 func (p *ESPlugin) ResponseAnalyze(req, resp []byte, start, stop time.Time) {
 	if len(resp) == 0 {
 		// nil http response - skipped elasticsearch export for this request
@@ -131,7 +132,6 @@ func (p *ESPlugin) ResponseAnalyze(req, resp []byte, start, stop time.Time) {
 	}
 	t := time.Now()
 	rtt := p.RttDurationToMs(stop.Sub(start))
-	req = payloadBody(req)
 
 	esResp := ESRequestResponse{
 		ReqURL:               string(proto.Path(req)),

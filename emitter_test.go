@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -18,20 +17,19 @@ func TestMain(m *testing.M) {
 
 func TestEmitter(t *testing.T) {
 	wg := new(sync.WaitGroup)
-	quit := make(chan int)
 
 	input := NewTestInput()
-	output := NewTestOutput(func(data []byte) {
+	output := NewTestOutput(func(*Message) {
 		wg.Done()
 	})
 
 	plugins := &InOutPlugins{
-		Inputs:  []io.Reader{input},
-		Outputs: []io.Writer{output},
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{output},
 	}
 	plugins.All = append(plugins.All, input, output)
 
-	emitter := NewEmitter(quit)
+	emitter := NewEmitter()
 	go emitter.Start(plugins, Settings.Middleware)
 
 	for i := 0; i < 1000; i++ {
@@ -45,32 +43,31 @@ func TestEmitter(t *testing.T) {
 
 func TestEmitterFiltered(t *testing.T) {
 	wg := new(sync.WaitGroup)
-	quit := make(chan int)
 
 	input := NewTestInput()
 	input.skipHeader = true
 
-	output := NewTestOutput(func(data []byte) {
+	output := NewTestOutput(func(*Message) {
 		wg.Done()
 	})
 
 	plugins := &InOutPlugins{
-		Inputs:  []io.Reader{input},
-		Outputs: []io.Writer{output},
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{output},
 	}
 	plugins.All = append(plugins.All, input, output)
 
 	methods := HTTPMethods{[]byte("GET")}
 	Settings.ModifierConfig = HTTPModifierConfig{Methods: methods}
 
-	emitter := &emitter{quit: quit}
+	emitter := &Emitter{}
 	go emitter.Start(plugins, "")
 
 	wg.Add(2)
 
 	id := uuid()
 	reqh := payloadHeader(RequestPayload, id, time.Now().UnixNano(), -1)
-	reqb := append(reqh, []byte("GET / HTTP/1.1\r\nHost: www.w3.org\r\nUser-Agent: Go 1.1 package http\r\nAccept-Encoding: gzip\r\n\r\n")...)
+	reqb := append(reqh, []byte("POST / HTTP/1.1\r\nHost: www.w3.org\r\nUser-Agent: Go 1.1 package http\r\nAccept-Encoding: gzip\r\n\r\n")...)
 
 	resh := payloadHeader(ResponsePayload, id, time.Now().UnixNano()+1, 1)
 	respb := append(resh, []byte("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")...)
@@ -80,7 +77,7 @@ func TestEmitterFiltered(t *testing.T) {
 
 	id = uuid()
 	reqh = payloadHeader(RequestPayload, id, time.Now().UnixNano(), -1)
-	reqb = append(reqh, []byte("POST / HTTP/1.1\r\nHost: www.w3.org\r\nUser-Agent: Go 1.1 package http\r\nAccept-Encoding: gzip\r\n\r\n")...)
+	reqb = append(reqh, []byte("GET / HTTP/1.1\r\nHost: www.w3.org\r\nUser-Agent: Go 1.1 package http\r\nAccept-Encoding: gzip\r\n\r\n")...)
 
 	resh = payloadHeader(ResponsePayload, id, time.Now().UnixNano()+1, 1)
 	respb = append(resh, []byte("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")...)
@@ -96,30 +93,29 @@ func TestEmitterFiltered(t *testing.T) {
 
 func TestEmitterSplitRoundRobin(t *testing.T) {
 	wg := new(sync.WaitGroup)
-	quit := make(chan int)
 
 	input := NewTestInput()
 
 	var counter1, counter2 int32
 
-	output1 := NewTestOutput(func(data []byte) {
+	output1 := NewTestOutput(func(*Message) {
 		atomic.AddInt32(&counter1, 1)
 		wg.Done()
 	})
 
-	output2 := NewTestOutput(func(data []byte) {
+	output2 := NewTestOutput(func(*Message) {
 		atomic.AddInt32(&counter2, 1)
 		wg.Done()
 	})
 
 	plugins := &InOutPlugins{
-		Inputs:  []io.Reader{input},
-		Outputs: []io.Writer{output1, output2},
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{output1, output2},
 	}
 
 	Settings.SplitOutput = true
 
-	emitter := NewEmitter(quit)
+	emitter := NewEmitter()
 	go emitter.Start(plugins, Settings.Middleware)
 
 	for i := 0; i < 1000; i++ {
@@ -140,31 +136,30 @@ func TestEmitterSplitRoundRobin(t *testing.T) {
 
 func TestEmitterRoundRobin(t *testing.T) {
 	wg := new(sync.WaitGroup)
-	quit := make(chan int)
 
 	input := NewTestInput()
 
 	var counter1, counter2 int32
 
-	output1 := NewTestOutput(func(data []byte) {
-		atomic.AddInt32(&counter1, 1)
+	output1 := NewTestOutput(func(*Message) {
+		counter1++
 		wg.Done()
 	})
 
-	output2 := NewTestOutput(func(data []byte) {
-		atomic.AddInt32(&counter2, 1)
+	output2 := NewTestOutput(func(*Message) {
+		counter2++
 		wg.Done()
 	})
 
 	plugins := &InOutPlugins{
-		Inputs:  []io.Reader{input},
-		Outputs: []io.Writer{output1, output2},
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{output1, output2},
 	}
 	plugins.All = append(plugins.All, input, output1, output2)
 
 	Settings.SplitOutput = true
 
-	emitter := NewEmitter(quit)
+	emitter := NewEmitter()
 	go emitter.Start(plugins, Settings.Middleware)
 
 	for i := 0; i < 1000; i++ {
@@ -186,36 +181,34 @@ func TestEmitterSplitSession(t *testing.T) {
 	wg := new(sync.WaitGroup)
 	wg.Add(200)
 
-	quit := make(chan int)
-
 	input := NewTestInput()
 	input.skipHeader = true
 
 	var counter1, counter2 int32
 
-	output1 := NewTestOutput(func(data []byte) {
-		if payloadID(data)[0] == 'a' {
-			atomic.AddInt32(&counter1, 1)
+	output1 := NewTestOutput(func(msg *Message) {
+		if payloadID(msg.Meta)[0] == 'a' {
+			counter1++
 		}
 		wg.Done()
 	})
 
-	output2 := NewTestOutput(func(data []byte) {
-		if payloadID(data)[0] == 'b' {
-			atomic.AddInt32(&counter2, 1)
+	output2 := NewTestOutput(func(msg *Message) {
+		if payloadID(msg.Meta)[0] == 'b' {
+			counter2++
 		}
 		wg.Done()
 	})
 
 	plugins := &InOutPlugins{
-		Inputs:  []io.Reader{input},
-		Outputs: []io.Writer{output1, output2},
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{output1, output2},
 	}
 
 	Settings.SplitOutput = true
 	Settings.RecognizeTCPSessions = true
 
-	emitter := NewEmitter(quit)
+	emitter := NewEmitter()
 	go emitter.Start(plugins, Settings.Middleware)
 
 	for i := 0; i < 200; i++ {
@@ -242,21 +235,20 @@ func TestEmitterSplitSession(t *testing.T) {
 
 func BenchmarkEmitter(b *testing.B) {
 	wg := new(sync.WaitGroup)
-	quit := make(chan int)
 
 	input := NewTestInput()
 
-	output := NewTestOutput(func(data []byte) {
+	output := NewTestOutput(func(*Message) {
 		wg.Done()
 	})
 
 	plugins := &InOutPlugins{
-		Inputs:  []io.Reader{input},
-		Outputs: []io.Writer{output},
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{output},
 	}
 	plugins.All = append(plugins.All, input, output)
 
-	emitter := NewEmitter(quit)
+	emitter := NewEmitter()
 	go emitter.Start(plugins, Settings.Middleware)
 
 	b.ResetTimer()

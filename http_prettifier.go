@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"fmt"
 	"io/ioutil"
 	"net/http/httputil"
 	"strconv"
@@ -11,36 +12,25 @@ import (
 )
 
 func prettifyHTTP(p []byte) []byte {
-	headSize := bytes.IndexByte(p, '\n') + 1
-	head := p[:headSize]
-	body := p[headSize:]
 
-	headersPos := proto.MIMEHeadersEndPos(body)
+	tEnc := bytes.Equal(proto.Header(p, []byte("Transfer-Encoding")), []byte("chunked"))
+	cEnc := bytes.Equal(proto.Header(p, []byte("Content-Encoding")), []byte("gzip"))
 
-	if headersPos < 5 || headersPos > len(body) {
+	if !(tEnc || cEnc) {
 		return p
 	}
 
-	headers := body[:headersPos]
-	content := body[headersPos:]
+	headersPos := proto.MIMEHeadersEndPos(p)
 
-	var tEnc, cEnc []byte
-	proto.ParseHeaders([][]byte{headers}, func(header, value []byte) {
-		if bytes.EqualFold(header, []byte("Transfer-Encoding")) {
-			tEnc = value
-		}
-
-		if bytes.EqualFold(header, []byte("Content-Encoding")) {
-			cEnc = value
-		}
-	})
-
-	if len(tEnc) == 0 && len(cEnc) == 0 {
+	if headersPos < 5 || headersPos > len(p) {
 		return p
 	}
 
-	if bytes.Equal(tEnc, []byte("chunked")) {
-		buf := bytes.NewBuffer(content)
+	headers := p[:headersPos]
+	content := p[headersPos:]
+
+	if tEnc {
+		buf := bytes.NewReader(content)
 		r := httputil.NewChunkedReader(buf)
 		content, _ = ioutil.ReadAll(r)
 
@@ -50,8 +40,8 @@ func prettifyHTTP(p []byte) []byte {
 		headers = proto.SetHeader(headers, []byte("Content-Length"), []byte(newLen))
 	}
 
-	if bytes.Equal(cEnc, []byte("gzip")) {
-		buf := bytes.NewBuffer(content)
+	if cEnc {
+		buf := bytes.NewReader(content)
 		g, err := gzip.NewReader(buf)
 
 		if err != nil {
@@ -59,7 +49,11 @@ func prettifyHTTP(p []byte) []byte {
 			return []byte{}
 		}
 
-		content, _ = ioutil.ReadAll(g)
+		content, err = ioutil.ReadAll(g)
+		if err != nil {
+			Debug(1, fmt.Sprintf("[HTTP-PRETTIFIER] %q", err))
+			return p
+		}
 
 		headers = proto.DeleteHeader(headers, []byte("Content-Encoding"))
 
@@ -67,7 +61,7 @@ func prettifyHTTP(p []byte) []byte {
 		headers = proto.SetHeader(headers, []byte("Content-Length"), []byte(newLen))
 	}
 
-	newPayload := append(append(head, headers...), content...)
+	newPayload := append(headers, content...)
 
 	return newPayload
 }

@@ -7,24 +7,30 @@ import (
 // DummyInput used for debugging. It generate 1 "GET /"" request per second.
 type DummyInput struct {
 	data chan []byte
+	quit chan struct{}
 }
 
 // NewDummyInput constructor for DummyInput
 func NewDummyInput(options string) (di *DummyInput) {
 	di = new(DummyInput)
 	di.data = make(chan []byte)
+	di.quit = make(chan struct{})
 
 	go di.emit()
 
 	return
 }
 
-func (i *DummyInput) Read(data []byte) (int, error) {
-	buf := <-i.data
-
-	copy(data, buf)
-
-	return len(buf), nil
+// PluginRead reads message from this plugin
+func (i *DummyInput) PluginRead() (*Message, error) {
+	var msg Message
+	select {
+	case <-i.quit:
+		return nil, ErrorStopped
+	case buf := <-i.data:
+		msg.Meta, msg.Data = payloadMetaWithBody(buf)
+		return &msg, nil
+	}
 }
 
 func (i *DummyInput) emit() {
@@ -45,4 +51,10 @@ func (i *DummyInput) emit() {
 
 func (i *DummyInput) String() string {
 	return "Dummy Input"
+}
+
+// Close closes this plugins
+func (i *DummyInput) Close() error {
+	close(i.quit)
+	return nil
 }

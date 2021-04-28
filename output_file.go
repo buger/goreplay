@@ -195,10 +195,11 @@ func (o *FileOutput) updateName() {
 	o.Unlock()
 }
 
-func (o *FileOutput) Write(data []byte) (n int, err error) {
+// PluginWrite writes message to this plugin
+func (o *FileOutput) PluginWrite(msg *Message) (n int, err error) {
 	if o.requestPerFile {
 		o.Lock()
-		meta := payloadMeta(data)
+		meta := payloadMeta(msg.Meta)
 		o.currentID = meta[1]
 		o.payloadType = meta[0]
 		o.Unlock()
@@ -227,10 +228,12 @@ func (o *FileOutput) Write(data []byte) (n int, err error) {
 		o.QueueLength = 0
 	}
 
-	n, _ = o.writer.Write(data)
-	nSeparator, _ := o.writer.Write([]byte(payloadSeparator))
-
-	n += nSeparator
+	var nn int
+	n, err = o.writer.Write(msg.Meta)
+	nn, err = o.writer.Write(msg.Data)
+	n += nn
+	nn, err = o.writer.Write(payloadSeparatorAsBytes)
+	n += nn
 
 	o.totalFileSize += size.Size(n)
 	o.QueueLength++
@@ -239,14 +242,14 @@ func (o *FileOutput) Write(data []byte) (n int, err error) {
 		return n, errors.New("File output reached size limit")
 	}
 
-	return n, nil
+	return n, err
 }
 
 func (o *FileOutput) flush() {
 	// Don't exit on panic
 	defer func() {
 		if r := recover(); r != nil {
-			log.Println("PANIC while file flush: ", r, o, string(debug.Stack()))
+			Debug(0, "[OUTPUT-FILE] PANIC while file flush: ", r, o, string(debug.Stack()))
 		}
 	}()
 
@@ -263,7 +266,7 @@ func (o *FileOutput) flush() {
 		if stat, err := o.file.Stat(); err == nil {
 			o.chunkSize = int(stat.Size())
 		} else {
-			log.Println("Error accessing file sats", err)
+			Debug(0, "[OUTPUT-HTTP] error accessing file size", err)
 		}
 	}
 }

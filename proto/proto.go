@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"net/http"
 	"net/textproto"
-	"strconv"
 	"strings"
 
 	"github.com/buger/goreplay/byteutils"
@@ -112,14 +111,13 @@ func header(payload []byte, name []byte) (value []byte, headerStart, headerEnd, 
 	return
 }
 
-// ParseHeaders Parsing headers from multiple payloads
-func ParseHeaders(payloads [][]byte, cb func(header []byte, value []byte)) {
-	p := bytes.Join(payloads, nil)
+// ParseHeaders Parsing headers from the payload
+func ParseHeaders(p []byte) textproto.MIMEHeader {
 	// trimming off the title of the request
-	if HasRequestTitle(p) || HasResponseTitle(p) {
+	if HasTitle(p) {
 		headerStart := MIMEHeadersStartPos(p)
 		if headerStart > len(p)-1 {
-			return
+			return nil
 		}
 		p = p[headerStart:]
 	}
@@ -127,17 +125,17 @@ func ParseHeaders(payloads [][]byte, cb func(header []byte, value []byte)) {
 	if headerEnd > 1 {
 		p = p[:headerEnd]
 	}
-	reader := textproto.NewReader(bufio.NewReader(bytes.NewBuffer(p)))
+	return GetHeaders(p)
+}
+
+// GetHeaders returns mime headers from the payload
+func GetHeaders(p []byte) textproto.MIMEHeader {
+	reader := textproto.NewReader(bufio.NewReader(bytes.NewReader(p)))
 	mime, err := reader.ReadMIMEHeader()
 	if err != nil {
-		return
+		return nil
 	}
-	for k, v := range mime {
-		for _, value := range v {
-			cb([]byte(k), []byte(value))
-		}
-	}
-	return
+	return mime
 }
 
 // Header returns header value, if header not found, value will be blank
@@ -163,13 +161,15 @@ func SetHeader(payload, name, value []byte) []byte {
 // AddHeader takes http payload and appends new header to the start of headers section
 // Returns modified request payload
 func AddHeader(payload, name, value []byte) []byte {
+	mimeStart := MIMEHeadersStartPos(payload)
+	if mimeStart < 1 {
+		return payload
+	}
 	header := make([]byte, len(name)+2+len(value)+2)
 	copy(header[0:], name)
 	copy(header[len(name):], HeaderDelim)
 	copy(header[len(name)+2:], value)
 	copy(header[len(header)-2:], CRLF)
-
-	mimeStart := MIMEHeadersStartPos(payload)
 
 	return byteutils.Insert(payload, mimeStart, header)
 }
@@ -187,7 +187,7 @@ func DeleteHeader(payload, name []byte) []byte {
 // Body returns request/response body
 func Body(payload []byte) []byte {
 	pos := MIMEHeadersEndPos(payload)
-	if pos == -1 {
+	if pos == -1 || len(payload) <= pos {
 		return nil
 	}
 	return payload[pos:]
@@ -195,7 +195,7 @@ func Body(payload []byte) []byte {
 
 // Path takes payload and retuns request path: Split(firstLine, ' ')[1]
 func Path(payload []byte) []byte {
-	if !HasTitle(payload) {
+	if !HasRequestTitle(payload) {
 		return nil
 	}
 	start := bytes.IndexByte(payload, ' ') + 1
@@ -309,7 +309,12 @@ func Method(payload []byte) []byte {
 // Status returns response status.
 // It happens to be in same position as request payload path
 func Status(payload []byte) []byte {
-	return Path(payload)
+	if !HasResponseTitle(payload) {
+		return nil
+	}
+	start := bytes.IndexByte(payload, ' ') + 1
+	// status code are in range 100-600
+	return payload[start : start+3]
 }
 
 // Methods holds the http methods ordered in ascending order
@@ -322,16 +327,15 @@ var Methods = [...]string{
 const (
 	//MinRequestCount GET / HTTP/1.1\r\n
 	MinRequestCount = 16
-	// MinResponseCount HTTP/1.1 200 OK\r\n
-	MinResponseCount = 17
+	// MinResponseCount HTTP/1.1 200\r\n
+	MinResponseCount = 14
 	// VersionLen HTTP/1.1
 	VersionLen = 8
 )
 
 // HasResponseTitle reports whether this payload has an HTTP/1 response title
 func HasResponseTitle(payload []byte) bool {
-	var s string
-	byteutils.SliceToString(&payload, &s)
+	s := byteutils.SliceToString(payload)
 	if len(s) < MinResponseCount {
 		return false
 	}
@@ -343,24 +347,24 @@ func HasResponseTitle(payload []byte) bool {
 	if !(ok && major == 1 && (minor == 0 || minor == 1)) {
 		return false
 	}
-	status, err := strconv.Atoi(s[VersionLen+1 : VersionLen+4])
-	if err != nil {
+	if s[VersionLen] != ' ' {
 		return false
 	}
-	statusText := http.StatusText(status)
-	if statusText == "" {
+	status, ok := atoI(payload[VersionLen+1:VersionLen+4], 10)
+	if !ok {
 		return false
 	}
-	if titleLen+len(CRLF) > len(s) {
+	// only validate status codes mentioned in rfc2616.
+	if http.StatusText(status) == "" {
 		return false
 	}
-	return s[VersionLen+5:titleLen] == statusText
+	// handle cases from #875
+	return payload[VersionLen+4] == ' ' || payload[VersionLen+4] == '\r'
 }
 
 // HasRequestTitle reports whether this payload has an HTTP/1 request title
 func HasRequestTitle(payload []byte) bool {
-	var s string
-	byteutils.SliceToString(&payload, &s)
+	s := byteutils.SliceToString(payload)
 	if len(s) < MinRequestCount {
 		return false
 	}
@@ -439,14 +443,55 @@ func CheckChunked(buf []byte) (chunkEnd int) {
 	}
 }
 
+// Feedback is an interface used to provide feedback or store dummy data for future use
+type Feedback interface {
+	SetFeedback(interface{})
+	Feedback() interface{}
+}
+
+type feedback struct {
+	body     int // body index
+	hdrStart int
+	headers  textproto.MIMEHeader
+}
+
 // HasFullPayload reports if this http has full payloads
-func HasFullPayload(payload []byte) bool {
-	body := Body(payload)
+func HasFullPayload(data []byte, f Feedback) bool {
+	var feed *feedback
+	var ok bool
+	var body []byte
+	if f != nil {
+		feed, ok = f.Feedback().(*feedback)
+	}
+	if !ok {
+		feed = new(feedback)
+	}
+	if f != nil {
+		f.SetFeedback(feed)
+	}
+	if feed.hdrStart < 1 {
+		feed.hdrStart = MIMEHeadersStartPos(data)
+		if feed.hdrStart < 0 {
+			return false
+		}
+	}
+	if feed.body < 1 {
+		feed.body = MIMEHeadersEndPos(data)
+		if feed.body < 0 {
+			return false
+		}
+	}
+	if feed.headers == nil {
+		feed.headers = GetHeaders(data[feed.hdrStart:feed.body])
+		if feed.headers == nil {
+			return false
+		}
+	}
+	if len(data) > feed.body {
+		body = data[feed.body:]
+	}
 
-	// check for chunked transfer-encoding
-	header := Header(payload, []byte("Transfer-Encoding"))
-	if bytes.Contains(header, []byte("chunked")) {
-
+	if feed.headers.Get("Transfer-Encoding") == "chunked" {
 		// check chunks
 		if len(body) < 1 {
 			return false
@@ -457,7 +502,7 @@ func HasFullPayload(payload []byte) bool {
 		}
 
 		// check trailer headers
-		if len(Header(payload, []byte("Trailer"))) < 1 {
+		if feed.headers.Get("Trailer") == "" {
 			return true
 		}
 		// trailer headers(whether chunked or plain) should end with empty line
@@ -465,15 +510,12 @@ func HasFullPayload(payload []byte) bool {
 	}
 
 	// check for content-length header
-	// trailers are generally not allowed in non-chunks body
-	header = Header(payload, []byte("Content-Length"))
-	if len(header) > 1 {
-		num, ok := atoI(header, 10)
+	if header := feed.headers.Get("Content-Length"); header != "" {
+		num, ok := atoI([]byte(header), 10)
+		// trailers are generally not allowed in non-chunks body
 		return ok && num == len(body)
 	}
-
-	// for empty body, check for emptyline
-	return MIMEHeadersEndPos(payload) != -1
+	return true
 }
 
 // this works with positive integers
@@ -484,7 +526,7 @@ func atoI(s []byte, base int) (num int, ok bool) {
 			return 0, false
 		}
 		v = int(hexTable[s[i]])
-		if v >= base {
+		if v >= base || (v == 0 && s[i] != '0') {
 			return 0, false
 		}
 		num = (num * base) + v

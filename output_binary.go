@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"sync/atomic"
 	"time"
 
@@ -25,30 +24,27 @@ type BinaryOutput struct {
 	// alignment. atomic.* functions crash on 32bit machines if operand is not
 	// aligned at 64bit. See https://github.com/golang/go/issues/599
 	activeWorkers int64
-
-	address string
-	queue   chan []byte
-
-	responses chan response
-
-	needWorker chan int
-
-	config *BinaryOutputConfig
-
-	queueStats *GorStat
+	address       string
+	queue         chan *Message
+	responses     chan response
+	needWorker    chan int
+	quit          chan struct{}
+	config        *BinaryOutputConfig
+	queueStats    *GorStat
 }
 
 // NewBinaryOutput constructor for BinaryOutput
 // Initialize workers
-func NewBinaryOutput(address string, config *BinaryOutputConfig) io.Writer {
+func NewBinaryOutput(address string, config *BinaryOutputConfig) PluginReadWriter {
 	o := new(BinaryOutput)
 
 	o.address = address
 	o.config = config
 
-	o.queue = make(chan []byte, 1000)
+	o.queue = make(chan *Message, 1000)
 	o.responses = make(chan response, 1000)
 	o.needWorker = make(chan int, 1)
+	o.quit = make(chan struct{})
 
 	// Initial workers count
 	if o.config.Workers == 0 {
@@ -89,8 +85,8 @@ func (o *BinaryOutput) startWorker() {
 
 	for {
 		select {
-		case data := <-o.queue:
-			o.sendRequest(client, data)
+		case msg := <-o.queue:
+			o.sendRequest(client, msg)
 			deathCount = 0
 		case <-time.After(time.Millisecond * 100):
 			// When dynamic scaling enabled workers die after 2s of inactivity
@@ -113,15 +109,13 @@ func (o *BinaryOutput) startWorker() {
 	}
 }
 
-func (o *BinaryOutput) Write(data []byte) (n int, err error) {
-	if !isRequestPayload(data) {
-		return len(data), nil
+// PluginWrite writes a message tothis plugin
+func (o *BinaryOutput) PluginWrite(msg *Message) (n int, err error) {
+	if !isRequestPayload(msg.Meta) {
+		return len(msg.Data), nil
 	}
 
-	buf := make([]byte, len(data))
-	copy(buf, data)
-
-	o.queue <- buf
+	o.queue <- msg
 
 	if o.config.Workers == 0 {
 		workersCount := atomic.LoadInt64(&o.activeWorkers)
@@ -131,37 +125,33 @@ func (o *BinaryOutput) Write(data []byte) (n int, err error) {
 		}
 	}
 
-	return len(data), nil
+	return len(msg.Data) + len(msg.Meta), nil
 }
 
-func (o *BinaryOutput) Read(data []byte) (int, error) {
-	resp := <-o.responses
+// PluginRead reads a message from this plugin
+func (o *BinaryOutput) PluginRead() (*Message, error) {
+	var resp response
+	var msg Message
+	select {
+	case <-o.quit:
+		return nil, ErrorStopped
+	case resp = <-o.responses:
+	}
+	msg.Data = resp.payload
+	msg.Meta = payloadHeader(ReplayedResponsePayload, resp.uuid, resp.startedAt, resp.roundTripTime)
 
-	Debug(2, "[OUTPUT-TCP] Received response:", string(resp.payload))
-
-	header := payloadHeader(ReplayedResponsePayload, resp.uuid, resp.startedAt, resp.roundTripTime)
-	copy(data[0:len(header)], header)
-	copy(data[len(header):], resp.payload)
-
-	return len(resp.payload) + len(header), nil
+	return &msg, nil
 }
 
-func (o *BinaryOutput) sendRequest(client *TCPClient, request []byte) {
-	meta := payloadMeta(request)
-	if len(meta) < 2 {
+func (o *BinaryOutput) sendRequest(client *TCPClient, msg *Message) {
+	if !isRequestPayload(msg.Meta) {
 		return
 	}
 
-	if !isRequestPayload(request) {
-		return
-	}
-
-	uuid := meta[1]
-
-	body := payloadBody(request)
+	uuid := payloadID(msg.Meta)
 
 	start := time.Now()
-	resp, err := client.Send(body)
+	resp, err := client.Send(msg.Data)
 	stop := time.Now()
 
 	if err != nil {
@@ -175,4 +165,10 @@ func (o *BinaryOutput) sendRequest(client *TCPClient, request []byte) {
 
 func (o *BinaryOutput) String() string {
 	return "Binary output: " + o.address
+}
+
+// Close closes this plugin for reading
+func (o *BinaryOutput) Close() error {
+	close(o.quit)
+	return nil
 }

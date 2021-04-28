@@ -130,7 +130,7 @@ bash:
 
 
 FPMCOMMON= \
-    --name goreplay \
+    --name gor \
     --description "GoReplay is an open-source network monitoring tool which can record your live traffic, and use it for shadowing, load testing, monitoring and detailed analysis." \
     -v $(VERSION) \
     --vendor "Leonid Bugaev" \

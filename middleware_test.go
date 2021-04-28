@@ -1,225 +1,154 @@
 package main
 
-// import (
-// 	"bytes"
-// 	"crypto/rand"
-// 	"encoding/hex"
-// 	"io"
-// 	"net/http"
-// 	"net/http/httptest"
-// 	"strings"
-// 	"sync"
-// 	"testing"
-// 	"time"
+import (
+	"bytes"
+	"context"
+	"os"
+	"os/exec"
+	"strings"
+	"sync/atomic"
+	"syscall"
+	"testing"
 
-// 	"github.com/buger/goreplay/capture"
-// 	"github.com/buger/goreplay/proto"
-// )
+	"github.com/buger/goreplay/proto"
+)
 
-// type fakeServiceCb func(string, int, []byte)
+const echoSh = "./examples/middleware/echo.sh"
+const tokenModifier = "go run ./examples/middleware/token_modifier.go"
 
-// // Simple service that generate token on request, and require this token for accesing to secure area
-// func NewFakeSecureService(wg *sync.WaitGroup, cb fakeServiceCb) *httptest.Server {
-// 	active_tokens := make([]string, 0)
-// 	var mu sync.Mutex
+var noDebug = append(syscall.Environ(), "GOR_TEST=1")
 
-// 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-// 		mu.Lock()
-// 		defer mu.Unlock()
+func initMiddleware(cmd *exec.Cmd, cancl context.CancelFunc, l PluginReader, c func(error)) *Middleware {
+	var m Middleware
+	m.data = make(chan *Message, 1000)
+	m.stop = make(chan bool)
+	m.commandCancel = cancl
+	m.Stdout, _ = cmd.StdoutPipe()
+	m.Stdin, _ = cmd.StdinPipe()
+	cmd.Stderr = os.Stderr
+	go m.read(m.Stdout)
+	go func() {
+		defer m.Close()
+		var err error
+		if err = cmd.Start(); err == nil {
+			err = cmd.Wait()
+		}
+		if err != nil {
+			c(err)
+		}
+	}()
+	m.ReadFrom(l)
+	return &m
+}
 
-// 		switch req.URL.Path {
-// 		case "/token":
-// 			// Generate random token
-// 			token_length := 10
-// 			buf := make([]byte, token_length)
-// 			rand.Read(buf)
-// 			token := hex.EncodeToString(buf)
-// 			active_tokens = append(active_tokens, token)
+func initCmd(command string, env []string) (*exec.Cmd, context.CancelFunc) {
+	commands := strings.Split(command, " ")
+	ctx, cancl := context.WithCancel(context.Background())
+	cmd := exec.CommandContext(ctx, commands[0], commands[1:]...)
+	cmd.Env = env
+	return cmd, cancl
+}
 
-// 			w.Write([]byte(token))
+func TestMiddlewareEarlyClose(t *testing.T) {
+	quit := make(chan struct{})
+	in := NewTestInput()
+	cmd, cancl := initCmd(echoSh, noDebug)
+	midd := initMiddleware(cmd, cancl, in, func(err error) {
+		if err != nil {
+			if e, ok := err.(*exec.ExitError); ok {
+				status := e.Sys().(syscall.WaitStatus)
+				if status.Signal() != syscall.SIGKILL {
+					t.Errorf("expected error to be signal killed. got %s", status.Signal().String())
+				}
+			}
+		}
+		quit <- struct{}{}
+	})
+	var body = []byte("OPTIONS / HTTP/1.1\r\nHost: example.org\r\n\r\n")
+	count := uint32(0)
+	out := NewTestOutput(func(msg *Message) {
+		if !bytes.Equal(body, msg.Data) {
+			t.Errorf("expected %q to equal %q", body, msg.Data)
+		}
+		atomic.AddUint32(&count, 1)
+		if atomic.LoadUint32(&count) == 5 {
+			quit <- struct{}{}
+		}
+	})
+	pl := &InOutPlugins{}
+	pl.Inputs = []PluginReader{midd, in}
+	pl.Outputs = []PluginWriter{out}
+	pl.All = []interface{}{midd, out, in}
+	e := NewEmitter()
+	go e.Start(pl, "")
+	for i := 0; i < 5; i++ {
+		in.EmitBytes(body)
+	}
+	<-quit
+	midd.Close()
+	<-quit
+}
 
-// 			cb(req.URL.Path, 200, []byte(token))
-// 		case "/secure":
-// 			token := req.URL.Query().Get("token")
-// 			token_found := false
+func TestTokenMiddleware(t *testing.T) {
+	quit := make(chan struct{})
+	in := NewTestInput()
+	in.skipHeader = true
+	cmd, cancl := initCmd(tokenModifier, noDebug)
+	midd := initMiddleware(cmd, cancl, in, func(err error) {})
+	req := []byte("1 932079936fa4306fc308d67588178d17d823647c 1439818823587396305 200\nGET /token HTTP/1.1\r\nHost: example.org\r\n\r\n")
+	res := []byte("2 932079936fa4306fc308d67588178d17d823647c 1439818823587396305 200\nHTTP/1.1 200 OK\r\nContent-Length: 10\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n17d823647c")
+	rep := []byte("3 932079936fa4306fc308d67588178d17d823647c 1439818823587396305 200\nHTTP/1.1 200 OK\r\nContent-Length: 15\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n932079936fa4306")
+	count := uint32(0)
+	out := NewTestOutput(func(msg *Message) {
+		if msg.Meta[0] == '1' && !bytes.Equal(payloadID(msg.Meta), payloadID(req)) {
+			token, _, _ := proto.PathParam(msg.Data, []byte("token"))
+			if !bytes.Equal(token, proto.Body(rep)) {
+				t.Error("expected the token to be equal to the replayed responses's token")
+			}
+		}
+		atomic.AddUint32(&count, 1)
+		if atomic.LoadUint32(&count) == 2 {
+			quit <- struct{}{}
+		}
+	})
+	pl := &InOutPlugins{}
+	pl.Inputs = []PluginReader{midd, in}
+	pl.Outputs = []PluginWriter{out}
+	pl.All = []interface{}{midd, out, in}
+	e := NewEmitter()
+	go e.Start(pl, "")
+	in.EmitBytes(req) // emit original request
+	in.EmitBytes(res) // emit its response
+	in.EmitBytes(rep) // emit replayed response
+	// emit the request which should have modified token
+	token := []byte("1 8e091765ae902fef8a2b7d9dd96 14398188235873 100\nGET /?token=17d823647c HTTP/1.1\r\nHost: example.org\r\n\r\n")
+	in.EmitBytes(token)
+	<-quit
+	midd.Close()
+}
 
-// 			for _, t := range active_tokens {
-// 				if t == token {
-// 					token_found = true
-// 					break
-// 				}
-// 			}
-
-// 			if token_found {
-// 				w.WriteHeader(http.StatusAccepted)
-// 				cb(req.URL.Path, 202, []byte(nil))
-// 			} else {
-// 				w.WriteHeader(http.StatusForbidden)
-// 				cb(req.URL.Path, 403, []byte(nil))
-// 			}
-// 		}
-
-// 		wg.Done()
-// 	}))
-
-// 	return server
-// }
-
-// func TestFakeSecureService(t *testing.T) {
-// 	var resp, token []byte
-
-// 	wg := new(sync.WaitGroup)
-
-// 	server := NewFakeSecureService(wg, func(path string, status int, resp []byte) {
-// 	})
-// 	defer server.Close()
-
-// 	wg.Add(3)
-
-// 	client := NewHTTPClient(server.URL, &HTTPClientConfig{Debug: true})
-// 	resp, _ = client.Get("/token")
-// 	token = proto.Body(resp)
-
-// 	// Right token
-// 	resp, _ = client.Get("/secure?token=" + string(token))
-// 	if !bytes.Equal(proto.Status(resp), []byte("202")) {
-// 		t.Error("Valid token should return status 202:", string(proto.Status(resp)))
-// 	}
-
-// 	// Wrong tokens forbidden
-// 	resp, _ = client.Get("/secure?token=wrong")
-// 	if !bytes.Equal(proto.Status(resp), []byte("403")) {
-// 		t.Error("Wrong token should returns status 403:", string(proto.Status(resp)))
-// 	}
-
-// 	wg.Wait()
-// }
-
-// func TestEchoMiddleware(t *testing.T) {
-// 	wg := new(sync.WaitGroup)
-
-// 	from := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		w.Header().Set("Env", "prod")
-// 		w.Header().Set("RequestPath", r.URL.Path)
-// 		wg.Done()
-// 	}))
-// 	defer from.Close()
-
-// 	to := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		w.Header().Set("Env", "test")
-// 		w.Header().Set("RequestPath", r.URL.Path)
-// 		wg.Done()
-// 	}))
-// 	defer to.Close()
-
-// 	quit := make(chan int)
-
-// 	// Catch traffic from one service
-// 	fromAddr := strings.Replace(from.Listener.Addr().String(), "[::]", "127.0.0.1", -1)
-// 	conf := RAWInputConfig{
-// 		engine:        capture.EnginePcap,
-// 		expire:        testRawExpire,
-// 		protocol:      ProtocolHTTP,
-// 		trackResponse: true,
-// 	}
-// 	input := NewRAWInput(fromAddr, conf)
-
-// 	// And redirect to another
-// 	output := NewHTTPOutput(to.URL, &HTTPOutputConfig{Debug: false})
-
-// 	plugins := &InOutPlugins{
-// 		Inputs:  []io.Reader{input},
-// 		Outputs: []io.Writer{output},
-// 	}
-// 	plugins.All = append(plugins.All, input, output)
-
-// 	// Start Gor
-// 	emitter := NewEmitter(quit)
-// 	go emitter.Start(plugins, "echo -n && GOR_TEST=true && ./examples/middleware/echo.sh")
-
-// 	// Wait till middleware initialization
-// 	time.Sleep(100 * time.Millisecond)
-
-// 	// Should receive 2 requests from original + 2 from replayed
-// 	client := NewHTTPClient(from.URL, &HTTPClientConfig{Debug: false})
-
-// 	for i := 0; i < 10; i++ {
-// 		wg.Add(2)
-// 		// Request should be echoed
-// 		client.Get("/a")
-// 		time.Sleep(5 * time.Millisecond)
-// 		client.Get("/b")
-// 		time.Sleep(5 * time.Millisecond)
-// 	}
-
-// 	wg.Wait()
-// 	emitter.Close()
-// }
-
-// func TestTokenMiddleware(t *testing.T) {
-// 	var resp, token []byte
-
-// 	wg := new(sync.WaitGroup)
-
-// 	from := NewFakeSecureService(wg, func(path string, status int, tok []byte) {
-// 		time.Sleep(10 * time.Millisecond)
-// 	})
-// 	defer from.Close()
-
-// 	to := NewFakeSecureService(wg, func(path string, status int, tok []byte) {
-// 		switch path {
-// 		case "/secure":
-// 			if status != 202 {
-// 				t.Error("Server should receive valid rewritten token")
-// 			}
-// 		}
-
-// 		time.Sleep(10 * time.Millisecond)
-// 	})
-// 	defer to.Close()
-
-// 	quit := make(chan int)
-
-// 	Settings.middleware = "echo -n && GOR_TEST=true && go run ./examples/middleware/token_modifier.go"
-
-// 	fromAddr := strings.Replace(from.Listener.Addr().String(), "[::]", "127.0.0.1", -1)
-// 	conf := RAWInputConfig{
-// 		engine:        capture.EnginePcap,
-// 		expire:        testRawExpire,
-// 		protocol:      ProtocolHTTP,
-// 		trackResponse: true,
-// 	}
-// 	// Catch traffic from one service
-// 	input := NewRAWInput(fromAddr, conf)
-
-// 	// And redirect to another
-// 	output := NewHTTPOutput(to.URL, &HTTPOutputConfig{Debug: true})
-
-// 	plugins := &InOutPlugins{
-// 		Inputs:  []io.Reader{input},
-// 		Outputs: []io.Writer{output},
-// 	}
-// 	plugins.All = append(plugins.All, input, output)
-
-// 	// Start Gor
-// 	emitter := NewEmitter(quit)
-// 	go emitter.Start(plugins, Settings.middleware)
-
-// 	// Should receive 2 requests from original + 2 from replayed
-// 	wg.Add(2)
-
-// 	client := NewHTTPClient(from.URL, &HTTPClientConfig{Debug: true})
-
-// 	// Sending traffic to original service
-// 	resp, _ = client.Get("/token")
-// 	token = proto.Body(resp)
-
-// 	resp, _ = client.Get("/secure?token=" + string(token))
-// 	if !bytes.Equal(proto.Status(resp), []byte("202")) {
-// 		t.Error("Valid token should return 202:", proto.Status(resp))
-// 	}
-
-// 	wg.Wait()
-// 	emitter.Close()
-// 	Settings.middleware = ""
-// }
+func TestMiddlewareWithPrettify(t *testing.T) {
+	Settings.PrettifyHTTP = true
+	quit := make(chan struct{})
+	in := NewTestInput()
+	cmd, cancl := initCmd(echoSh, noDebug)
+	midd := initMiddleware(cmd, cancl, in, func(err error) {})
+	var b1 = []byte("POST / HTTP/1.1\r\nHost: example.org\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nWiki\r\n5\r\npedia\r\nE\r\n in\r\n\r\nchunks.\r\n0\r\n\r\n")
+	var b2 = []byte("POST / HTTP/1.1\r\nHost: example.org\r\nContent-Length: 25\r\n\r\nWikipedia in\r\n\r\nchunks.")
+	out := NewTestOutput(func(msg *Message) {
+		if !bytes.Equal(proto.Body(b2), proto.Body(msg.Data)) {
+			t.Errorf("expected %q body to equal %q body", b2, msg.Data)
+		}
+		quit <- struct{}{}
+	})
+	pl := &InOutPlugins{}
+	pl.Inputs = []PluginReader{midd, in}
+	pl.Outputs = []PluginWriter{out}
+	pl.All = []interface{}{midd, out, in}
+	e := NewEmitter()
+	go e.Start(pl, "")
+	in.EmitBytes(b1)
+	<-quit
+	midd.Close()
+	Settings.PrettifyHTTP = false
+}

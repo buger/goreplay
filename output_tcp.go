@@ -4,8 +4,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"hash/fnv"
-	"io"
-	"log"
 	"net"
 	"time"
 )
@@ -14,22 +12,25 @@ import (
 // Currently used for internal communication between listener and replay server
 // Can be used for transfering binary payloads like protocol buffers
 type TCPOutput struct {
-	address  string
-	limit    int
-	buf      []chan []byte
-	bufStats *GorStat
-	config   *TCPOutputConfig
+	address     string
+	limit       int
+	buf         []chan *Message
+	bufStats    *GorStat
+	config      *TCPOutputConfig
+	workerIndex uint32
 }
 
 // TCPOutputConfig tcp output configuration
 type TCPOutputConfig struct {
-	Secure bool `json:"output-tcp-secure"`
-	Sticky bool `json:"output-tcp-sticky"`
+	Secure     bool `json:"output-tcp-secure"`
+	Sticky     bool `json:"output-tcp-sticky"`
+	SkipVerify bool `json:"output-tcp-skip-verify"`
+	Workers    int  `json:"output-tcp-workers"`
 }
 
 // NewTCPOutput constructor for TCPOutput
-// Initialize 10 workers which hold keep-alive connection
-func NewTCPOutput(address string, config *TCPOutputConfig) io.Writer {
+// Initialize X workers which hold keep-alive connection
+func NewTCPOutput(address string, config *TCPOutputConfig) PluginWriter {
 	o := new(TCPOutput)
 
 	o.address = address
@@ -39,20 +40,11 @@ func NewTCPOutput(address string, config *TCPOutputConfig) io.Writer {
 		o.bufStats = NewGorStat("output_tcp", 5000)
 	}
 
-	if o.config.Sticky {
-		// create 10 buffers and send the buffer index to the worker
-		o.buf = make([]chan []byte, 10)
-		for i := 0; i < 10; i++ {
-			o.buf[i] = make(chan []byte, 100)
-			go o.worker(i)
-		}
-	} else {
-		// create 1 buffer and send its index (0) to all workers
-		o.buf = make([]chan []byte, 1)
-		o.buf[0] = make(chan []byte, 1000)
-		for i := 0; i < 10; i++ {
-			go o.worker(0)
-		}
+	// create X buffers and send the buffer index to the worker
+	o.buf = make([]chan *Message, o.config.Workers)
+	for i := 0; i < o.config.Workers; i++ {
+		o.buf[i] = make(chan *Message, 100)
+		go o.worker(i)
 	}
 
 	return o
@@ -66,7 +58,7 @@ func (o *TCPOutput) worker(bufferIndex int) {
 			break
 		}
 
-		log.Println("Can't connect to aggregator instance, reconnecting in 1 second. Retries:", retries)
+		Debug(1, fmt.Sprintf("Can't connect to aggregator instance, reconnecting in 1 second. Retries:%d", retries))
 		time.Sleep(1 * time.Second)
 
 		conn, err = o.connect(o.address)
@@ -74,19 +66,22 @@ func (o *TCPOutput) worker(bufferIndex int) {
 	}
 
 	if retries > 0 {
-		log.Println("Connected to aggregator instance after ", retries, " retries")
+		Debug(2, fmt.Sprintf("Connected to aggregator instance after %d retries", retries))
 	}
 
 	defer conn.Close()
 
 	for {
-		data := <-o.buf[bufferIndex]
-		conn.Write(data)
-		_, err := conn.Write([]byte(payloadSeparator))
+		msg := <-o.buf[bufferIndex]
+		if _, err = conn.Write(msg.Meta); err == nil {
+			if _, err = conn.Write(msg.Data); err == nil {
+				_, err = conn.Write(payloadSeparatorAsBytes)
+			}
+		}
 
 		if err != nil {
-			log.Println("INFO: TCP output connection closed, reconnecting")
-			o.buf[bufferIndex] <- data
+			Debug(2, "INFO: TCP output connection closed, reconnecting")
+			o.buf[bufferIndex] <- msg
 			go o.worker(bufferIndex)
 			break
 		}
@@ -95,36 +90,35 @@ func (o *TCPOutput) worker(bufferIndex int) {
 
 func (o *TCPOutput) getBufferIndex(data []byte) int {
 	if !o.config.Sticky {
-		return 0
+		o.workerIndex++
+		return int(o.workerIndex) % o.config.Workers
 	}
 
 	hasher := fnv.New32a()
 	hasher.Write(payloadMeta(data)[1])
-	return int(hasher.Sum32()) % 10
+	return int(hasher.Sum32()) % o.config.Workers
+
 }
 
-func (o *TCPOutput) Write(data []byte) (n int, err error) {
-	if !isOriginPayload(data) {
-		return len(data), nil
+// PluginWrite writes message to this plugin
+func (o *TCPOutput) PluginWrite(msg *Message) (n int, err error) {
+	if !isOriginPayload(msg.Meta) {
+		return len(msg.Data), nil
 	}
 
-	// We have to copy, because sending data in multiple threads
-	newBuf := make([]byte, len(data))
-	copy(newBuf, data)
-
-	bufferIndex := o.getBufferIndex(data)
-	o.buf[bufferIndex] <- newBuf
+	bufferIndex := o.getBufferIndex(msg.Data)
+	o.buf[bufferIndex] <- msg
 
 	if Settings.OutputTCPStats {
 		o.bufStats.Write(len(o.buf[bufferIndex]))
 	}
 
-	return len(data), nil
+	return len(msg.Data) + len(msg.Meta), nil
 }
 
 func (o *TCPOutput) connect(address string) (conn net.Conn, err error) {
 	if o.config.Secure {
-		conn, err = tls.Dial("tcp", address, &tls.Config{})
+		conn, err = tls.Dial("tcp", address, &tls.Config{InsecureSkipVerify: o.config.SkipVerify})
 	} else {
 		conn, err = net.Dial("tcp", address)
 	}

@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -23,9 +22,8 @@ const testRawExpire = time.Millisecond * 200
 
 func TestRAWInputIPv4(t *testing.T) {
 	wg := new(sync.WaitGroup)
-	quit := make(chan int)
 
-	listener, err := net.Listen("tcp", ":0")
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		t.Error(err)
 		return
@@ -49,35 +47,33 @@ func TestRAWInputIPv4(t *testing.T) {
 		TrackResponse: true,
 		RealIPHeader:  "X-Real-IP",
 	}
-	input := NewRAWInput(":"+port, conf)
+	input := NewRAWInput(listener.Addr().String(), conf)
 
-	output := NewTestOutput(func(data []byte) {
-		if data[0] == '1' {
-			body := payloadBody(data)
-			if len(proto.Header(body, []byte("X-Real-IP"))) == 0 {
-				t.Error("Should have X-Real-IP header", string(body))
+	output := NewTestOutput(func(msg *Message) {
+		if msg.Meta[0] == '1' {
+			if len(proto.Header(msg.Data, []byte("X-Real-IP"))) == 0 {
+				t.Error("Should have X-Real-IP header")
 			}
-			atomic.AddInt64(&reqCounter, 1)
+			reqCounter++
 		} else {
-			atomic.AddInt64(&respCounter, 1)
+			respCounter++
 		}
 		wg.Done()
 	})
 
 	plugins := &InOutPlugins{
-		Inputs:  []io.Reader{input},
-		Outputs: []io.Writer{output},
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{output},
 	}
 	plugins.All = append(plugins.All, input, output)
 
-	client := NewHTTPClient("127.0.0.1:"+port, &HTTPClientConfig{})
-
-	emitter := NewEmitter(quit)
+	addr := "http://127.0.0.1:" + port
+	emitter := NewEmitter()
 	defer emitter.Close()
 	go emitter.Start(plugins, Settings.Middleware)
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 1; i++ {
 		wg.Add(2)
-		_, err = client.Get("/")
+		_, err = http.Get(addr)
 		if err != nil {
 			t.Error(err)
 			return
@@ -92,7 +88,6 @@ func TestRAWInputIPv4(t *testing.T) {
 
 func TestRAWInputNoKeepAlive(t *testing.T) {
 	wg := new(sync.WaitGroup)
-	quit := make(chan int)
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -118,8 +113,8 @@ func TestRAWInputNoKeepAlive(t *testing.T) {
 	}
 	input := NewRAWInput(":"+port, conf)
 	var respCounter, reqCounter int64
-	output := NewTestOutput(func(data []byte) {
-		if data[0] == '1' {
+	output := NewTestOutput(func(msg *Message) {
+		if msg.Meta[0] == '1' {
 			atomic.AddInt64(&reqCounter, 1)
 		} else {
 			atomic.AddInt64(&respCounter, 1)
@@ -128,20 +123,20 @@ func TestRAWInputNoKeepAlive(t *testing.T) {
 	})
 
 	plugins := &InOutPlugins{
-		Inputs:  []io.Reader{input},
-		Outputs: []io.Writer{output},
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{output},
 	}
 	plugins.All = append(plugins.All, input, output)
 
-	client := NewHTTPClient("127.0.0.1:"+port, &HTTPClientConfig{})
+	addr := "http://127.0.0.1:" + port
 
-	emitter := NewEmitter(quit)
+	emitter := NewEmitter()
 	go emitter.Start(plugins, Settings.Middleware)
 
 	for i := 0; i < 10; i++ {
 		// request + response
 		wg.Add(2)
-		_, err = client.Get("/")
+		_, err = http.Get(addr)
 		if err != nil {
 			t.Error(err)
 			return
@@ -158,7 +153,6 @@ func TestRAWInputNoKeepAlive(t *testing.T) {
 
 func TestRAWInputIPv6(t *testing.T) {
 	wg := new(sync.WaitGroup)
-	quit := make(chan int)
 
 	listener, err := net.Listen("tcp", "[::1]:0")
 	if err != nil {
@@ -184,8 +178,8 @@ func TestRAWInputIPv6(t *testing.T) {
 	}
 	input := NewRAWInput(originAddr, conf)
 
-	output := NewTestOutput(func(data []byte) {
-		if data[0] == '1' {
+	output := NewTestOutput(func(msg *Message) {
+		if msg.Meta[0] == '1' {
 			atomic.AddInt64(&reqCounter, 1)
 		} else {
 			atomic.AddInt64(&respCounter, 1)
@@ -194,18 +188,17 @@ func TestRAWInputIPv6(t *testing.T) {
 	})
 
 	plugins := &InOutPlugins{
-		Inputs:  []io.Reader{input},
-		Outputs: []io.Writer{output},
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{output},
 	}
 
-	client := NewHTTPClient(originAddr, &HTTPClientConfig{})
-
-	emitter := NewEmitter(quit)
+	emitter := NewEmitter()
+	addr := "http://" + originAddr
 	go emitter.Start(plugins, Settings.Middleware)
 	for i := 0; i < 10; i++ {
 		// request + response
 		wg.Add(2)
-		_, err = client.Get("/")
+		_, err = http.Get(addr)
 		if err != nil {
 			t.Error(err)
 			return
@@ -222,7 +215,6 @@ func TestRAWInputIPv6(t *testing.T) {
 
 func TestInputRAWChunkedEncoding(t *testing.T) {
 	wg := new(sync.WaitGroup)
-	quit := make(chan int)
 
 	fileContent, _ := ioutil.ReadFile("README.md")
 
@@ -256,15 +248,15 @@ func TestInputRAWChunkedEncoding(t *testing.T) {
 	}))
 	defer replay.Close()
 
-	httpOutput := NewHTTPOutput(replay.URL, &HTTPOutputConfig{Debug: true})
+	httpOutput := NewHTTPOutput(replay.URL, &HTTPOutputConfig{})
 
 	plugins := &InOutPlugins{
-		Inputs:  []io.Reader{input},
-		Outputs: []io.Writer{httpOutput},
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{httpOutput},
 	}
 	plugins.All = append(plugins.All, input, httpOutput)
 
-	emitter := NewEmitter(quit)
+	emitter := NewEmitter()
 	defer emitter.Close()
 	go emitter.Start(plugins, Settings.Middleware)
 	wg.Add(2)
@@ -280,17 +272,15 @@ func TestInputRAWChunkedEncoding(t *testing.T) {
 }
 
 func BenchmarkRAWInputWithReplay(b *testing.B) {
-	var respCounter, reqCounter, replayCounter, capturedBody uint64
+	var respCounter, reqCounter, replayCounter uint32
 	wg := &sync.WaitGroup{}
-	wg.Add(b.N * 3) // reqCounter + replayCounter + respCounter
 
-	quit := make(chan int)
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		b.Error(err)
 		return
 	}
-	listener0, err := net.Listen("tcp", "127.0.0.1:0")
+	listener0, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
 		b.Error(err)
 		return
@@ -307,15 +297,9 @@ func BenchmarkRAWInputWithReplay(b *testing.B) {
 
 	replay := http.Server{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			defer wg.Done()
-			defer r.Body.Close()
-			w.Write([]byte("ab"))
-			atomic.AddUint64(&replayCounter, 1)
-			data, err := ioutil.ReadAll(r.Body)
-			if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-				b.Log(err)
-			}
-			atomic.AddUint64(&capturedBody, uint64(len(data)))
+			atomic.AddUint32(&replayCounter, 1)
+			w.Write(nil)
+			wg.Done()
 		}),
 	}
 	go replay.Serve(listener0)
@@ -330,41 +314,37 @@ func BenchmarkRAWInputWithReplay(b *testing.B) {
 	}
 	input := NewRAWInput(originAddr, conf)
 
-	testOutput := NewTestOutput(func(data []byte) {
-		if data[0] == '1' {
-			atomic.AddUint64(&reqCounter, 1)
+	testOutput := NewTestOutput(func(msg *Message) {
+		if msg.Meta[0] == '1' {
+			reqCounter++
 		} else {
-			atomic.AddUint64(&respCounter, 1)
+			respCounter++
 		}
-		atomic.AddUint64(&capturedBody, uint64(len(data)))
 		wg.Done()
 	})
-	httpOutput := NewHTTPOutput(replayAddr, &HTTPOutputConfig{Debug: false})
+	httpOutput := NewHTTPOutput("http://"+replayAddr, &HTTPOutputConfig{})
 
 	plugins := &InOutPlugins{
-		Inputs:  []io.Reader{input},
-		Outputs: []io.Writer{testOutput, httpOutput},
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{testOutput, httpOutput},
 	}
 
-	emitter := NewEmitter(quit)
+	emitter := NewEmitter()
 	go emitter.Start(plugins, Settings.Middleware)
-	now := time.Now()
-	var buf [1 << 20]byte
-	buf[1<<20-1] = 'a'
-	client := NewHTTPClient(originAddr, &HTTPClientConfig{ResponseBufferSize: 2 << 20, CompatibilityMode: true})
+	addr := "http://" + originAddr
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if i&1 == 0 {
-			_, err = client.Get("/")
-		} else {
-			_, err = client.Post("/", buf[:])
-		}
+		wg.Add(3) // reqCounter + replayCounter + respCounter
+		resp, err := http.Get(addr)
 		if err != nil {
-			b.Log(err)
 			wg.Add(-3)
 		}
+		resp.Body.Close()
 	}
 
 	wg.Wait()
-	b.Logf("%d/%d Requests, %d/%d Responses, %d/%d Replayed, %d Bytes in %s\n", reqCounter, b.N, respCounter, b.N, replayCounter, b.N, capturedBody, time.Since(now))
+	b.ReportMetric(float64(reqCounter), "requests")
+	b.ReportMetric(float64(respCounter), "responses")
+	b.ReportMetric(float64(replayCounter), "replayed")
 	emitter.Close()
 }

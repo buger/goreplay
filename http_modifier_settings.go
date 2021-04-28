@@ -19,10 +19,9 @@ type HTTPModifierConfig struct {
 	HeaderBasicAuthFilters HTTPHeaderBasicAuthFilters `json:"http-basic-auth-filter"`
 	HeaderHashFilters      HTTPHashFilters            `json:"http-header-limiter"`
 	ParamHashFilters       HTTPHashFilters            `json:"http-param-limiter"`
-
-	Params  HTTPParams  `json:"http-set-param"`
-	Headers HTTPHeaders `json:"http-set-header"`
-	Methods HTTPMethods `json:"http-allow-method"`
+	Params                 HTTPParams                 `json:"http-set-param"`
+	Headers                HTTPHeaders                `json:"http-set-header"`
+	Methods                HTTPMethods                `json:"http-allow-method"`
 }
 
 //
@@ -40,10 +39,11 @@ func (h *HTTPHeaderFilters) String() string {
 	return fmt.Sprint(*h)
 }
 
+// Set method to implement flags.Value
 func (h *HTTPHeaderFilters) Set(value string) error {
 	valArr := strings.SplitN(value, ":", 2)
 	if len(valArr) < 2 {
-		return errors.New("need both header and value, colon-delimited (ex. user_id:^169$).")
+		return errors.New("need both header and value, colon-delimited (ex. user_id:^169$)")
 	}
 	val := strings.TrimSpace(valArr[1])
 	r, err := regexp.Compile(val)
@@ -63,13 +63,14 @@ type basicAuthFilter struct {
 	regexp *regexp.Regexp
 }
 
-// HTTPHeaderFilters holds list of headers and their regexps
+// HTTPHeaderBasicAuthFilters holds list of regxp to match basic Auth header values
 type HTTPHeaderBasicAuthFilters []basicAuthFilter
 
 func (h *HTTPHeaderBasicAuthFilters) String() string {
 	return fmt.Sprint(*h)
 }
 
+// Set method to implement flags.Value
 func (h *HTTPHeaderBasicAuthFilters) Set(value string) error {
 	r, err := regexp.Compile(value)
 	if err != nil {
@@ -89,12 +90,14 @@ type hashFilter struct {
 	percent uint32
 }
 
+// HTTPHashFilters represents a slice of header hash filters
 type HTTPHashFilters []hashFilter
 
 func (h *HTTPHashFilters) String() string {
 	return fmt.Sprint(*h)
 }
 
+// Set method to implement flags.Value
 func (h *HTTPHashFilters) Set(value string) error {
 	valArr := strings.SplitN(value, ":", 2)
 	if len(valArr) < 2 {
@@ -129,23 +132,26 @@ func (h *HTTPHashFilters) Set(value string) error {
 //
 // Handling of --http-set-header option
 //
-type HTTPHeaders []HTTPHeader
-type HTTPHeader struct {
+type httpHeader struct {
 	Name  string
 	Value string
 }
+
+// HTTPHeaders is a slice of headers that must appended
+type HTTPHeaders []httpHeader
 
 func (h *HTTPHeaders) String() string {
 	return fmt.Sprint(*h)
 }
 
+// Set method to implement flags.Value
 func (h *HTTPHeaders) Set(value string) error {
 	v := strings.SplitN(value, ":", 2)
 	if len(v) != 2 {
 		return errors.New("Expected `Key: Value`")
 	}
 
-	header := HTTPHeader{
+	header := httpHeader{
 		strings.TrimSpace(v[0]),
 		strings.TrimSpace(v[1]),
 	}
@@ -157,23 +163,26 @@ func (h *HTTPHeaders) Set(value string) error {
 //
 // Handling of --http-set-param option
 //
-type HTTPParams []HTTPParam
-type HTTPParam struct {
+type httpParam struct {
 	Name  []byte
 	Value []byte
 }
+
+// HTTPParams filters for --http-set-param
+type HTTPParams []httpParam
 
 func (h *HTTPParams) String() string {
 	return fmt.Sprint(*h)
 }
 
+// Set method to implement flags.Value
 func (h *HTTPParams) Set(value string) error {
 	v := strings.SplitN(value, "=", 2)
 	if len(v) != 2 {
 		return errors.New("Expected `Key=Value`")
 	}
 
-	param := HTTPParam{
+	param := httpParam{
 		[]byte(strings.TrimSpace(v[0])),
 		[]byte(strings.TrimSpace(v[1])),
 	}
@@ -185,12 +194,15 @@ func (h *HTTPParams) Set(value string) error {
 //
 // Handling of --http-allow-method option
 //
+
+// HTTPMethods holds values for method allowed
 type HTTPMethods [][]byte
 
 func (h *HTTPMethods) String() string {
 	return fmt.Sprint(*h)
 }
 
+// Set method to implement flags.Value
 func (h *HTTPMethods) Set(value string) error {
 	*h = append(*h, []byte(value))
 	return nil
@@ -204,12 +216,14 @@ type urlRewrite struct {
 	target []byte
 }
 
+// URLRewriteMap holds regexp and data to modify URL
 type URLRewriteMap []urlRewrite
 
 func (r *URLRewriteMap) String() string {
 	return fmt.Sprint(*r)
 }
 
+// Set method to implement flags.Value
 func (r *URLRewriteMap) Set(value string) error {
 	valArr := strings.SplitN(value, ":", 2)
 	if len(valArr) < 2 {
@@ -232,12 +246,14 @@ type headerRewrite struct {
 	target []byte
 }
 
+// HeaderRewriteMap holds regexp and data to rewrite headers
 type HeaderRewriteMap []headerRewrite
 
 func (r *HeaderRewriteMap) String() string {
 	return fmt.Sprint(*r)
 }
 
+// Set method to implement flags.Value
 func (r *HeaderRewriteMap) Set(value string) error {
 	headerArr := strings.SplitN(value, ":", 2)
 	if len(headerArr) < 2 {
@@ -266,12 +282,14 @@ type urlRegexp struct {
 	regexp *regexp.Regexp
 }
 
+// HTTPURLRegexp a slice of regexp to match URLs
 type HTTPURLRegexp []urlRegexp
 
 func (r *HTTPURLRegexp) String() string {
 	return fmt.Sprint(*r)
 }
 
+// Set method to implement flags.Value
 func (r *HTTPURLRegexp) Set(value string) error {
 	regexp, err := regexp.Compile(value)
 

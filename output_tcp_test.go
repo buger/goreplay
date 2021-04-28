@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"io"
 	"log"
 	"net"
 	"sync"
@@ -12,24 +11,22 @@ import (
 
 func TestTCPOutput(t *testing.T) {
 	wg := new(sync.WaitGroup)
-	quit := make(chan int)
 
 	listener := startTCP(func(data []byte) {
 		wg.Done()
 	})
 	input := NewTestInput()
-	output := NewTCPOutput(listener.Addr().String(), &TCPOutputConfig{})
+	output := NewTCPOutput(listener.Addr().String(), &TCPOutputConfig{Workers: 10})
 
 	plugins := &InOutPlugins{
-		Inputs:  []io.Reader{input},
-		Outputs: []io.Writer{output},
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{output},
 	}
-	plugins.All = append(plugins.All, input, output)
 
-	emitter := NewEmitter(quit)
+	emitter := NewEmitter()
 	go emitter.Start(plugins, Settings.Middleware)
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		input.EmitGET()
 	}
@@ -48,9 +45,9 @@ func startTCP(cb func([]byte)) net.Listener {
 	go func() {
 		for {
 			conn, _ := listener.Accept()
-			defer conn.Close()
 
-			go func() {
+			go func(conn net.Conn) {
+				defer conn.Close()
 				reader := bufio.NewReader(conn)
 				scanner := bufio.NewScanner(reader)
 				scanner.Split(payloadScanner)
@@ -58,7 +55,7 @@ func startTCP(cb func([]byte)) net.Listener {
 				for scanner.Scan() {
 					cb(scanner.Bytes())
 				}
-			}()
+			}(conn)
 		}
 	}()
 
@@ -67,51 +64,50 @@ func startTCP(cb func([]byte)) net.Listener {
 
 func BenchmarkTCPOutput(b *testing.B) {
 	wg := new(sync.WaitGroup)
-	quit := make(chan int)
 
 	listener := startTCP(func(data []byte) {
 		wg.Done()
 	})
 	input := NewTestInput()
-	output := NewTCPOutput(listener.Addr().String(), &TCPOutputConfig{})
-
-	plugins := &InOutPlugins{
-		Inputs:  []io.Reader{input},
-		Outputs: []io.Writer{output},
-	}
-	plugins.All = append(plugins.All, input, output)
-
-	emitter := NewEmitter(quit)
-	go emitter.Start(plugins, Settings.Middleware)
-
-	b.ResetTimer()
+	input.data = make(chan []byte, b.N)
 	for i := 0; i < b.N; i++ {
-		wg.Add(1)
 		input.EmitGET()
 	}
+	wg.Add(b.N)
+	output := NewTCPOutput(listener.Addr().String(), &TCPOutputConfig{Workers: 10})
+
+	plugins := &InOutPlugins{
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{output},
+	}
+
+	emitter := NewEmitter()
+	// avoid counting above initialization
+	b.ResetTimer()
+	go emitter.Start(plugins, Settings.Middleware)
 
 	wg.Wait()
 	emitter.Close()
 }
 
 func TestStickyDisable(t *testing.T) {
-	tcpOutput := TCPOutput{config: &TCPOutputConfig{Sticky: false}}
+	tcpOutput := TCPOutput{config: &TCPOutputConfig{Sticky: false, Workers: 10}}
 
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 10; i++ {
 		index := tcpOutput.getBufferIndex(getTestBytes())
-		if index != 0 {
-			t.Errorf("Sticky is disable. Got: %d want 0", index)
+		if index != (i+1)%10 {
+			t.Errorf("Sticky is disable. Got: %d want %d", index, (i+1)%10)
 		}
 	}
 }
 
 func TestBufferDistribution(t *testing.T) {
 	numberOfWorkers := 10
-	numberOfMessages := 1000000
+	numberOfMessages := 10000
 	percentDistributionErrorRange := 20
 
 	buffer := make([]int, numberOfWorkers)
-	tcpOutput := TCPOutput{config: &TCPOutputConfig{Sticky: true}}
+	tcpOutput := TCPOutput{config: &TCPOutputConfig{Sticky: true, Workers: 10}}
 	for i := 0; i < numberOfMessages; i++ {
 		buffer[tcpOutput.getBufferIndex(getTestBytes())]++
 	}

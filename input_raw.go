@@ -72,13 +72,14 @@ type RAWInput struct {
 	listener       *capture.Listener
 	message        chan *tcp.Message
 	cancelListener context.CancelFunc
+	closed         bool
 }
 
 // NewRAWInput constructor for RAWInput. Accepts raw input config as arguments.
 func NewRAWInput(address string, config RAWInputConfig) (i *RAWInput) {
 	i = new(RAWInput)
 	i.RAWInputConfig = config
-	i.message = make(chan *tcp.Message, 1000)
+	i.message = make(chan *tcp.Message, 10000)
 	i.quit = make(chan bool)
 	var host, _port string
 	var err error
@@ -102,39 +103,39 @@ func NewRAWInput(address string, config RAWInputConfig) (i *RAWInput) {
 	return
 }
 
-func (i *RAWInput) Read(data []byte) (n int, err error) {
-	var msg *tcp.Message
-	var buf []byte
+// PluginRead reads meassage from this plugin
+func (i *RAWInput) PluginRead() (*Message, error) {
+	var msgTCP *tcp.Message
+	var msg Message
 	select {
 	case <-i.quit:
-		return 0, ErrorStopped
-	case msg = <-i.message:
-		buf = msg.Data()
+		return nil, ErrorStopped
+	case msgTCP = <-i.message:
+		msg.Data = msgTCP.Data()
 	}
-	var header []byte
-
 	var msgType byte = ResponsePayload
-	if msg.IsIncoming {
+	if msgTCP.IsIncoming {
 		msgType = RequestPayload
 		if i.RealIPHeader != "" {
-			buf = proto.SetHeader(buf, []byte(i.RealIPHeader), []byte(msg.SrcAddr))
+			msg.Data = proto.SetHeader(msg.Data, []byte(i.RealIPHeader), []byte(msgTCP.SrcAddr))
 		}
 	}
-	header = payloadHeader(msgType, msg.UUID(), msg.Start.UnixNano(), msg.End.UnixNano()-msg.Start.UnixNano())
+	msg.Meta = payloadHeader(msgType, msgTCP.UUID(), msgTCP.Start.UnixNano(), msgTCP.End.UnixNano()-msgTCP.Start.UnixNano())
 
-	n = copy(data, header)
-	if len(data) > len(header) {
-		n += copy(data[len(header):], buf)
+	// to be removed....
+	if msgTCP.Truncated {
+		Debug(2, "[INPUT-RAW] message truncated, increase copy-buffer-size")
 	}
-	dis := len(header) + len(buf) - n
-	if dis > 0 {
-		go Debug(2, "[INPUT-RAW] discarded", dis, "bytes increase copy buffer size")
+	// to be removed...
+	if msgTCP.TimedOut {
+		Debug(2, "[INPUT-RAW] message timeout reached, increase input-raw-expire")
 	}
-	if msg.Truncated {
-		go Debug(2, "[INPUT-RAW] message truncated, copy-buffer-size")
+	if i.Stats {
+		stat := msgTCP.Stats
+		go i.addStats(stat)
 	}
-	go i.addStats(msg.Stats)
-	return n, nil
+	msgTCP = nil
+	return &msg, nil
 }
 
 func (i *RAWInput) listen(address string) {
@@ -149,17 +150,20 @@ func (i *RAWInput) listen(address string) {
 		log.Fatal(err)
 	}
 	pool := tcp.NewMessagePool(i.CopyBufferSize, i.Expire, Debug, i.handler)
-	pool.End = endHint
-	pool.Start = startHint
+	pool.MatchUUID(i.TrackResponse)
+	if i.Protocol == ProtocolHTTP {
+		pool.Start = http1StartHint
+		pool.End = http1EndHint
+	}
 	var ctx context.Context
 	ctx, i.cancelListener = context.WithCancel(context.Background())
 	errCh := i.listener.ListenBackground(ctx, pool.Handler)
-	select {
-	case err := <-errCh:
-		log.Fatal(err)
-	case <-i.listener.Reading:
-		Debug(1, i)
-	}
+	<-i.listener.Reading
+	Debug(1, i)
+	go func() {
+		<-errCh // the listener closed voluntarily
+		i.Close()
+	}()
 }
 
 func (i *RAWInput) handler(m *tcp.Message) {
@@ -182,27 +186,34 @@ func (i *RAWInput) GetStats() []tcp.Stats {
 
 // Close closes the input raw listener
 func (i *RAWInput) Close() error {
+	i.Lock()
+	defer i.Unlock()
+	if i.closed {
+		return nil
+	}
 	i.cancelListener()
 	close(i.quit)
+	i.closed = true
 	return nil
 }
 
 func (i *RAWInput) addStats(mStats tcp.Stats) {
-	if i.Stats {
-		i.Lock()
-		if len(i.messageStats) >= 10000 {
-			i.messageStats = []tcp.Stats{}
-		}
-		i.messageStats = append(i.messageStats, mStats)
-
-		i.Unlock()
+	i.Lock()
+	if len(i.messageStats) >= 10000 {
+		i.messageStats = []tcp.Stats{}
 	}
+	i.messageStats = append(i.messageStats, mStats)
+	i.Unlock()
 }
 
-func startHint(pckt *tcp.Packet) (isIncoming, isOutgoing bool) {
-	return proto.HasRequestTitle(pckt.Payload), proto.HasResponseTitle(pckt.Payload)
+func http1StartHint(pckt *tcp.Packet) (isIncoming, isOutgoing bool) {
+	isIncoming = proto.HasRequestTitle(pckt.Payload)
+	if isIncoming {
+		return
+	}
+	return false, proto.HasResponseTitle(pckt.Payload)
 }
 
-func endHint(m *tcp.Message) bool {
-	return proto.HasFullPayload(m.Data())
+func http1EndHint(m *tcp.Message) bool {
+	return proto.HasFullPayload(m.Data(), m)
 }

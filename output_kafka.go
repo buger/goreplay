@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"io"
 	"log"
 	"strings"
 	"time"
 
+	"github.com/buger/goreplay/byteutils"
 	"github.com/buger/goreplay/proto"
 
 	"github.com/Shopify/sarama"
@@ -22,13 +22,8 @@ type KafkaOutput struct {
 // KafkaOutputFrequency in milliseconds
 const KafkaOutputFrequency = 500
 
-// NewKafkaOutput creates instance of kafka producer client.
-func NewKafkaOutput(address string, config *OutputKafkaConfig) io.Writer {
-	return NewKafkaOutputWithTLS(address, config, nil)
-}
-
-// NewKafkaOutputWithTLS creates instance of kafka producer client.
-func NewKafkaOutputWithTLS(address string, config *OutputKafkaConfig, tlsConfig *KafkaTLSConfig) io.Writer {
+// NewKafkaOutput creates instance of kafka producer client  with TLS config
+func NewKafkaOutput(address string, config *OutputKafkaConfig, tlsConfig *KafkaTLSConfig) PluginWriter {
 	c := NewKafkaConfig(tlsConfig)
 
 	var producer sarama.AsyncProducer
@@ -67,31 +62,33 @@ func (o *KafkaOutput) ErrorHandler() {
 	}
 }
 
-func (o *KafkaOutput) Write(data []byte) (n int, err error) {
+// PluginWrite writes a message to this plugin
+func (o *KafkaOutput) PluginWrite(msg *Message) (n int, err error) {
 	var message sarama.StringEncoder
 
 	if !o.config.UseJSON {
-		message = sarama.StringEncoder(data)
+		message = sarama.StringEncoder(byteutils.SliceToString(msg.Meta) + byteutils.SliceToString(msg.Data))
 	} else {
-		headers := make(map[string]string)
-		proto.ParseHeaders([][]byte{data}, func(header []byte, value []byte) {
-			headers[string(header)] = string(value)
-		})
+		mimeHeader := proto.ParseHeaders(msg.Data)
+		header := make(map[string]string)
+		for k, v := range mimeHeader {
+			header[k] = strings.Join(v, ", ")
+		}
 
-		meta := payloadMeta(data)
-		req := payloadBody(data)
+		meta := payloadMeta(msg.Meta)
+		req := msg.Data
 
 		kafkaMessage := KafkaMessage{
-			ReqURL:     string(proto.Path(req)),
-			ReqType:    string(meta[0]),
-			ReqID:      string(meta[1]),
-			ReqTs:      string(meta[2]),
-			ReqMethod:  string(proto.Method(req)),
-			ReqBody:    string(proto.Body(req)),
-			ReqHeaders: headers,
+			ReqURL:     byteutils.SliceToString(proto.Path(req)),
+			ReqType:    byteutils.SliceToString(meta[0]),
+			ReqID:      byteutils.SliceToString(meta[1]),
+			ReqTs:      byteutils.SliceToString(meta[2]),
+			ReqMethod:  byteutils.SliceToString(proto.Method(req)),
+			ReqBody:    byteutils.SliceToString(proto.Body(req)),
+			ReqHeaders: header,
 		}
 		jsonMessage, _ := json.Marshal(&kafkaMessage)
-		message = sarama.StringEncoder(jsonMessage)
+		message = sarama.StringEncoder(byteutils.SliceToString(jsonMessage))
 	}
 
 	o.producer.Input() <- &sarama.ProducerMessage{

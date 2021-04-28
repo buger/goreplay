@@ -1,15 +1,36 @@
 package main
 
 import (
-	"io"
 	"reflect"
 	"strings"
 )
 
+// Message represents data accross plugins
+type Message struct {
+	Meta []byte // metadata
+	Data []byte // actual data
+}
+
+// PluginReader is an interface for input plugins
+type PluginReader interface {
+	PluginRead() (msg *Message, err error)
+}
+
+// PluginWriter is an interface for output plugins
+type PluginWriter interface {
+	PluginWrite(msg *Message) (n int, err error)
+}
+
+// PluginReadWriter is an interface for plugins that support reading and writing
+type PluginReadWriter interface {
+	PluginReader
+	PluginWriter
+}
+
 // InOutPlugins struct for holding references to plugins
 type InOutPlugins struct {
-	Inputs  []io.Reader
-	Outputs []io.Writer
+	Inputs  []PluginReader
+	Outputs []PluginWriter
 	All     []interface{}
 }
 
@@ -48,27 +69,21 @@ func (plugins *InOutPlugins) registerPlugin(constructor interface{}, options ...
 
 	// Calling our constructor with list of given options
 	plugin := vc.Call(vo)[0].Interface()
-	pluginWrapper := plugin
 
 	if limit != "" {
-		pluginWrapper = NewLimiter(plugin, limit)
-	} else {
-		pluginWrapper = plugin
+		plugin = NewLimiter(plugin, limit)
 	}
-
-	_, isR := plugin.(io.Reader)
-	_, isW := plugin.(io.Writer)
 
 	// Some of the output can be Readers as well because return responses
-	if isR && !isW {
-		plugins.Inputs = append(plugins.Inputs, pluginWrapper.(io.Reader))
+	if r, ok := plugin.(PluginReader); ok {
+		plugins.Inputs = append(plugins.Inputs, r)
 	}
 
-	if isW {
-		plugins.Outputs = append(plugins.Outputs, pluginWrapper.(io.Writer))
+	if w, ok := plugin.(PluginWriter); ok {
+		plugins.Outputs = append(plugins.Outputs, w)
 	}
-
 	plugins.All = append(plugins.All, plugin)
+
 }
 
 // NewPlugins specify and initialize all available plugins

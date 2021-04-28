@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"os"
 )
 
 // DummyOutput used for debugging, prints all incoming requests
@@ -15,10 +15,16 @@ func NewDummyOutput() (di *DummyOutput) {
 	return
 }
 
-func (i *DummyOutput) Write(data []byte) (int, error) {
-	fmt.Println(string(data))
-
-	return len(data), nil
+// PluginWrite writes message to this plugin
+func (i *DummyOutput) PluginWrite(msg *Message) (int, error) {
+	var n, nn int
+	var err error
+	n, err = os.Stdout.Write(msg.Meta)
+	nn, err = os.Stdout.Write(msg.Data)
+	n += nn
+	nn, err = os.Stdout.Write(payloadSeparatorAsBytes)
+	n += nn
+	return n, err
 }
 
 func (i *DummyOutput) String() string {

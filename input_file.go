@@ -5,8 +5,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"errors"
+	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -64,6 +64,8 @@ func (f *fileInputReader) ReadPayload() []byte {
 
 	return f.data
 }
+
+// Close closes this plugin
 func (f *fileInputReader) Close() error {
 	if atomic.LoadInt32(&f.closed) == 0 {
 		atomic.StoreInt32(&f.closed, 1)
@@ -73,7 +75,7 @@ func (f *fileInputReader) Close() error {
 	return nil
 }
 
-func NewFileInputReader(path string) *fileInputReader {
+func newFileInputReader(path string) *fileInputReader {
 	var file io.ReadCloser
 	var err error
 
@@ -84,7 +86,7 @@ func NewFileInputReader(path string) *fileInputReader {
 	}
 
 	if err != nil {
-		log.Println(err)
+		Debug(0, fmt.Sprintf("[INPUT-FILE] err: %q", err))
 		return nil
 	}
 
@@ -92,7 +94,7 @@ func NewFileInputReader(path string) *fileInputReader {
 	if strings.HasSuffix(path, ".gz") {
 		gzReader, err := gzip.NewReader(file)
 		if err != nil {
-			log.Println(err)
+			Debug(0, fmt.Sprintf("[INPUT-FILE] err: %q", err))
 			return nil
 		}
 		r.reader = bufio.NewReader(gzReader)
@@ -153,43 +155,43 @@ func (i *FileInput) init() (err error) {
 
 		resp, err := svc.ListObjects(params)
 		if err != nil {
-			log.Println("Error while retreiving list of files from S3", i.path, err)
+			Debug(0, "[INPUT-FILE] Error while retreiving list of files from S3", i.path, err)
 			return err
 		}
 
 		for _, c := range resp.Contents {
 			matches = append(matches, "s3://"+bucket+"/"+(*c.Key))
 		}
-	} else {
-		if matches, err = filepath.Glob(i.path); err != nil {
-			log.Println("Wrong file pattern", i.path, err)
+	} else if matches, err = filepath.Glob(i.path); err != nil{ 
+			Debug(0, "[INPUT-FILE] Wrong file pattern", i.path, err)
 			return
-		}
+		
 	}
 
 	if len(matches) == 0 {
-		log.Println("No files match pattern: ", i.path)
+		Debug(0, "[INPUT-FILE] No files match pattern: ", i.path)
 		return errors.New("No matching files")
 	}
 
 	i.readers = make([]*fileInputReader, len(matches))
 
 	for idx, p := range matches {
-		i.readers[idx] = NewFileInputReader(p)
+		i.readers[idx] = newFileInputReader(p)
 	}
 
 	return nil
 }
 
-func (i *FileInput) Read(data []byte) (int, error) {
-	var buf []byte
+// PluginRead reads message from this plugin
+func (i *FileInput) PluginRead() (*Message, error) {
+	var msg Message
 	select {
 	case <-i.exit:
-		return 0, ErrorStopped
-	case buf = <-i.data:
+		return nil, ErrorStopped
+	case buf := <-i.data:
+		msg.Meta, msg.Data = payloadMetaWithBody(buf)
+		return &msg, nil
 	}
-	n := copy(data, buf)
-	return n, nil
 }
 
 func (i *FileInput) String() string {
@@ -256,7 +258,7 @@ func (i *FileInput) emit() {
 		}
 	}
 
-	log.Printf("FileInput: end of file '%s'\n", i.path)
+	Debug(0, fmt.Sprintf("[INPUT-FILE] FileInput: end of file '%s'\n", i.path))
 
 }
 

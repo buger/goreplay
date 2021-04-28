@@ -12,8 +12,8 @@ func TestPluginsRegistration(t *testing.T) {
 
 	plugins := NewPlugins()
 
-	if len(plugins.Inputs) != 2 {
-		t.Errorf("Should be 2 inputs %d", len(plugins.Inputs))
+	if len(plugins.Inputs) != 3 {
+		t.Errorf("Should be 3 inputs got %d", len(plugins.Inputs))
 	}
 
 	if _, ok := plugins.Inputs[0].(*DummyInput); !ok {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -12,9 +13,8 @@ import (
 	"github.com/buger/goreplay/proto"
 )
 
-// KafkaConfig should contains required information to
+// InputKafkaConfig should contains required information to
 // build producers.
-
 type InputKafkaConfig struct {
 	producer sarama.AsyncProducer
 	consumer sarama.Consumer
@@ -23,6 +23,7 @@ type InputKafkaConfig struct {
 	UseJSON  bool   `json:"input-kafka-json-format"`
 }
 
+// OutputKafkaConfig is the representation of kfka output configuration
 type OutputKafkaConfig struct {
 	producer sarama.AsyncProducer
 	consumer sarama.Consumer
@@ -34,8 +35,8 @@ type OutputKafkaConfig struct {
 // KafkaTLSConfig should contains TLS certificates for connecting to secured Kafka clusters
 type KafkaTLSConfig struct {
 	CACert     string `json:"kafka-tls-ca-cert"`
-	clientCert string `json:"kafka-tls-client-cert"`
-	clientKey  string `json:"kafka-tls-client-key"`
+	ClientCert string `json:"kafka-tls-client-cert"`
+	ClientKey  string `json:"kafka-tls-client-key"`
 }
 
 // KafkaMessage should contains catched request information that should be
@@ -50,36 +51,45 @@ type KafkaMessage struct {
 	ReqHeaders map[string]string `json:"Req_Headers,omitempty"`
 }
 
+
 // NewTLSConfig loads TLS certificates
 func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config, error) {
 	tlsConfig := tls.Config{}
 
+	if clientCertFile != "" && clientKeyFile == "" {
+		return &tlsConfig, errors.New("Missing key of client certificate in kafka")
+	}
+	if clientCertFile == "" && clientKeyFile != "" {
+		return &tlsConfig, errors.New("missing TLS client certificate in kafka")
+	}
 	// Load client cert
-	cert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
-	if err != nil {
-		return &tlsConfig, err
+	if  (clientCertFile != "") && (clientKeyFile != "") {
+		cert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
+		if err != nil {
+			return &tlsConfig, err
+		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
 	}
-	tlsConfig.Certificates = []tls.Certificate{cert}
-
 	// Load CA cert
-	caCert, err := ioutil.ReadFile(caCertFile)
-	if err != nil {
-		return &tlsConfig, err
+	if caCertFile != "" {
+		caCert, err := ioutil.ReadFile(caCertFile)
+		if err != nil {
+			return &tlsConfig, err
+		}
+		caCertPool := x509.NewCertPool()
+		caCertPool.AppendCertsFromPEM(caCert)
+		tlsConfig.RootCAs = caCertPool
 	}
-	caCertPool := x509.NewCertPool()
-	caCertPool.AppendCertsFromPEM(caCert)
-	tlsConfig.RootCAs = caCertPool
-
-	return &tlsConfig, err
+	return &tlsConfig, nil
 }
 
 // NewKafkaConfig returns Kafka config with or without TLS
 func NewKafkaConfig(tlsConfig *KafkaTLSConfig) *sarama.Config {
 	config := sarama.NewConfig()
 	// Configuration options go here
-	if (tlsConfig != nil) && (tlsConfig.CACert != "") && (tlsConfig.clientCert != "") && (tlsConfig.clientKey != "") {
+	if tlsConfig != nil && (tlsConfig.ClientCert != "" || tlsConfig.CACert != "") {
 		config.Net.TLS.Enable = true
-		tlsConfig, err := NewTLSConfig(tlsConfig.clientCert, tlsConfig.clientKey, tlsConfig.CACert)
+		tlsConfig, err := NewTLSConfig(tlsConfig.ClientCert, tlsConfig.ClientKey, tlsConfig.CACert)
 		if err != nil {
 			log.Fatal(err)
 		}

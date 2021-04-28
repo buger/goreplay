@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"io"
 	"io/ioutil"
 	"log"
 	"math/big"
@@ -20,20 +19,19 @@ import (
 
 func TestTCPInput(t *testing.T) {
 	wg := new(sync.WaitGroup)
-	quit := make(chan int)
 
 	input := NewTCPInput("127.0.0.1:0", &TCPInputConfig{})
-	output := NewTestOutput(func(data []byte) {
+	output := NewTestOutput(func(*Message) {
 		wg.Done()
 	})
 
 	plugins := &InOutPlugins{
-		Inputs:  []io.Reader{input},
-		Outputs: []io.Writer{output},
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{output},
 	}
 	plugins.All = append(plugins.All, input, output)
 
-	emitter := NewEmitter(quit)
+	emitter := NewEmitter()
 	go emitter.Start(plugins, Settings.Middleware)
 
 	tcpAddr, err := net.ResolveTCPAddr("tcp", input.listener.Addr().String())
@@ -43,7 +41,6 @@ func TestTCPInput(t *testing.T) {
 	}
 
 	conn, err := net.DialTCP("tcp", nil, tcpAddr)
-
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -52,10 +49,14 @@ func TestTCPInput(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
-		conn.Write(msg)
-		conn.Write([]byte(payloadSeparator))
+		if _, err = conn.Write(msg); err == nil {
+			_, err = conn.Write(payloadSeparatorAsBytes)
+		}
+		if err != nil {
+			t.Error(err)
+			return
+		}
 	}
-
 	wg.Wait()
 	emitter.Close()
 }
@@ -99,24 +100,23 @@ func TestTCPInputSecure(t *testing.T) {
 	}()
 
 	wg := new(sync.WaitGroup)
-	quit := make(chan int)
 
 	input := NewTCPInput("127.0.0.1:0", &TCPInputConfig{
 		Secure:          true,
 		CertificatePath: serverCertPemFile.Name(),
 		KeyPath:         serverPrivPemFile.Name(),
 	})
-	output := NewTestOutput(func(data []byte) {
+	output := NewTestOutput(func(*Message) {
 		wg.Done()
 	})
 
 	plugins := &InOutPlugins{
-		Inputs:  []io.Reader{input},
-		Outputs: []io.Writer{output},
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{output},
 	}
 	plugins.All = append(plugins.All, input, output)
 
-	emitter := NewEmitter(quit)
+	emitter := NewEmitter()
 	go emitter.Start(plugins, Settings.Middleware)
 
 	conf := &tls.Config{
