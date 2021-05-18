@@ -321,5 +321,6 @@ func (c *HTTPClient) Send(data []byte) ([]byte, error) {
 	if c.config.TrackResponses {
 		return httputil.DumpResponse(resp, true)
 	}
+	_ = resp.Body.Close()
 	return nil, nil
 }
