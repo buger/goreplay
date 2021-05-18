@@ -319,19 +319,10 @@ func (l *Listener) read(handler PacketHandler) {
 				}
 			}
 
-			ticker := time.NewTicker(time.Second)
-
 			for {
 				select {
 				case <-l.quit:
 					return
-				case <-ticker.C:
-					usedMemory, totalMemory := memUsage()
-					if 100*float64(usedMemory)/float64(totalMemory) >= 95 {
-						fmt.Println("Using more memory then allowed. Enabling throttling.")
-						time.Sleep(time.Second)
-					}
-					continue
 				default:
 					data, ci, err := hndl.ZeroCopyReadPacketData()
 					if err == nil {
