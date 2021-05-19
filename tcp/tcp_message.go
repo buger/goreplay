@@ -216,17 +216,9 @@ func NewMessageParser(maxSize size.Size, messageExpire time.Duration, debugger D
 	return parser
 }
 
-var totalCounter int
-
 // Packet returns packet handler
 func (parser *MessageParser) PacketHandler(packet *Packet) {
 	parser.packets <- packet
-
-	totalCounter++
-
-	if totalCounter%10000 == 0 {
-		fmt.Println(totalCounter, len(parser.packets))
-	}
 }
 
 func (parser *MessageParser) wait() {
