@@ -48,7 +48,7 @@ type Listener struct {
 	Reading    chan bool // this channel is closed when the listener has started reading packets
 	PcapOptions
 	Engine        EngineType
-	port          uint16 // src or/and dst port
+	ports         []uint16 // src or/and dst ports
 	trackResponse bool
 
 	host string // pcap file name or interface (name, hardware addr, index or ip address)
@@ -99,11 +99,11 @@ func (eng *EngineType) String() (e string) {
 // NewListener creates and initialize a new Listener. if transport or/and engine are invalid/unsupported
 // is "tcp" and "pcap", are assumed. l.Engine and l.Transport can help to get the values used.
 // if there is an error it will be associated with getting network interfaces
-func NewListener(host string, port uint16, transport string, engine EngineType, trackResponse bool) (l *Listener, err error) {
+func NewListener(host string, ports []uint16, transport string, engine EngineType, trackResponse bool) (l *Listener, err error) {
 	l = &Listener{}
 
 	l.host = host
-	l.port = port
+	l.ports = ports
 	l.Transport = "tcp"
 	if transport != "" {
 		l.Transport = transport
@@ -176,7 +176,7 @@ func (l *Listener) Filter(ifi net.Interface) (filter string) {
 		hosts = interfaceAddresses(ifi)
 	}
 
-	filter = portsFilter(l.Transport, "dst", l.port)
+	filter = portsFilter(l.Transport, "dst", l.ports)
 
 	if len(hosts) != 0 {
 		filter = fmt.Sprintf("((%s) and (%s))", filter, hostsFilter("dst", hosts))
@@ -185,7 +185,7 @@ func (l *Listener) Filter(ifi net.Interface) (filter string) {
 	}
 
 	if l.trackResponse {
-		responseFilter := portsFilter(l.Transport, "src", l.port)
+		responseFilter := portsFilter(l.Transport, "src", l.ports)
 
 		if len(hosts) != 0 {
 			responseFilter = fmt.Sprintf("((%s) and (%s))", responseFilter, hostsFilter("src", hosts))
@@ -496,12 +496,16 @@ func listenAll(addr string) bool {
 	return false
 }
 
-func portsFilter(transport string, direction string, port uint16) string {
-	if port == 0 {
+func portsFilter(transport string, direction string, ports []uint16) string {
+	if len(ports) == 0 || ports[0] == 0 {
 		return fmt.Sprintf("%s %s portrange 0-%d", transport, direction, 1<<16-1)
 	}
 
-	return fmt.Sprintf("%s %s port %d", transport, direction, port)
+	var filters []string
+	for _, port := range ports {
+		filters = append(filters, fmt.Sprintf("%s %s port %d", transport, direction, port))
+	}
+	return strings.Join(filters, " or ")
 }
 
 func hostsFilter(direction string, hosts []string) string {

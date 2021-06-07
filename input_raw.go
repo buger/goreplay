@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -61,7 +62,7 @@ type RAWInputConfig struct {
 	Stats          bool               `json:"input-raw-stats"`
 	quit           chan bool          // Channel used only to indicate goroutine should shutdown
 	host           string
-	port           uint16
+	ports          []uint16
 }
 
 // RAWInput used for intercepting traffic for given address
@@ -81,22 +82,28 @@ func NewRAWInput(address string, config RAWInputConfig) (i *RAWInput) {
 	i.RAWInputConfig = config
 	i.message = make(chan *tcp.Message, 10000)
 	i.quit = make(chan bool)
-	var host, _port string
-	var err error
-	var port int
-	host, _port, err = net.SplitHostPort(address)
+
+	host, _ports, err := net.SplitHostPort(address)
 	if err != nil {
 		log.Fatalf("input-raw: error while parsing address: %s", err)
 	}
-	if _port != "" {
-		port, err = strconv.Atoi(_port)
+
+	var ports []uint16
+	if _ports != "" {
+		portsStr := strings.Split(_ports, ",")
+
+		for _, portStr := range portsStr {
+			port, err := strconv.Atoi(strings.TrimSpace(portStr))
+			if err != nil {
+				log.Fatalf("parsing port error: %v", err)
+			}
+			ports = append(ports, uint16(port))
+
+		}
 	}
 
-	if err != nil {
-		log.Fatalf("parsing port error: %v", err)
-	}
 	i.host = host
-	i.port = uint16(port)
+	i.ports = ports
 
 	i.listen(address)
 
@@ -141,7 +148,7 @@ func (i *RAWInput) PluginRead() (*Message, error) {
 
 func (i *RAWInput) listen(address string) {
 	var err error
-	i.listener, err = capture.NewListener(i.host, i.port, "", i.Engine, i.TrackResponse)
+	i.listener, err = capture.NewListener(i.host, i.ports, "", i.Engine, i.TrackResponse)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -172,7 +179,7 @@ func (i *RAWInput) messageEmitter(m *tcp.Message) {
 }
 
 func (i *RAWInput) String() string {
-	return fmt.Sprintf("Intercepting traffic from: %s:%d", i.host, i.port)
+	return fmt.Sprintf("Intercepting traffic from: %s:%s", i.host, strings.Join(strings.Fields(fmt.Sprint(i.ports)), ","))
 }
 
 // GetStats returns the stats so far and reset the stats
