@@ -51,7 +51,6 @@ type KafkaMessage struct {
 	ReqHeaders map[string]string `json:"Req_Headers,omitempty"`
 }
 
-
 // NewTLSConfig loads TLS certificates
 func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config, error) {
 	tlsConfig := tls.Config{}
@@ -63,7 +62,7 @@ func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config
 		return &tlsConfig, errors.New("missing TLS client certificate in kafka")
 	}
 	// Load client cert
-	if  (clientCertFile != "") && (clientKeyFile != "") {
+	if (clientCertFile != "") && (clientKeyFile != "") {
 		cert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
 		if err != nil {
 			return &tlsConfig, err
