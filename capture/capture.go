@@ -187,12 +187,16 @@ func (l *Listener) Filter(ifi net.Interface) (filter string) {
 
 		if len(hosts) != 0 {
 			filter = fmt.Sprintf("((%s) and (%s))", filter, hostsFilter("", hosts))
+		} else {
+			filter = fmt.Sprintf("(%s)", filter)
 		}
 	} else {
 		filter = portsFilter(l.Transport, "dst", l.port)
 
 		if len(hosts) != 0 {
 			filter = fmt.Sprintf("((%s) and (%s))", filter, hostsFilter("dst", hosts))
+		} else {
+			filter = fmt.Sprintf("(%s)", filter)
 		}
 
 		if l.trackResponse {
@@ -200,6 +204,8 @@ func (l *Listener) Filter(ifi net.Interface) (filter string) {
 
 			if len(hosts) != 0 {
 				responseFilter = fmt.Sprintf("((%s) and (%s))", responseFilter, hostsFilter("src", hosts))
+			} else {
+				responseFilter = fmt.Sprintf("(%s)", responseFilter)
 			}
 
 			filter = fmt.Sprintf("%s or %s", filter, responseFilter)
