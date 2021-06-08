@@ -35,6 +35,9 @@ var EmptyLine = []byte("\r\n\r\n")
 // HeaderDelim Separator for Header line. Header looks like: `HeaderName: value`
 var HeaderDelim = []byte(": ")
 
+// HeaderDelim Separator for Header line. Header looks like: `HeaderName: value`
+var PROXYV1Prefix = []byte("PROXY ")
+
 // MIMEHeadersEndPos finds end of the Headers section, which should end with empty line.
 func MIMEHeadersEndPos(payload []byte) int {
 	pos := bytes.Index(payload, EmptyLine)
@@ -48,6 +51,9 @@ func MIMEHeadersEndPos(payload []byte) int {
 // It just finds position of second line (first contains location and method).
 func MIMEHeadersStartPos(payload []byte) int {
 	pos := bytes.Index(payload, CRLF)
+  if bytes.Index(payload, PROXYV1Prefix) == 0 {
+    pos = bytes.Index(payload[(pos+2):], CRLF)
+  }
 	if pos < 0 {
 		return -1
 	}
@@ -203,10 +209,20 @@ func Path(payload []byte) []byte {
 	if !HasRequestTitle(payload) {
 		return nil
 	}
-	start := bytes.IndexByte(payload, ' ') + 1
-	end := bytes.IndexByte(payload[start:], ' ')
+	offset := -1
+  if bytes.Index(payload, PROXYV1Prefix) == 0 {
+    offset := bytes.Index(payload, CRLF)
+    if offset < 0 {
+      return nil
+    }
+    offset = offset + 2
+  } else {
+    offset = 0
+  }
+  start := bytes.IndexByte(payload[offset:], ' ') + 1
+	end := bytes.IndexByte(payload[(start+offset):], ' ')
 
-	return payload[start : start+end]
+	return payload[(start+offset) : (start+end+offset)]
 }
 
 // SetPath takes payload, sets new path and returns modified payload
@@ -214,10 +230,20 @@ func SetPath(payload, path []byte) []byte {
 	if !HasTitle(payload) {
 		return nil
 	}
-	start := bytes.IndexByte(payload, ' ') + 1
-	end := bytes.IndexByte(payload[start:], ' ')
+	offset := -1
+  if bytes.Index(payload, PROXYV1Prefix) == 0 {
+    offset = bytes.Index(payload, CRLF)
+    if offset < 0 {
+      return nil
+    }
+    offset = offset + 2
+  } else {
+    offset = 0
+  }
+  start := bytes.IndexByte(payload[offset:], ' ') + 1
+	end := bytes.IndexByte(payload[(start+offset):], ' ')
 
-	return byteutils.Replace(payload, start, start+end, path)
+	return byteutils.Replace(payload, start+offset, start+end+offset, path)
 }
 
 // PathParam returns URL query attribute by given name, if no found: valueStart will be -1
@@ -303,12 +329,22 @@ func SetHost(payload, url, host []byte) []byte {
 
 // Method returns HTTP method
 func Method(payload []byte) []byte {
-	end := bytes.IndexByte(payload, ' ')
+	offset := -1
+  if bytes.Index(payload, PROXYV1Prefix) == 0 {
+    offset := bytes.Index(payload, CRLF)
+    if offset < 0 {
+      return nil
+    }
+    offset = offset + 2
+  } else {
+    offset = 0
+  }
+  end := bytes.IndexByte(payload[offset:], ' ')
 	if end == -1 {
 		return nil
 	}
 
-	return payload[:end]
+	return payload[offset:(end+offset)]
 }
 
 // Status returns response status.
@@ -369,18 +405,24 @@ func HasResponseTitle(payload []byte) bool {
 
 // HasRequestTitle reports whether this payload has an HTTP/1 request title
 func HasRequestTitle(payload []byte) bool {
-	s := byteutils.SliceToString(payload)
+	pos := bytes.Index(payload, CRLF)
+  if bytes.Index(payload, PROXYV1Prefix) == 0 {
+    pos = pos + 2
+  } else {
+    pos = 0
+  }
+  s := byteutils.SliceToString(payload[pos:])
 	if len(s) < MinRequestCount {
 		return false
 	}
-	titleLen := bytes.Index(payload, CRLF)
+  titleLen := bytes.Index(payload[pos:], CRLF)
 	if titleLen == -1 {
 		return false
 	}
 	if strings.Count(s[:titleLen], " ") != 2 {
 		return false
 	}
-	method := string(Method(payload))
+  method := string(Method(payload[pos:]))
 	var methodFound bool
 	for _, m := range Methods {
 		if methodFound = method == m; methodFound {
