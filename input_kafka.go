@@ -9,7 +9,7 @@ import (
 	"github.com/Shopify/sarama/mocks"
 )
 
-// KafkaInput is used for recieving Kafka messages and
+// KafkaInput is used for receiving Kafka messages and
 // transforming them into HTTP payloads.
 type KafkaInput struct {
 	config    *InputKafkaConfig

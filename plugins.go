@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Message represents data accross plugins
+// Message represents data across plugins
 type Message struct {
 	Meta []byte // metadata
 	Data []byte // actual data

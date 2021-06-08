@@ -57,7 +57,7 @@ type ESRequestResponse struct {
 //
 // Proper format is: scheme://[userinfo@]host/index_name
 // userinfo is: user[:password]
-// net/url.Parse() does not fail if scheme is not provided but actualy does not
+// net/url.Parse() does not fail if scheme is not provided but actually does not
 // handle URI properly.
 // So we must 'validate' URI format to match requirements to use net/url.Parse()
 func parseURI(URI string) (err error, index string) {

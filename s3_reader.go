@@ -60,7 +60,7 @@ func NewS3ReadCloser(path string) *S3ReadCloser {
 	bucket, key := parseS3Url(path)
 	sess := session.Must(session.NewSession(awsConfig()))
 
-	log.Println("[S3 Input] S3 connection succesfully initialized", path)
+	log.Println("[S3 Input] S3 connection successfully initialized", path)
 
 	return &S3ReadCloser{
 		bucket: bucket,

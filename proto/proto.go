@@ -198,7 +198,7 @@ func Body(payload []byte) []byte {
 	return payload[pos:]
 }
 
-// Path takes payload and retuns request path: Split(firstLine, ' ')[1]
+// Path takes payload and returns request path: Split(firstLine, ' ')[1]
 func Path(payload []byte) []byte {
 	if !HasRequestTitle(payload) {
 		return nil
