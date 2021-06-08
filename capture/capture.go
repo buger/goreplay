@@ -173,25 +173,37 @@ func (l *Listener) ListenBackground(ctx context.Context, handler PacketHandler) 
 func (l *Listener) Filter(ifi net.Interface) (filter string) {
 	// https://www.tcpdump.org/manpages/pcap-filter.7.html
 
-	filter = portsFilter(l.Transport, "dst", l.port)
-
 	hosts := []string{l.host}
 	if listenAll(l.host) || isDevice(l.host, ifi) {
 		hosts = interfaceAddresses(ifi)
 	}
 
-	if len(hosts) != 0 {
-		filter = fmt.Sprintf("((%s) and (%s))", filter, hostsFilter("dst", hosts))
-	}
-
-	if l.trackResponse {
-		responseFilter := portsFilter(l.Transport, "src", l.port)
-
-		if len(hosts) != 0 {
-			responseFilter = fmt.Sprintf("((%s) and (%s))", responseFilter, hostsFilter("src", hosts))
+	if l.trackOutbound {
+		if l.trackResponse {
+			filter = portsFilter(l.Transport, "", l.port)
+		} else {
+			filter = portsFilter(l.Transport, "dst", l.port)
 		}
 
-		filter = fmt.Sprintf("%s or %s", filter, responseFilter)
+		if len(hosts) != 0 {
+			filter = fmt.Sprintf("((%s) and (%s))", filter, hostsFilter("", hosts))
+		}
+	} else {
+		filter = portsFilter(l.Transport, "dst", l.port)
+
+		if len(hosts) != 0 {
+			filter = fmt.Sprintf("((%s) and (%s))", filter, hostsFilter("dst", hosts))
+		}
+
+		if l.trackResponse {
+			responseFilter := portsFilter(l.Transport, "src", l.port)
+
+			if len(hosts) != 0 {
+				responseFilter = fmt.Sprintf("((%s) and (%s))", responseFilter, hostsFilter("src", hosts))
+			}
+
+			filter = fmt.Sprintf("%s or %s", filter, responseFilter)
+		}
 	}
 
 	return
@@ -495,18 +507,27 @@ func listenAll(addr string) bool {
 }
 
 func portsFilter(transport string, direction string, port uint16) string {
-	if port == 0 {
-		return fmt.Sprintf("%s %s portrange 0-%d", transport, direction, 1<<16-1)
+	if direction != "" {
+		direction = fmt.Sprintf("%s ", direction)
 	}
 
-	return fmt.Sprintf("%s %s port %d", transport, direction, port)
+	if port == 0 {
+		return fmt.Sprintf("%s %sportrange 0-%d", transport, direction, 1<<16-1)
+	}
+
+	return fmt.Sprintf("%s %sport %d", transport, direction, port)
 }
 
 func hostsFilter(direction string, hosts []string) string {
+	if direction != "" {
+		direction = fmt.Sprintf("%s ", direction)
+	}
+
 	var hostsFilters []string
 	for _, host := range hosts {
-		hostsFilters = append(hostsFilters, fmt.Sprintf("%s host %s", direction, host))
+		hostsFilters = append(hostsFilters, fmt.Sprintf("%shost %s", direction, host))
 	}
+
 	return strings.Join(hostsFilters, " or ")
 }
 
