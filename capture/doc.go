@@ -8,7 +8,7 @@ BPF filters can also be applied.
 example:
 
 // for the transport should be "tcp"
-listener, err := capture.NewListener(host, port, transport, engine, trackResponse)
+listener, err := capture.NewListener(host, port, transport, engine, trackResponse, trackOutbound)
 if err != nil {
 	// handle error
 }

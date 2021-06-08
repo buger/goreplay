@@ -45,6 +45,7 @@ func TestRAWInputIPv4(t *testing.T) {
 		Expire:        0,
 		Protocol:      ProtocolHTTP,
 		TrackResponse: true,
+		TrackOutbound: true,
 		RealIPHeader:  "X-Real-IP",
 	}
 	input := NewRAWInput(listener.Addr().String(), conf)
@@ -110,6 +111,7 @@ func TestRAWInputNoKeepAlive(t *testing.T) {
 		Expire:        testRawExpire,
 		Protocol:      ProtocolHTTP,
 		TrackResponse: true,
+		TrackOutbound: true,
 	}
 	input := NewRAWInput(":"+port, conf)
 	var respCounter, reqCounter int64
@@ -175,6 +177,7 @@ func TestRAWInputIPv6(t *testing.T) {
 		Engine:        capture.EnginePcap,
 		Protocol:      ProtocolHTTP,
 		TrackResponse: true,
+		TrackOutbound: true,
 	}
 	input := NewRAWInput(originAddr, conf)
 
@@ -232,6 +235,7 @@ func TestInputRAWChunkedEncoding(t *testing.T) {
 		Expire:        time.Second,
 		Protocol:      ProtocolHTTP,
 		TrackResponse: true,
+		TrackOutbound: true,
 	}
 	input := NewRAWInput(originAddr, conf)
 
@@ -311,6 +315,7 @@ func BenchmarkRAWInputWithReplay(b *testing.B) {
 		Expire:        testRawExpire,
 		Protocol:      ProtocolHTTP,
 		TrackResponse: true,
+		TrackOutbound: true,
 	}
 	input := NewRAWInput(originAddr, conf)
 

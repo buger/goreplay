@@ -56,6 +56,7 @@ type RAWInputConfig struct {
 	CopyBufferSize size.Size          `json:"copy-buffer-size"`
 	Engine         capture.EngineType `json:"input-raw-engine"`
 	TrackResponse  bool               `json:"input-raw-track-response"`
+	TrackOutbound  bool               `json:"input-raw-track-outbound"`
 	Protocol       TCPProtocol        `json:"input-raw-protocol"`
 	RealIPHeader   string             `json:"input-raw-realip-header"`
 	Stats          bool               `json:"input-raw-stats"`
@@ -141,7 +142,7 @@ func (i *RAWInput) PluginRead() (*Message, error) {
 
 func (i *RAWInput) listen(address string) {
 	var err error
-	i.listener, err = capture.NewListener(i.host, i.port, "", i.Engine, i.TrackResponse)
+	i.listener, err = capture.NewListener(i.host, i.port, "", i.Engine, i.TrackResponse, i.TrackOutbound)
 	if err != nil {
 		log.Fatal(err)
 	}

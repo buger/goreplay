@@ -84,7 +84,7 @@ func TestPcapDump(t *testing.T) {
 
 func testPcapDumpEngine(f string, t *testing.T) {
 	defer os.Remove(f)
-	l, err := NewListener(f, 8000, "", EnginePcapFile, true)
+	l, err := NewListener(f, 8000, "", EnginePcapFile, true, true)
 	err = l.Activate()
 	if err != nil {
 		t.Errorf("expected error to be nil, got %q", err)
@@ -109,7 +109,7 @@ func testPcapDumpEngine(f string, t *testing.T) {
 }
 
 func TestPcapHandler(t *testing.T) {
-	l, err := NewListener(LoopBack.Name, 8000, "", EnginePcap, true)
+	l, err := NewListener(LoopBack.Name, 8000, "", EnginePcap, true, true)
 	if err != nil {
 		t.Errorf("expected error to be nil, got %v", err)
 		return
@@ -186,7 +186,7 @@ func BenchmarkPcapFile(b *testing.B) {
 	f.Close()
 	b.ResetTimer()
 	var l *Listener
-	l, err = NewListener(name, 8000, "", EnginePcapFile, true)
+	l, err = NewListener(name, 8000, "", EnginePcapFile, true, true)
 	if err != nil {
 		b.Error(err)
 		return
@@ -232,7 +232,7 @@ func BenchmarkPcap(b *testing.B) {
 	var err error
 	n := new(int32)
 	counter := new(int32)
-	l, err := NewListener(LoopBack.Name, 8000, "", EnginePcap, false)
+	l, err := NewListener(LoopBack.Name, 8000, "", EnginePcap, false, true)
 	if err != nil {
 		b.Error(err)
 		return
@@ -274,7 +274,7 @@ func BenchmarkRawSocket(b *testing.B) {
 	var err error
 	n := new(int32)
 	counter := new(int32)
-	l, err := NewListener(LoopBack.Name, 8000, "", EngineRawSocket, false)
+	l, err := NewListener(LoopBack.Name, 8000, "", EngineRawSocket, false, true)
 	if err != nil {
 		b.Error(err)
 		return

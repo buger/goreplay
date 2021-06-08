@@ -50,6 +50,7 @@ type Listener struct {
 	Engine        EngineType
 	port          uint16 // src or/and dst port
 	trackResponse bool
+	trackOutbound bool
 
 	host string // pcap file name or interface (name, hardware addr, index or ip address)
 
@@ -99,7 +100,7 @@ func (eng *EngineType) String() (e string) {
 // NewListener creates and initialize a new Listener. if transport or/and engine are invalid/unsupported
 // is "tcp" and "pcap", are assumed. l.Engine and l.Transport can help to get the values used.
 // if there is an error it will be associated with getting network interfaces
-func NewListener(host string, port uint16, transport string, engine EngineType, trackResponse bool) (l *Listener, err error) {
+func NewListener(host string, port uint16, transport string, engine EngineType, trackResponse bool, trackOutbound bool) (l *Listener, err error) {
 	l = &Listener{}
 
 	l.host = host
@@ -110,6 +111,7 @@ func NewListener(host string, port uint16, transport string, engine EngineType, 
 	}
 	l.Handles = make(map[string]gopacket.ZeroCopyPacketDataSource)
 	l.trackResponse = trackResponse
+	l.trackOutbound = trackOutbound
 	l.closeDone = make(chan struct{})
 	l.quit = make(chan struct{})
 	l.Reading = make(chan bool)

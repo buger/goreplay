@@ -128,6 +128,7 @@ func init() {
 	// input raw flags
 	flag.Var(&Settings.InputRAW, "input-raw", "Capture traffic from given port (use RAW sockets and require *sudo* access):\n\t# Capture traffic from 8080 port\n\tgor --input-raw :8080 --output-http staging.com")
 	flag.BoolVar(&Settings.TrackResponse, "input-raw-track-response", false, "If turned on Gor will track responses in addition to requests, and they will be available to middleware and file output.")
+	flag.BoolVar(&Settings.TrackOutbound, "input-raw-track-outbound", false, "If turned on Gor will track outbound traffic.")
 	flag.Var(&Settings.Engine, "input-raw-engine", "Intercept traffic using `libpcap` (default), `raw_socket` or `pcap_file`")
 	flag.Var(&Settings.Protocol, "input-raw-protocol", "Specify application protocol of intercepted traffic. Possible values: http, binary")
 	flag.StringVar(&Settings.RealIPHeader, "input-raw-realip-header", "", "If not blank, injects header with given name and real IP value to the request payload. Usually this header should be named: X-Real-IP")
