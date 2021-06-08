@@ -217,7 +217,7 @@ func (sock *SockRaw) SetBPFFilter(expr string) error {
 	return unix.SetsockoptSockFprog(sock.fd, unix.SOL_SOCKET, unix.SO_ATTACH_FILTER, fprog)
 }
 
-// SetPromiscuous sets promiscous mode to the required value. for better result capture on all interfaces instead.
+// SetPromiscuous sets promiscuous mode to the required value. for better result capture on all interfaces instead.
 // If it is enabled, traffic not destined for the interface will also be captured.
 func (sock *SockRaw) SetPromiscuous(b bool) error {
 	sock.mu.Lock()
