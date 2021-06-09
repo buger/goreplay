@@ -10,6 +10,7 @@ import (
 	"os"
 	"runtime"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/buger/goreplay/size"
@@ -18,7 +19,6 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
-	"golang.org/x/sys/unix"
 )
 
 // PacketHandler is a function that is used to handle packets
@@ -335,7 +335,7 @@ func (l *Listener) read(handler PacketHandler) {
 					if enext, ok := err.(pcap.NextError); ok && enext == pcap.NextErrorTimeoutExpired {
 						continue
 					}
-					if eno, ok := err.(unix.Errno); ok && eno.Temporary() {
+					if eno, ok := err.(syscall.Errno); ok && eno.Temporary() {
 						continue
 					}
 					if enet, ok := err.(*net.OpError); ok && (enet.Temporary() || enet.Timeout()) {

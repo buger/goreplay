@@ -23,7 +23,7 @@ FPMCOMMON= \
     -s dir \
     -C /tmp/gor-build \
 
-release: release-x64 release-mac
+release: release-x64 release-mac release-windows
 
 release-bin:
 	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i $(CONTAINER) go build -o $(BIN_NAME) -tags netgo $(LDFLAGS)
@@ -58,11 +58,25 @@ release-mac:
 	fpm $(FPMCOMMON) -a amd64 -t osxpkg ./=/usr/local/bin
 	rm -rf /tmp/gor-build
 
+release-windows:
+	echo $(pwd)
+	docker run -it --rm \
+	  -v `pwd`:/go/src/github.com/buger/goreplay \
+	  -w /go/src/github.com/buger/goreplay \
+	  -e CGO_ENABLED=1 \
+	  docker.elastic.co/beats-dev/golang-crossbuild:1.16.4-main \
+	  --build-cmd "VERSION=make build" \
+	  -p "windows/amd64"
+
+	mv ./gor ./gor-$(VERSION)$(PREFIX).exe
+
+build:
+	go build -o $(BIN_NAME) $(LDFLAGS)
 
 install:
 	go install $(MAC_LDFLAGS)
 
-build:
+build-env:
 	docker build -t $(CONTAINER) -f Dockerfile.dev .
 
 profile:

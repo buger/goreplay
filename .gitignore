@@ -3,6 +3,7 @@
 *.rpm
 *.dep
 *.pkg
+*.exe
 
 *.out
 
