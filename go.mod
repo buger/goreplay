@@ -1,6 +1,6 @@
 module github.com/buger/goreplay
 
-go 1.14
+go 1.15
 
 require (
 	github.com/Shopify/sarama v1.26.4
@@ -11,7 +11,6 @@ require (
 	github.com/google/gopacket v1.1.18
 	github.com/klauspost/compress v1.10.10 // indirect
 	github.com/mattbaird/elastigo v0.0.0-20170123220020-2fe47fd29e4b
-	github.com/pbnjay/memory v0.0.0-20201129165224-b12e5d931931
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
 	github.com/smartystreets/goconvey v1.6.4 // indirect

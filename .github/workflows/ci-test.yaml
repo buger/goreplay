@@ -4,7 +4,7 @@ jobs:
   test:
     strategy:
       matrix:
-        go-version: [1.14.x, 1.15.x] # two latest minor versions
+        go-version: [1.15.x, 1.16.x] # two latest minor versions
     runs-on: ubuntu-latest
     steps:
     - name: update package index
