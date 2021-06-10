@@ -43,7 +43,7 @@ type Listener struct {
 	Transport  string       // transport layer default to tcp
 	Activate   func() error // function is used to activate the engine. it must be called before reading packets
 	Handles    map[string]gopacket.ZeroCopyPacketDataSource
-	Interfaces []net.Interface
+	Interfaces []pcap.Interface
 	loopIndex  int
 	Reading    chan bool // this channel is closed when the listener has started reading packets
 	PcapOptions
@@ -103,6 +103,10 @@ func NewListener(host string, port uint16, transport string, engine EngineType, 
 	l = &Listener{}
 
 	l.host = host
+	if l.host == "localhost" {
+		l.host = "127.0.0.1"
+	}
+
 	l.port = port
 	l.Transport = "tcp"
 	if transport != "" {
@@ -125,6 +129,7 @@ func NewListener(host string, port uint16, transport string, engine EngineType, 
 		l.Activate = l.activatePcapFile
 		return
 	}
+
 	err = l.setInterfaces()
 	if err != nil {
 		return nil, err
@@ -168,7 +173,7 @@ func (l *Listener) ListenBackground(ctx context.Context, handler PacketHandler) 
 
 // Filter returns automatic filter applied by goreplay
 // to a pcap handle of a specific interface
-func (l *Listener) Filter(ifi net.Interface) (filter string) {
+func (l *Listener) Filter(ifi pcap.Interface) (filter string) {
 	// https://www.tcpdump.org/manpages/pcap-filter.7.html
 
 	hosts := []string{l.host}
@@ -218,7 +223,7 @@ func (l *Listener) Filter(ifi net.Interface) (filter string) {
 
 // PcapHandle returns new pcap Handle from dev on success.
 // this function should be called after setting all necessary options for this listener
-func (l *Listener) PcapHandle(ifi net.Interface) (handle *pcap.Handle, err error) {
+func (l *Listener) PcapHandle(ifi pcap.Interface) (handle *pcap.Handle, err error) {
 	var inactive *pcap.InactiveHandle
 	inactive, err = pcap.NewInactiveHandle(ifi.Name)
 	if err != nil {
@@ -243,12 +248,22 @@ func (l *Listener) PcapHandle(ifi net.Interface) (handle *pcap.Handle, err error
 			return nil, fmt.Errorf("monitor mode error: %q, interface: %q", err, ifi.Name)
 		}
 	}
+
 	var snap int
-	if l.Snaplen {
-		snap = 64<<10 + 200
-	} else if ifi.MTU > 0 {
-		snap = ifi.MTU + 200
+
+	if !l.Snaplen {
+		infs, _ := net.Interfaces()
+		for _, i := range infs {
+			if i.Name == ifi.Name {
+				snap = i.MTU + 200
+			}
+		}
 	}
+
+	if snap == 0 {
+		snap = 64<<10 + 200
+	}
+
 	err = inactive.SetSnapLen(snap)
 	if err != nil {
 		return nil, fmt.Errorf("snapshot length error: %q, interface: %q", err, ifi.Name)
@@ -281,7 +296,7 @@ func (l *Listener) PcapHandle(ifi net.Interface) (handle *pcap.Handle, err error
 }
 
 // SocketHandle returns new unix ethernet handle associated with this listener settings
-func (l *Listener) SocketHandle(ifi net.Interface) (handle Socket, err error) {
+func (l *Listener) SocketHandle(ifi pcap.Interface) (handle Socket, err error) {
 	handle, err = NewSocket(ifi)
 	if err != nil {
 		return nil, fmt.Errorf("sock raw error: %q, interface: %q", err, ifi.Name)
@@ -418,7 +433,7 @@ func (l *Listener) activatePcapFile() (err error) {
 
 	tmp := l.host
 	l.host = ""
-	l.BPFFilter = l.Filter(net.Interface{})
+	l.BPFFilter = l.Filter(pcap.Interface{})
 	l.host = tmp
 
 	if e = handle.SetBPFFilter(l.BPFFilter); e != nil {
@@ -430,60 +445,50 @@ func (l *Listener) activatePcapFile() (err error) {
 }
 
 func (l *Listener) setInterfaces() (err error) {
-	var ifis []net.Interface
-	ifis, err = net.Interfaces()
+	var pifis []pcap.Interface
+	pifis, err = pcap.FindAllDevs()
+	ifis, _ := net.Interfaces()
 	if err != nil {
 		return
 	}
-	for i := range ifis {
-		if ifis[i].Flags&net.FlagLoopback != 0 {
-			l.loopIndex = ifis[i].Index
+	for _, pi := range pifis {
+		var ni net.Interface
+		for _, i := range ifis {
+			if i.Name == pi.Name {
+				ni = i
+				break
+			}
 		}
-		if ifis[i].Flags&net.FlagUp == 0 {
+
+		if net.Flags(pi.Flags)&net.FlagLoopback != 0 {
+			l.loopIndex = ni.Index
+		}
+		if net.Flags(pi.Flags)&net.FlagUp == 0 {
 			continue
 		}
-		if isDevice(l.host, ifis[i]) {
-			l.Interfaces = []net.Interface{ifis[i]}
+		if isDevice(l.host, pi) {
+			l.Interfaces = []pcap.Interface{pi}
 			return
 		}
-		addrs, e := ifis[i].Addrs()
-		if e != nil {
-			// don't give up on a failure from a single interface
-			continue
-		}
-		for _, addr := range addrs {
-			if cutMask(addr) == l.host {
-				l.Interfaces = []net.Interface{ifis[i]}
+		for _, addr := range pi.Addresses {
+			if addr.IP.String() == l.host {
+				l.Interfaces = []pcap.Interface{pi}
 				return
 			}
 		}
 	}
-	l.Interfaces = ifis
+	l.Interfaces = pifis
 	return
 }
 
-func cutMask(addr net.Addr) string {
-	mask := addr.String()
-	for i, v := range mask {
-		if v == '/' {
-			return mask[:i]
-		}
-	}
-	return mask
+func isDevice(addr string, ifi pcap.Interface) bool {
+	return addr == ifi.Name
 }
 
-func isDevice(addr string, ifi net.Interface) bool {
-	return addr == ifi.Name || addr == fmt.Sprintf("%d", ifi.Index) || (addr != "" && addr == ifi.HardwareAddr.String())
-}
-
-func interfaceAddresses(ifi net.Interface) []string {
+func interfaceAddresses(ifi pcap.Interface) []string {
 	var hosts []string
-	if addrs, err := ifi.Addrs(); err == nil {
-		for _, addr := range addrs {
-			if ip := addr.(*net.IPNet).IP.To16(); ip != nil {
-				hosts = append(hosts, ip.String())
-			}
-		}
+	for _, addr := range ifi.Addresses {
+		hosts = append(hosts, addr.IP.String())
 	}
 	return hosts
 }

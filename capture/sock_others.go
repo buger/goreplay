@@ -4,10 +4,11 @@ package capture
 
 import (
 	"errors"
-	"net"
+
+	"github.com/google/gopacket/pcap"
 )
 
 // NewSocket returns new M'maped sock_raw on packet version 2.
-func NewSocket(_ net.Interface) (Socket, error) {
+func NewSocket(_ pcap.Interface) (Socket, error) {
 	return nil, errors.New("afpacket socket is only available on linux")
 }

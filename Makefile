@@ -59,16 +59,16 @@ release-mac:
 	rm -rf /tmp/gor-build
 
 release-windows:
-	echo $(pwd)
 	docker run -it --rm \
 	  -v `pwd`:/go/src/github.com/buger/goreplay \
 	  -w /go/src/github.com/buger/goreplay \
 	  -e CGO_ENABLED=1 \
 	  docker.elastic.co/beats-dev/golang-crossbuild:1.16.4-main \
-	  --build-cmd "VERSION=make build" \
+	  --build-cmd "make VERSION=$(VERSION) build" \
 	  -p "windows/amd64"
-
-	mv ./gor ./gor-$(VERSION)$(PREFIX).exe
+	mv ./gor ./gor.exe
+	zip gor-$(VERSION)$(PREFIX)_windows.zip ./gor.exe
+	rm -rf ./gor.exe
 
 build:
 	go build -o $(BIN_NAME) $(LDFLAGS)

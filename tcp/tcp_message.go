@@ -3,6 +3,7 @@ package tcp
 import (
 	"encoding/binary"
 	"encoding/hex"
+	_ "fmt"
 	"sort"
 	"time"
 
@@ -112,11 +113,7 @@ func (m *Message) MissingChunk() bool {
 }
 
 func (m *Message) PacketData() [][]byte {
-	var totalLen int
-	for _, p := range m.packets {
-		totalLen += len(p.Payload)
-	}
-	tmp := make([][]byte, totalLen)
+	tmp := make([][]byte, len(m.packets))
 
 	for i, p := range m.packets {
 		tmp[i] = p.Payload

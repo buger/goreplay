@@ -44,7 +44,23 @@ type SockRaw struct {
 }
 
 // NewSocket returns new M'maped sock_raw on packet version 2.
-func NewSocket(ifi net.Interface) (*SockRaw, error) {
+func NewSocket(pifi pcap.Interface) (*SockRaw, error) {
+	var ifi net.Interface
+
+	infs, _ := net.Interfaces()
+	found := false
+	for _, i := range infs {
+		if i.Name == pifi.Name {
+			ifi = i
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return nil, fmt.Errorf("Can't find matching interface")
+	}
+
 	// sock create
 	fd, err := unix.Socket(unix.AF_PACKET, unix.SOCK_RAW, int(ETHALL))
 	if err != nil {
