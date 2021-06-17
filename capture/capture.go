@@ -461,10 +461,10 @@ func (l *Listener) setInterfaces() (err error) {
 			}
 		}
 
-		if net.Flags(pi.Flags)&net.FlagLoopback != 0 {
+		if ni.Flags&net.FlagLoopback != 0 {
 			l.loopIndex = ni.Index
 		}
-		if net.Flags(pi.Flags)&net.FlagUp == 0 {
+		if ni.Flags&net.FlagUp == 0 {
 			continue
 		}
 
