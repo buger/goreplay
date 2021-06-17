@@ -451,6 +451,7 @@ func (l *Listener) setInterfaces() (err error) {
 	if err != nil {
 		return
 	}
+
 	for _, pi := range pifis {
 		var ni net.Interface
 		for _, i := range ifis {
@@ -466,23 +467,31 @@ func (l *Listener) setInterfaces() (err error) {
 		if net.Flags(pi.Flags)&net.FlagUp == 0 {
 			continue
 		}
+
 		if isDevice(l.host, pi) {
 			l.Interfaces = []pcap.Interface{pi}
 			return
 		}
-		for _, addr := range pi.Addresses {
-			if addr.IP.String() == l.host {
-				l.Interfaces = []pcap.Interface{pi}
-				return
-			}
+
+		if len(pi.Addresses) != 0 {
+			l.Interfaces = append(l.Interfaces, pi)
 		}
 	}
-	l.Interfaces = pifis
 	return
 }
 
 func isDevice(addr string, ifi pcap.Interface) bool {
-	return addr == ifi.Name
+	if addr == ifi.Name {
+		return true
+	}
+
+	for _, _addr := range ifi.Addresses {
+		if _addr.IP.String() == addr {
+			return true
+		}
+	}
+
+	return false
 }
 
 func interfaceAddresses(ifi pcap.Interface) []string {
