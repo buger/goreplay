@@ -65,6 +65,7 @@ const (
 	EnginePcap EngineType = 1 << iota
 	EnginePcapFile
 	EngineRawSocket
+	EngineAFPacket
 )
 
 // Set is here so that EngineType can implement flag.Var
@@ -74,8 +75,10 @@ func (eng *EngineType) Set(v string) error {
 		*eng = EnginePcap
 	case "pcap_file":
 		*eng = EnginePcapFile
-	case "raw_socket", "af_packet":
+	case "raw_socket":
 		*eng = EngineRawSocket
+	case "af_packet":
+		*eng = EngineAFPacket
 	default:
 		return fmt.Errorf("invalid engine %s", v)
 	}
@@ -90,6 +93,8 @@ func (eng *EngineType) String() (e string) {
 		e = "libpcap"
 	case EngineRawSocket:
 		e = "raw_socket"
+	case EngineAFPacket:
+		e = "af_packet"
 	default:
 		e = ""
 	}
@@ -124,6 +129,9 @@ func NewListener(host string, ports []uint16, transport string, engine EngineTyp
 	case EngineRawSocket:
 		l.Engine = EngineRawSocket
 		l.Activate = l.activateRawSocket
+	case EngineAFPacket:
+		l.Engine = EngineAFPacket
+		l.Activate = l.activateAFPacket
 	case EnginePcapFile:
 		l.Engine = EnginePcapFile
 		l.Activate = l.activatePcapFile
@@ -425,6 +433,35 @@ func (l *Listener) activatePcapFile() (err error) {
 	}
 	l.Handles["pcap_file"] = handle
 	return
+}
+
+func (l *Listener) activateAFPacket() error {
+	szFrame, szBlock, numBlocks, err := afpacketComputeSize(32, 32<<10, os.Getpagesize())
+	if err != nil {
+		return err
+	}
+
+	var msg string
+	for _, ifi := range l.Interfaces {
+		handle, err := newAfpacketHandle(ifi.Name, szFrame, szBlock, numBlocks, false, pcap.BlockForever)
+
+		if err != nil {
+			msg += ("\n" + err.Error())
+			continue
+		}
+
+		l.BPFFilter = l.Filter(ifi)
+		fmt.Println("Interface:", ifi.Name, ". BPF Filter:", l.BPFFilter)
+		handle.SetBPFFilter(l.BPFFilter, 64<<10)
+
+		l.Handles[ifi.Name] = handle
+	}
+
+	if len(l.Handles) == 0 {
+		return fmt.Errorf("pcap handles error:%s", msg)
+	}
+
+	return nil
 }
 
 func (l *Listener) setInterfaces() (err error) {
