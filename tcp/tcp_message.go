@@ -3,6 +3,7 @@ package tcp
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	_ "fmt"
 	"sort"
 	"time"
@@ -267,6 +268,8 @@ func (parser *MessageParser) processPacket(pckt *Packet) {
 
 	m = new(Message)
 	m.IsRequest = in
+	m.SrcAddr = fmt.Sprintf("%s:%d", pckt.SrcIP, pckt.SrcPort)
+	m.DstAddr = fmt.Sprintf("%s:%d", pckt.DstIP, pckt.DstPort)
 	parser.m[pckt.MessageID()] = m
 	m.Start = pckt.Timestamp
 	m.parser = parser
