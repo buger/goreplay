@@ -184,23 +184,27 @@ type MessageParser struct {
 	maxSize size.Size // maximum message size, default 5mb
 	m       map[uint64]*Message
 
-	messageExpire time.Duration // the maximum time to wait for the final packet, minimum is 100ms
-	End           HintEnd
-	Start         HintStart
-	ticker        *time.Ticker
-	messages      chan *Message
-	packets       chan *Packet
-	close         chan struct{} // to signal that we are able to close
+	messageExpire  time.Duration // the maximum time to wait for the final packet, minimum is 100ms
+	allowIncompete bool
+	End            HintEnd
+	Start          HintStart
+	ticker         *time.Ticker
+	messages       chan *Message
+	packets        chan *Packet
+	close          chan struct{} // to signal that we are able to close
 }
 
 // NewMessageParser returns a new instance of message parser
-func NewMessageParser(maxSize size.Size, messageExpire time.Duration, debugger Debugger) (parser *MessageParser) {
+func NewMessageParser(maxSize size.Size, messageExpire time.Duration, allowIncompete bool, debugger Debugger) (parser *MessageParser) {
 	parser = new(MessageParser)
 	parser.debug = debugger
-	parser.messageExpire = time.Millisecond * 100
-	if parser.messageExpire < messageExpire {
-		parser.messageExpire = messageExpire
+
+	parser.messageExpire = messageExpire
+	if parser.messageExpire == 0 {
+		parser.messageExpire = time.Millisecond * 500
 	}
+
+	parser.allowIncompete = allowIncompete
 	parser.maxSize = maxSize
 	if parser.maxSize < 1 {
 		parser.maxSize = 5 << 20
@@ -223,8 +227,6 @@ func (parser *MessageParser) PacketHandler(packet *Packet) {
 	packetLen++
 	parser.packets <- packet
 }
-
-var processedPackets int
 
 func (parser *MessageParser) wait() {
 	var (
@@ -271,6 +273,8 @@ func (parser *MessageParser) processPacket(pckt *Packet) {
 			}
 			return
 		}
+	default:
+		in = pckt.Incoming
 	}
 
 	m = new(Message)
@@ -288,21 +292,27 @@ func (parser *MessageParser) addPacket(m *Message, pckt *Packet) {
 		pckt.Payload = pckt.Payload[:int(parser.maxSize)-m.Length]
 	}
 	m.add(pckt)
-	switch {
-	// if one of this cases matches, we dispatch the message
-	case trunc >= 0:
-	case parser.End != nil && parser.End(m):
-	default:
-		// continue to receive packets
+
+	if trunc > 0 {
 		return
 	}
 
-	parser.Emit(m)
+	// If we are using protocol parsing, like HTTP, depend on its parsing func.
+	// For the binary procols wait for message to expire
+	if parser.End != nil {
+		if parser.End(m) {
+			parser.Emit(m)
+		}
+	}
 }
 
 func (parser *MessageParser) Read() *Message {
 	m := <-parser.messages
 	return m
+}
+
+func (parser *MessageParser) Messages() chan *Message {
+	return parser.messages
 }
 
 func (parser *MessageParser) Emit(m *Message) {
@@ -321,7 +331,13 @@ func (parser *MessageParser) timer(now time.Time) {
 	for _, m := range parser.m {
 		if now.Sub(m.End) > parser.messageExpire {
 			m.TimedOut = true
-			parser.Emit(m)
+			if parser.End == nil || parser.allowIncompete {
+				parser.Emit(m)
+			} else {
+				// Just remove
+				delete(parser.m, m.packets[0].MessageID())
+				m.Finalize()
+			}
 		}
 	}
 }

@@ -53,16 +53,17 @@ func (protocol *TCPProtocol) String() string {
 // RAWInputConfig represents configuration that can be applied on raw input
 type RAWInputConfig struct {
 	capture.PcapOptions
-	Expire         time.Duration      `json:"input-raw-expire"`
-	CopyBufferSize size.Size          `json:"copy-buffer-size"`
-	Engine         capture.EngineType `json:"input-raw-engine"`
-	TrackResponse  bool               `json:"input-raw-track-response"`
-	Protocol       TCPProtocol        `json:"input-raw-protocol"`
-	RealIPHeader   string             `json:"input-raw-realip-header"`
-	Stats          bool               `json:"input-raw-stats"`
-	quit           chan bool          // Channel used only to indicate goroutine should shutdown
-	host           string
-	ports          []uint16
+	Expire          time.Duration      `json:"input-raw-expire"`
+	CopyBufferSize  size.Size          `json:"copy-buffer-size"`
+	Engine          capture.EngineType `json:"input-raw-engine"`
+	TrackResponse   bool               `json:"input-raw-track-response"`
+	Protocol        TCPProtocol        `json:"input-raw-protocol"`
+	RealIPHeader    string             `json:"input-raw-realip-header"`
+	Stats           bool               `json:"input-raw-stats"`
+	AllowIncomplete bool               `json:"input-raw-allow-incomplete"`
+	quit            chan bool          // Channel used only to indicate goroutine should shutdown
+	host            string
+	ports           []uint16
 }
 
 // RAWInput used for intercepting traffic for given address
@@ -116,8 +117,7 @@ func (i *RAWInput) PluginRead() (*Message, error) {
 	select {
 	case <-i.quit:
 		return nil, ErrorStopped
-	default:
-		msgTCP = i.messageParser.Read()
+	case msgTCP = <-i.messageParser.Messages():
 		msg.Data = msgTCP.Data()
 	}
 
@@ -158,7 +158,7 @@ func (i *RAWInput) listen(address string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	i.messageParser = tcp.NewMessageParser(i.CopyBufferSize, i.Expire, Debug)
+	i.messageParser = tcp.NewMessageParser(i.CopyBufferSize, i.Expire, i.AllowIncomplete, Debug)
 
 	if i.Protocol == ProtocolHTTP {
 		i.messageParser.Start = http1StartHint

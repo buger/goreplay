@@ -58,6 +58,7 @@ calllers must make sure that ParsePacket has'nt returned any error before callin
 function.
 */
 type Packet struct {
+	Incoming           bool
 	messageID          uint64
 	SrcIP, DstIP       net.IP
 	Version            uint8
@@ -72,9 +73,9 @@ type Packet struct {
 }
 
 // ParsePacket parse raw packets
-func ParsePacket(data []byte, lType, lTypeLen int, cp *gopacket.CaptureInfo) (pckt *Packet, err error) {
+func ParsePacket(data []byte, lType, lTypeLen int, cp *gopacket.CaptureInfo, allowEmpty bool) (pckt *Packet, err error) {
 	pckt = packetPool.Get()
-	if err := pckt.parse(data, lType, lTypeLen, cp); err != nil {
+	if err := pckt.parse(data, lType, lTypeLen, cp, allowEmpty); err != nil {
 		packetPool.Put(pckt)
 		return nil, err
 	}
@@ -82,7 +83,7 @@ func ParsePacket(data []byte, lType, lTypeLen int, cp *gopacket.CaptureInfo) (pc
 	return pckt, nil
 }
 
-func (pckt *Packet) parse(data []byte, lType, lTypeLen int, cp *gopacket.CaptureInfo) error {
+func (pckt *Packet) parse(data []byte, lType, lTypeLen int, cp *gopacket.CaptureInfo, allowEmpty bool) error {
 	pckt.Retry = 0
 	pckt.messageID = 0
 
@@ -158,7 +159,7 @@ func (pckt *Packet) parse(data []byte, lType, lTypeLen int, cp *gopacket.Capture
 		return ErrHdrLength("TCP opts")
 	}
 
-	if len(ndata[dOf:]) == 0 {
+	if !allowEmpty && len(ndata[dOf:]) == 0 {
 		return EmptyPacket("")
 	}
 

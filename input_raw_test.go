@@ -58,6 +58,7 @@ func TestRAWInputIPv4(t *testing.T) {
 		} else {
 			respCounter++
 		}
+
 		wg.Done()
 	})
 
@@ -71,14 +72,18 @@ func TestRAWInputIPv4(t *testing.T) {
 	emitter := NewEmitter()
 	defer emitter.Close()
 	go emitter.Start(plugins, Settings.Middleware)
+
+	// time.Sleep(time.Second)
 	for i := 0; i < 1; i++ {
 		wg.Add(2)
 		_, err = http.Get(addr)
+
 		if err != nil {
 			t.Error(err)
 			return
 		}
 	}
+
 	wg.Wait()
 	const want = 10
 	if reqCounter != respCounter && reqCounter != want {
