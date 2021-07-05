@@ -18,7 +18,6 @@ import (
 
 var (
 	iface      = flag.String("i", "any", "Interface to read from")
-	cpuprofile = flag.String("cpuprofile", "", "If non-empty, write CPU profile here")
 	snaplen    = flag.Int("s", 0, "Snaplen, if <= 0, use 65535")
 	bufferSize = flag.Int("b", 8, "Interface buffersize (MB)")
 	filter     = flag.String("f", "port not 22", "BPF filter")
