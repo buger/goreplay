@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"runtime/debug"
 	"runtime/pprof"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -20,6 +21,9 @@ import (
 var (
 	cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
 	memprofile = flag.String("memprofile", "", "write memory profile to this file")
+
+	gogc       = flag.Int("go-gc", 0, "sets the garbage collection target percentage")
+	gomaxprocs = flag.Int("go-maxprocs", 0, "sets the maximum number of CPUs that can be executing simultaneously")
 )
 
 func loggingMiddleware(addr string, next http.Handler) http.Handler {
@@ -36,14 +40,6 @@ func loggingMiddleware(addr string, next http.Handler) http.Handler {
 }
 
 func main() {
-	if os.Getenv("GOMAXPROCS") == "" {
-		runtime.GOMAXPROCS(runtime.NumCPU() * 2)
-	}
-
-	if os.Getenv("GOGC") == "" {
-		debug.SetGCPercent(500)
-	}
-
 	args := os.Args[1:]
 	var plugins *InOutPlugins
 	if len(args) > 0 && args[0] == "file-server" {
@@ -65,6 +61,22 @@ func main() {
 
 	if len(plugins.Inputs) == 0 || len(plugins.Outputs) == 0 {
 		log.Fatal("Required at least 1 input and 1 output")
+	}
+
+	if *gomaxprocs != 0 {
+		runtime.GOMAXPROCS(*gomaxprocs)
+	} else if os.Getenv("GOMAXPROCS") != "" {
+		gomaxprocs, _ := strconv.Atoi(os.Getenv("GOMAXPROCS"))
+		runtime.GOMAXPROCS(gomaxprocs)
+	} else {
+		runtime.GOMAXPROCS(runtime.NumCPU() * 2)
+	}
+
+	if *gogc != 0 {
+		debug.SetGCPercent(*gogc)
+	} else if os.Getenv("GOGC") != "" {
+		gogc, _ := strconv.Atoi(os.Getenv("GOGC"))
+		debug.SetGCPercent(gogc)
 	}
 
 	if *memprofile != "" {
