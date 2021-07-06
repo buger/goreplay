@@ -4,51 +4,16 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/google/gopacket"
 )
 
-func copySlice(b, a []byte) []byte {
-	if cap(b) < len(a) {
-		b = make([]byte, len(a))
-	}
-	copy(b, a)
-	return b[:len(a)]
-}
-
-var packetPool = NewPool(10000)
-
-// Pool holds Clients.
-type Pool struct {
-	pool chan *Packet
-}
-
-// NewPool creates a new pool of Clients.
-func NewPool(max int) *Pool {
-	return &Pool{
-		pool: make(chan *Packet, max),
-	}
-}
-
-// Borrow a Client from the pool.
-func (p *Pool) Get() *Packet {
-	var c *Packet
-	select {
-	case c = <-p.pool:
-	default:
-		c = new(Packet)
-	}
-	return c
-}
-
-// Return returns a Client to the pool.
-func (p *Pool) Put(c *Packet) {
-	select {
-	case p.pool <- c:
-	default:
-		// let it go, let it go...
-	}
+var packetPool = &sync.Pool{
+	New: func() interface{} {
+		return new(Packet)
+	},
 }
 
 /*
@@ -74,7 +39,7 @@ type Packet struct {
 
 // ParsePacket parse raw packets
 func ParsePacket(data []byte, lType, lTypeLen int, cp *gopacket.CaptureInfo, allowEmpty bool) (pckt *Packet, err error) {
-	pckt = packetPool.Get()
+	pckt = packetPool.Get().(*Packet)
 	if err := pckt.parse(data, lType, lTypeLen, cp, allowEmpty); err != nil {
 		packetPool.Put(pckt)
 		return nil, err
@@ -187,7 +152,7 @@ func (pckt *Packet) parse(data []byte, lType, lTypeLen int, cp *gopacket.Capture
 	pckt.RST = transLayer[13]&0x04 != 0
 	pckt.ACK = transLayer[13]&0x10 != 0
 	pckt.Lost = uint32(cp.Length - cp.CaptureLength)
-	pckt.Payload = copySlice(pckt.Payload, ndata[dOf:])
+	pckt.Payload = ndata[dOf:]
 
 	return nil
 }

@@ -58,7 +58,7 @@ type Listener struct {
 }
 
 type packetHandle struct {
-	handler gopacket.ZeroCopyPacketDataSource
+	handler gopacket.PacketDataSource
 	ips     []net.IP
 }
 
@@ -341,7 +341,7 @@ func (l *Listener) read(handler PacketHandler) {
 				case <-l.quit:
 					return
 				default:
-					data, ci, err := hndl.handler.ZeroCopyReadPacketData()
+					data, ci, err := hndl.handler.ReadPacketData()
 					if err == nil {
 						pckt, err := tcp.ParsePacket(data, linkType, linkSize, &ci, false)
 						if err == nil {
