@@ -23,16 +23,19 @@ FPMCOMMON= \
     -s dir \
     -C /tmp/gor-build \
 
-release: release-x64 release-mac release-windows
+release: vendor release-x64 release-mac release-windows
+
+vendor:
+	go mod vendor
 
 release-bin:
-	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i $(CONTAINER) go build -o $(BIN_NAME) -tags netgo $(LDFLAGS)
+	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i $(CONTAINER) go build -mod=vendor -o $(BIN_NAME) -tags netgo $(LDFLAGS)
 
 release-bin-mac:
 	GOOS=darwin go build -o $(BIN_NAME) $(MAC_LDFLAGS)
 
 release-x64:
-	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i $(CONTAINER) go build -o $(BIN_NAME) -tags netgo $(LDFLAGS)
+	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i $(CONTAINER) go build -mod=vendor -o $(BIN_NAME) -tags netgo $(LDFLAGS)
 	tar -czf gor_$(VERSION)$(PREFIX)_x64.tar.gz $(BIN_NAME)
 	mkdir -p /tmp/gor-build
 	mv ./$(BIN_NAME) /tmp/gor-build/$(BIN_NAME)
@@ -44,12 +47,12 @@ release-x64:
 	rm -rf /tmp/gor-build
 
 release-x86:
-	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=386 -i $(CONTAINER) go build -o $(BIN_NAME) -tags netgo $(LDFLAGS)
+	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=386 -i $(CONTAINER) go build -mod=vendor -o $(BIN_NAME) -tags netgo $(LDFLAGS)
 	tar -czf gor_$(VERSION)$(PREFIX)_x86.tar.gz $(BIN_NAME)
 	rm $(BIN_NAME)
 
 release-mac:
-	go build -o $(BIN_NAME) $(MAC_LDFLAGS)
+	go build -mod=vendor -o $(BIN_NAME) $(MAC_LDFLAGS)
 	tar -czf gor_$(VERSION)$(PREFIX)_mac.tar.gz $(BIN_NAME)
 	mkdir -p /tmp/gor-build
 	mv ./$(BIN_NAME) /tmp/gor-build/$(BIN_NAME)
@@ -71,7 +74,7 @@ release-windows:
 	rm -rf ./gor.exe
 
 build:
-	go build -o $(BIN_NAME) $(LDFLAGS)
+	go build -mod=vendor -o $(BIN_NAME) $(LDFLAGS)
 
 install:
 	go install $(MAC_LDFLAGS)

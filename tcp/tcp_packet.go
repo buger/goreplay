@@ -2,26 +2,151 @@ package tcp
 
 import (
 	"encoding/binary"
+	"expvar"
 	"fmt"
 	"net"
-	"sync"
+	_ "runtime"
+	"runtime/debug"
 	"time"
 
 	"github.com/google/gopacket"
 )
 
-func copySlice(b, a []byte) []byte {
-	if cap(b) < len(a) {
-		b = make([]byte, len(a))
+func copySlice(to []byte, from ...[]byte) ([]byte, int) {
+	var totalLen int
+	for _, s := range from {
+		totalLen += len(s)
 	}
-	copy(b, a)
-	return b[:len(a)]
+
+	if cap(to) < totalLen {
+		diff := (cap(to) - len(to)) + totalLen
+		to = append(to, make([]byte, diff)...)
+	}
+
+	var i int
+	for _, s := range from {
+		i += copy(to[i:], s)
+	}
+
+	return to, i
 }
 
-var packetPool = sync.Pool{
-	New: func() interface{} {
-		return new(Packet)
-	},
+var now time.Time
+
+var stats *expvar.Map
+var bufPoolCount *expvar.Int
+var releasedCount *expvar.Int
+
+func init() {
+	bufPoolCount = new(expvar.Int)
+	releasedCount = new(expvar.Int)
+
+	stats = expvar.NewMap("tcp")
+	stats.Init()
+	stats.Set("buffer_pool_count", bufPoolCount)
+	stats.Set("buffer_released", releasedCount)
+
+	go func() {
+		for {
+			// Accurate enough
+			now = time.Now()
+			time.Sleep(500 * time.Millisecond)
+		}
+	}()
+}
+
+var packetPool = NewPacketPool(10000, 1)
+
+// Pool holds Clients.
+type pktPool struct {
+	packets chan *Packet
+	ttl     int
+}
+
+// NewPool creates a new pool of Clients.
+func NewPacketPool(max int, ttl int) *pktPool {
+	pool := &pktPool{
+		packets: make(chan *Packet, max),
+		ttl:     ttl,
+	}
+
+	// Ensure that memory released over time
+	go func() {
+		// GC
+		var released int
+		for {
+			for i := 0; i < 500; i++ {
+				select {
+				case c := <-pool.packets:
+					// GC If buffer is too big and lived for too long
+					if len(c.buf) < 8192 || now.Sub(c.created) < time.Duration(ttl)*time.Second {
+						select {
+						case pool.packets <- c:
+							// Jump to next item in for loop
+							continue
+						default:
+						}
+					}
+
+					released++
+
+					// Else GC
+					c.buf = nil
+					c.gc = true
+
+					stats.Add("active_packet_count", -1)
+				default:
+					break
+				}
+			}
+
+			if released > 500 {
+				released = 0
+				debug.FreeOSMemory()
+			}
+
+			time.Sleep(1000 * time.Millisecond)
+		}
+	}()
+
+	return pool
+}
+
+// Borrow a Client from the pool.
+func (p *pktPool) Get() *Packet {
+	var c *Packet
+	select {
+	case c = <-p.packets:
+	default:
+		stats.Add("active_packet_count", 1)
+		c = new(Packet)
+		c.created = now
+
+		// Use this technique to find if pool leaks, and objects get GCd
+		//
+		// runtime.SetFinalizer(c, func(p *Packet) {
+		// 	if !p.gc {
+		// 		panic("Pool leak")
+		// 	}
+		// })
+	}
+	return c
+}
+
+// Return returns a Client to the pool.
+func (p *pktPool) Put(c *Packet) {
+	select {
+	case p.packets <- c:
+	default:
+		stats.Add("active_packet_count", -1)
+		c.gc = true
+		c.buf = nil
+		// if pool overloaded, let it go
+	}
+}
+
+func (p *pktPool) Len() int {
+	return len(p.packets)
 }
 
 /*
@@ -31,6 +156,7 @@ calllers must make sure that ParsePacket has'nt returned any error before callin
 function.
 */
 type Packet struct {
+	Incoming           bool
 	messageID          uint64
 	SrcIP, DstIP       net.IP
 	Version            uint8
@@ -42,22 +168,36 @@ type Packet struct {
 	CaptureLength      int
 	Timestamp          time.Time
 	Payload            []byte
+	buf                []byte
+
+	created time.Time
+	gc      bool
 }
 
 // ParsePacket parse raw packets
-func ParsePacket(data []byte, lType, lTypeLen int, cp *gopacket.CaptureInfo) (pckt *Packet, err error) {
-	pckt = packetPool.Get().(*Packet)
+func ParsePacket(data []byte, lType, lTypeLen int, cp *gopacket.CaptureInfo, allowEmpty bool) (pckt *Packet, err error) {
+	pckt = packetPool.Get()
+	if err := pckt.parse(data, lType, lTypeLen, cp, allowEmpty); err != nil {
+		packetPool.Put(pckt)
+		return nil, err
+	}
+
+	return pckt, nil
+}
+
+func (pckt *Packet) parse(data []byte, lType, lTypeLen int, cp *gopacket.CaptureInfo, allowEmpty bool) error {
 	pckt.Retry = 0
 	pckt.messageID = 0
+	pckt.buf = pckt.buf[:]
 
 	// TODO: check resolution
 	pckt.Timestamp = cp.Timestamp
 
 	if len(data) < lTypeLen {
-		return nil, ErrHdrLength("Link")
+		return ErrHdrLength("Link")
 	}
 	if len(data) <= lTypeLen {
-		return nil, ErrHdrMissing("IPv4 or IPv6")
+		return ErrHdrMissing("IPv4 or IPv6")
 	}
 
 	ldata := data[lTypeLen:]
@@ -67,63 +207,63 @@ func ParsePacket(data []byte, lType, lTypeLen int, cp *gopacket.CaptureInfo) (pc
 	if ldata[0]>>4 == 4 {
 		// IPv4 header
 		if len(ldata) < 20 {
-			return nil, ErrHdrLength("IPv4")
+			return ErrHdrLength("IPv4")
 		}
 		proto = ldata[9]
 		ihl := int(ldata[0]&0x0F) * 4
 		if ihl < 20 {
-			return nil, ErrHdrInvalid("IPv4's IHL")
+			return ErrHdrInvalid("IPv4's IHL")
 		}
 		if len(ldata) < ihl {
-			return nil, ErrHdrLength("IPv4 opts")
+			return ErrHdrLength("IPv4 opts")
 		}
 		netLayer = ldata[:ihl]
 	} else if ldata[0]>>4 == 6 {
 		if len(ldata) < 40 {
-			return nil, ErrHdrLength("IPv6")
+			return ErrHdrLength("IPv6")
 		}
 		proto = ldata[6]
 		totalLen := 40
 		for ipv6ExtensionHdr(proto) {
 			hdr := len(ldata) - totalLen
 			if hdr < 8 {
-				return nil, ErrHdrExpected("IPv6 opts")
+				return ErrHdrExpected("IPv6 opts")
 			}
 			extLen := 8
 			if proto != 44 {
 				extLen = int(ldata[totalLen+1]+1) * 8
 			}
 			if hdr < extLen {
-				return nil, ErrHdrLength("IPv6 opts")
+				return ErrHdrLength("IPv6 opts")
 			}
 			proto = ldata[totalLen]
 			totalLen += extLen
 		}
 		netLayer = ldata[:totalLen]
 	} else {
-		return nil, ErrHdrExpected("IPv4 or IPv6")
+		return ErrHdrExpected("IPv4 or IPv6")
 	}
 	if proto != 6 {
-		return nil, ErrHdrExpected("TCP")
+		return ErrHdrExpected("TCP")
 	}
 	if len(data) <= len(netLayer) {
-		return nil, ErrHdrMissing("TCP")
+		return ErrHdrMissing("TCP")
 	}
 	ndata := ldata[len(netLayer):]
 	// TCP header
 	if len(ndata) < 20 {
-		return nil, ErrHdrLength("TCP")
+		return ErrHdrLength("TCP")
 	}
 	dOf := int(ndata[12]>>4) * 4
 	if dOf < 20 {
-		return nil, ErrHdrInvalid("TCP's ndata offset")
+		return ErrHdrInvalid("TCP's ndata offset")
 	}
 	if len(ndata) < dOf {
-		return nil, ErrHdrLength("TCP opts")
+		return ErrHdrLength("TCP opts")
 	}
 
-	if len(ndata[dOf:]) == 0 {
-		return nil, fmt.Errorf("Packet without Data")
+	if !allowEmpty && len(ndata[dOf:]) == 0 {
+		return EmptyPacket("")
 	}
 
 	if (netLayer[0] >> 4) == 4 {
@@ -150,8 +290,10 @@ func ParsePacket(data []byte, lType, lTypeLen int, cp *gopacket.CaptureInfo) (pc
 	pckt.RST = transLayer[13]&0x04 != 0
 	pckt.ACK = transLayer[13]&0x10 != 0
 	pckt.Lost = uint32(cp.Length - cp.CaptureLength)
-	pckt.Payload = copySlice(pckt.Payload, ndata[dOf:])
-	return
+	pckt.buf, _ = copySlice(pckt.buf, ndata[dOf:])
+	pckt.Payload = pckt.buf[:len(ndata[dOf:])]
+
+	return nil
 }
 
 func (pckt *Packet) MessageID() uint64 {
@@ -172,6 +314,12 @@ func (pckt *Packet) Src() string {
 // Dst returns destination socket
 func (pckt *Packet) Dst() string {
 	return fmt.Sprintf("%s:%d", pckt.DstIP, pckt.DstPort)
+}
+
+type EmptyPacket string
+
+func (err EmptyPacket) Error() string {
+	return "Empty packet"
 }
 
 // ErrHdrLength returned on short header length

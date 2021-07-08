@@ -141,6 +141,7 @@ func init() {
 	flag.BoolVar(&Settings.Promiscuous, "input-raw-promisc", false, "enable promiscuous mode")
 	flag.BoolVar(&Settings.Monitor, "input-raw-monitor", false, "enable RF monitor mode")
 	flag.BoolVar(&Settings.Stats, "input-raw-stats", false, "enable stats generator on raw TCP messages")
+	flag.BoolVar(&Settings.AllowIncomplete, "input-raw-allow-incomplete", false, "If turned on Gor will record HTTP messages with missing packets")
 
 	flag.StringVar(&Settings.Middleware, "middleware", "", "Used for modifying traffic using external command")
 

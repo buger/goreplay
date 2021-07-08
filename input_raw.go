@@ -53,16 +53,17 @@ func (protocol *TCPProtocol) String() string {
 // RAWInputConfig represents configuration that can be applied on raw input
 type RAWInputConfig struct {
 	capture.PcapOptions
-	Expire         time.Duration      `json:"input-raw-expire"`
-	CopyBufferSize size.Size          `json:"copy-buffer-size"`
-	Engine         capture.EngineType `json:"input-raw-engine"`
-	TrackResponse  bool               `json:"input-raw-track-response"`
-	Protocol       TCPProtocol        `json:"input-raw-protocol"`
-	RealIPHeader   string             `json:"input-raw-realip-header"`
-	Stats          bool               `json:"input-raw-stats"`
-	quit           chan bool          // Channel used only to indicate goroutine should shutdown
-	host           string
-	ports          []uint16
+	Expire          time.Duration      `json:"input-raw-expire"`
+	CopyBufferSize  size.Size          `json:"copy-buffer-size"`
+	Engine          capture.EngineType `json:"input-raw-engine"`
+	TrackResponse   bool               `json:"input-raw-track-response"`
+	Protocol        TCPProtocol        `json:"input-raw-protocol"`
+	RealIPHeader    string             `json:"input-raw-realip-header"`
+	Stats           bool               `json:"input-raw-stats"`
+	AllowIncomplete bool               `json:"input-raw-allow-incomplete"`
+	quit            chan bool          // Channel used only to indicate goroutine should shutdown
+	host            string
+	ports           []uint16
 }
 
 // RAWInput used for intercepting traffic for given address
@@ -71,7 +72,7 @@ type RAWInput struct {
 	RAWInputConfig
 	messageStats   []tcp.Stats
 	listener       *capture.Listener
-	message        chan *tcp.Message
+	messageParser  *tcp.MessageParser
 	cancelListener context.CancelFunc
 	closed         bool
 }
@@ -80,7 +81,6 @@ type RAWInput struct {
 func NewRAWInput(address string, config RAWInputConfig) (i *RAWInput) {
 	i = new(RAWInput)
 	i.RAWInputConfig = config
-	i.message = make(chan *tcp.Message, 10000)
 	i.quit = make(chan bool)
 
 	host, _ports, err := net.SplitHostPort(address)
@@ -117,9 +117,10 @@ func (i *RAWInput) PluginRead() (*Message, error) {
 	select {
 	case <-i.quit:
 		return nil, ErrorStopped
-	case msgTCP = <-i.message:
+	case msgTCP = <-i.messageParser.Messages():
 		msg.Data = msgTCP.Data()
 	}
+
 	var msgType byte = ResponsePayload
 	if msgTCP.IsRequest {
 		msgType = RequestPayload
@@ -157,25 +158,21 @@ func (i *RAWInput) listen(address string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	parser := tcp.NewMessageParser(i.CopyBufferSize, i.Expire, Debug, i.messageEmitter)
+	i.messageParser = tcp.NewMessageParser(i.CopyBufferSize, i.Expire, i.AllowIncomplete, Debug)
 
 	if i.Protocol == ProtocolHTTP {
-		parser.Start = http1StartHint
-		parser.End = http1EndHint
+		i.messageParser.Start = http1StartHint
+		i.messageParser.End = http1EndHint
 	}
 	var ctx context.Context
 	ctx, i.cancelListener = context.WithCancel(context.Background())
-	errCh := i.listener.ListenBackground(ctx, parser.PacketHandler)
+	errCh := i.listener.ListenBackground(ctx, i.messageParser.PacketHandler)
 	<-i.listener.Reading
 	Debug(1, i)
 	go func() {
 		<-errCh // the listener closed voluntarily
 		i.Close()
 	}()
-}
-
-func (i *RAWInput) messageEmitter(m *tcp.Message) {
-	i.message <- m
 }
 
 func (i *RAWInput) String() string {

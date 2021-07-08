@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -19,6 +20,21 @@ import (
 	"github.com/buger/goreplay/size"
 )
 
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+var instanceID string
+
+func init() {
+	instanceID = randSeq(8)
+}
+
+func randSeq(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
+
 var dateFileNameFuncs = map[string]func(*FileOutput) string{
 	"%Y":  func(o *FileOutput) string { return time.Now().Format("2006") },
 	"%m":  func(o *FileOutput) string { return time.Now().Format("01") },
@@ -29,6 +45,7 @@ var dateFileNameFuncs = map[string]func(*FileOutput) string{
 	"%NS": func(o *FileOutput) string { return fmt.Sprint(time.Now().Nanosecond()) },
 	"%r":  func(o *FileOutput) string { return string(o.currentID) },
 	"%t":  func(o *FileOutput) string { return string(o.payloadType) },
+	"%i":  func(o *FileOutput) string { return instanceID },
 }
 
 // FileOutputConfig ...

@@ -238,13 +238,15 @@ func (i *FileInput) emit() {
 
 		if lastTime != -1 {
 			diff := reader.timestamp - lastTime
-			lastTime = reader.timestamp
 
 			if i.speedFactor != 1 {
 				diff = int64(float64(diff) / i.speedFactor)
 			}
 
-			time.Sleep(time.Duration(diff))
+			if diff >= 0 {
+				lastTime = reader.timestamp
+				time.Sleep(time.Duration(diff))
+			}
 		} else {
 			lastTime = reader.timestamp
 		}

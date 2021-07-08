@@ -3,6 +3,7 @@
 package main
 
 import (
+	_ "expvar"
 	"flag"
 	"log"
 	"net/http"
@@ -11,7 +12,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime"
-	_ "runtime/debug"
 	"runtime/pprof"
 	"syscall"
 	"time"

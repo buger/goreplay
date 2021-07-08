@@ -126,7 +126,7 @@ func NewSocket(pifi pcap.Interface) (*SockRaw, error) {
 }
 
 // ReadPacketData implements gopacket.PacketDataSource.
-func (sock *SockRaw) ReadPacketData() (buf []byte, ci gopacket.CaptureInfo, err error) {
+func (sock *SockRaw) ZeroCopyReadPacketData() (buf []byte, ci gopacket.CaptureInfo, err error) {
 	sock.mu.Lock()
 	defer sock.mu.Unlock()
 	var tpHdr *unix.Tpacket2Hdr

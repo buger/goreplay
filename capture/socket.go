@@ -8,7 +8,7 @@ import (
 
 // Socket is any interface that defines the behaviors of Socket
 type Socket interface {
-	ReadPacketData() ([]byte, gopacket.CaptureInfo, error)
+	ZeroCopyReadPacketData() ([]byte, gopacket.CaptureInfo, error)
 	WritePacketData([]byte) error
 	SetBPFFilter(string) error
 	SetPromiscuous(bool) error

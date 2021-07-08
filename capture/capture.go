@@ -42,7 +42,7 @@ type Listener struct {
 	sync.Mutex
 	Transport  string       // transport layer default to tcp
 	Activate   func() error // function is used to activate the engine. it must be called before reading packets
-	Handles    map[string]gopacket.PacketDataSource
+	Handles    map[string]packetHandle
 	Interfaces []pcap.Interface
 	loopIndex  int
 	Reading    chan bool // this channel is closed when the listener has started reading packets
@@ -55,6 +55,11 @@ type Listener struct {
 
 	closeDone chan struct{}
 	quit      chan struct{}
+}
+
+type packetHandle struct {
+	handler gopacket.ZeroCopyPacketDataSource
+	ips     []net.IP
 }
 
 // EngineType ...
@@ -117,7 +122,7 @@ func NewListener(host string, ports []uint16, transport string, engine EngineTyp
 	if transport != "" {
 		l.Transport = transport
 	}
-	l.Handles = make(map[string]gopacket.PacketDataSource)
+	l.Handles = make(map[string]packetHandle)
 	l.trackResponse = trackResponse
 	l.closeDone = make(chan struct{})
 	l.quit = make(chan struct{})
@@ -209,6 +214,8 @@ func (l *Listener) Filter(ifi pcap.Interface) (filter string) {
 		filter = fmt.Sprintf("%s or %s", filter, responseFilter)
 	}
 
+	// filter = fmt.Sprintf("((((ip[2:2] - ((ip[0]&0xf)<<2)) - ((tcp[12]&0xf0)>>2)) != 0)) and (%s)", filter)
+
 	return
 }
 
@@ -221,6 +228,7 @@ func (l *Listener) PcapHandle(ifi pcap.Interface) (handle *pcap.Handle, err erro
 		return nil, fmt.Errorf("inactive handle error: %q, interface: %q", err, ifi.Name)
 	}
 	defer inactive.CleanUp()
+
 	if l.TimestampType != "" {
 		var ts pcap.TimestampSource
 		ts, err = pcap.TimestampSourceFromString(l.TimestampType)
@@ -266,7 +274,7 @@ func (l *Listener) PcapHandle(ifi pcap.Interface) (handle *pcap.Handle, err erro
 		}
 	}
 	if l.BufferTimeout == 0 {
-		l.BufferTimeout = pcap.BlockForever
+		l.BufferTimeout = 2000 * time.Millisecond
 	}
 	err = inactive.SetTimeout(l.BufferTimeout)
 	if err != nil {
@@ -276,12 +284,16 @@ func (l *Listener) PcapHandle(ifi pcap.Interface) (handle *pcap.Handle, err erro
 	if err != nil {
 		return nil, fmt.Errorf("PCAP Activate device error: %q, interface: %q", err, ifi.Name)
 	}
-	l.BPFFilter = l.Filter(ifi)
-	fmt.Println("Interface:", ifi.Name, ". BPF Filter:", l.BPFFilter)
-	err = handle.SetBPFFilter(l.BPFFilter)
+
+	bpfFilter := l.BPFFilter
+	if bpfFilter == "" {
+		bpfFilter = l.Filter(ifi)
+	}
+	fmt.Println("Interface:", ifi.Name, ". BPF Filter:", bpfFilter)
+	err = handle.SetBPFFilter(bpfFilter)
 	if err != nil {
 		handle.Close()
-		return nil, fmt.Errorf("BPF filter error: %q%s, interface: %q", err, l.BPFFilter, ifi.Name)
+		return nil, fmt.Errorf("BPF filter error: %q%s, interface: %q", err, bpfFilter, ifi.Name)
 	}
 	return
 }
@@ -295,7 +307,9 @@ func (l *Listener) SocketHandle(ifi pcap.Interface) (handle Socket, err error) {
 	if err = handle.SetPromiscuous(l.Promiscuous || l.Monitor); err != nil {
 		return nil, fmt.Errorf("promiscuous mode error: %q, interface: %q", err, ifi.Name)
 	}
-	l.BPFFilter = l.Filter(ifi)
+	if l.BPFFilter == "" {
+		l.BPFFilter = l.Filter(ifi)
+	}
 	fmt.Println("BPF Filter: ", l.BPFFilter)
 	if err = handle.SetBPFFilter(l.BPFFilter); err != nil {
 		handle.Close()
@@ -309,12 +323,12 @@ func (l *Listener) read(handler PacketHandler) {
 	l.Lock()
 	defer l.Unlock()
 	for key, handle := range l.Handles {
-		go func(key string, hndl gopacket.PacketDataSource) {
+		go func(key string, hndl packetHandle) {
 			defer l.closeHandles(key)
 			linkSize := 14
 			linkType := int(layers.LinkTypeEthernet)
-			if _, ok := hndl.(*pcap.Handle); ok {
-				linkType = int(hndl.(*pcap.Handle).LinkType())
+			if _, ok := hndl.handler.(*pcap.Handle); ok {
+				linkType = int(hndl.handler.(*pcap.Handle).LinkType())
 				linkSize, ok = pcapLinkTypeLength(linkType)
 				if !ok {
 					if os.Getenv("GORDEBUG") != "0" {
@@ -329,10 +343,22 @@ func (l *Listener) read(handler PacketHandler) {
 				case <-l.quit:
 					return
 				default:
-					data, ci, err := hndl.ReadPacketData()
+					data, ci, err := hndl.handler.ZeroCopyReadPacketData()
 					if err == nil {
-						pckt, err := tcp.ParsePacket(data, linkType, linkSize, &ci)
+						pckt, err := tcp.ParsePacket(data, linkType, linkSize, &ci, false)
 						if err == nil {
+							for _, p := range l.ports {
+								if pckt.DstPort == p {
+									for _, ip := range hndl.ips {
+										if pckt.DstIP.Equal(ip) {
+											pckt.Incoming = true
+											break
+										}
+									}
+									break
+								}
+							}
+
 							handler(pckt)
 						}
 						continue
@@ -364,11 +390,10 @@ func (l *Listener) closeHandles(key string) {
 	l.Lock()
 	defer l.Unlock()
 	if handle, ok := l.Handles[key]; ok {
-		if _, ok = handle.(Socket); ok {
-			handle.(Socket).Close()
-		} else {
-			handle.(*pcap.Handle).Close()
+		if c, ok := handle.handler.(io.Closer); ok {
+			c.Close()
 		}
+
 		delete(l.Handles, key)
 		if len(l.Handles) == 0 {
 			close(l.closeDone)
@@ -386,7 +411,10 @@ func (l *Listener) activatePcap() error {
 			msg += ("\n" + e.Error())
 			continue
 		}
-		l.Handles[ifi.Name] = handle
+		l.Handles[ifi.Name] = packetHandle{
+			handler: handle,
+			ips:     interfaceIPs(ifi),
+		}
 	}
 	if len(l.Handles) == 0 {
 		return fmt.Errorf("pcap handles error:%s", msg)
@@ -407,7 +435,10 @@ func (l *Listener) activateRawSocket() error {
 			msg += ("\n" + e.Error())
 			continue
 		}
-		l.Handles[ifi.Name] = handle
+		l.Handles[ifi.Name] = packetHandle{
+			handler: handle,
+			ips:     interfaceIPs(ifi),
+		}
 	}
 	if len(l.Handles) == 0 {
 		return fmt.Errorf("raw socket handles error:%s", msg)
@@ -431,7 +462,9 @@ func (l *Listener) activatePcapFile() (err error) {
 		handle.Close()
 		return fmt.Errorf("BPF filter error: %q, filter: %s", e, l.BPFFilter)
 	}
-	l.Handles["pcap_file"] = handle
+	l.Handles["pcap_file"] = packetHandle{
+		handler: handle,
+	}
 	return
 }
 
@@ -450,11 +483,16 @@ func (l *Listener) activateAFPacket() error {
 			continue
 		}
 
-		l.BPFFilter = l.Filter(ifi)
+		if l.BPFFilter == "" {
+			l.BPFFilter = l.Filter(ifi)
+		}
 		fmt.Println("Interface:", ifi.Name, ". BPF Filter:", l.BPFFilter)
 		handle.SetBPFFilter(l.BPFFilter, 64<<10)
 
-		l.Handles[ifi.Name] = handle
+		l.Handles[ifi.Name] = packetHandle{
+			handler: handle,
+			ips:     interfaceIPs(ifi),
+		}
 	}
 
 	if len(l.Handles) == 0 {
@@ -520,6 +558,14 @@ func interfaceAddresses(ifi pcap.Interface) []string {
 		hosts = append(hosts, addr.IP.String())
 	}
 	return hosts
+}
+
+func interfaceIPs(ifi pcap.Interface) []net.IP {
+	var ips []net.IP
+	for _, addr := range ifi.Addresses {
+		ips = append(ips, addr.IP)
+	}
+	return ips
 }
 
 func listenAll(addr string) bool {
