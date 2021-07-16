@@ -43,7 +43,7 @@ function init() {
 
             ["message", chanPrefix, chanPrefix + "#" + msg.ID].forEach(function(chanID, idx){
                 if (proxy.ch[chanID]) {
-                    proxy.ch[chanID].forEach(function(ch){
+                    proxy.ch[chanID].forEach(async function(ch){
                         let r = ch.cb(msg);
                         if (resp) resp = r; // If one of callback decided not to send response back, do not override it in global callbacks
                     })
@@ -55,7 +55,10 @@ function init() {
                 }
             })
 
-            if (resp) {
+	    if (resp && resp instanceof Promise) {
+	      resp.then(resp => process.stdout.write(`${resp.rawMeta.toString('hex')}${Buffer.from("\n").toString("hex")}${resp.http.toString('hex')}\n`))
+	    }
+            else if (resp) {
               process.stdout.write(`${resp.rawMeta.toString('hex')}${Buffer.from("\n").toString("hex")}${resp.http.toString('hex')}\n`)
             }
 
