@@ -571,10 +571,6 @@ func (l *Listener) setInterfaces() (err error) {
 	}
 
 	for _, pi := range pifis {
-		if len(pi.Addresses) == 0 {
-			continue
-		}
-
 		if isDevice(l.host, pi) {
 			l.Interfaces = []pcap.Interface{pi}
 			return
@@ -591,17 +587,20 @@ func (l *Listener) setInterfaces() (err error) {
 					}
 				}
 			}
+
+			if ni.Name == "" && i.Name == pi.Name {
+				ni = i
+				break
+			}
 		}
 
 		if ni.Flags&net.FlagLoopback != 0 {
 			l.loopIndex = ni.Index
 		}
 
-		if ni.Flags&net.FlagUp == 0 {
-			continue
+		if len(pi.Addresses) != 0 {
+			l.Interfaces = append(l.Interfaces, pi)
 		}
-
-		l.Interfaces = append(l.Interfaces, pi)
 	}
 	return
 }
