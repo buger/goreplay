@@ -569,31 +569,31 @@ func (l *Listener) setInterfaces() (err error) {
 	}
 
 	for _, pi := range pifis {
+		if isDevice(l.host, pi) {
+			l.Interfaces = []pcap.Interface{pi}
+			return
+		}
+
 		var ni net.Interface
 		for _, i := range ifis {
+			if i.Name == pi.Name {
+				ni = i
+				break
+			}
+
 			addrs, _ := i.Addrs()
 			for _, a := range addrs {
 				for _, pa := range pi.Addresses {
-					if strings.HasPrefix(a.String(), pa.IP.String()) {
+					if a.String() == pa.IP.String() {
 						ni = i
 						break
 					}
 				}
 			}
-
-			if len(addrs) == 0 && i.Name == pi.Name {
-				ni = i
-				break
-			}
 		}
 
 		if ni.Flags&net.FlagLoopback != 0 {
 			l.loopIndex = ni.Index
-		}
-
-		if isDevice(l.host, pi) {
-			l.Interfaces = []pcap.Interface{pi}
-			return
 		}
 
 		if runtime.GOOS != "windows" {
