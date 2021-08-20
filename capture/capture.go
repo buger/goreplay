@@ -123,6 +123,7 @@ func (eng *EngineType) String() (e string) {
 	return e
 }
 
+// Type is here so that EngineType can implement flag.Var
 func (eng *EngineType) Type() string {
 	return "engineType"
 }

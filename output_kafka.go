@@ -66,6 +66,7 @@ func (o *KafkaOutput) ErrorHandler() {
 	}
 }
 
+// SuccessHandler should receive successes
 func (o *KafkaOutput) SuccessHandler() {
 	for suc := range o.producer.Successes() {
 		Debug(2, "Success to write access log entry:", suc)

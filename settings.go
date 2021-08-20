@@ -24,6 +24,7 @@ func (h *MultiOption) Set(value string) error {
 	return nil
 }
 
+// Type is here so that MultiOption can implement pflag.StringSlice
 func (h *MultiOption) Type() string {
 	return "multiOption"
 }
@@ -85,6 +86,7 @@ type AppSettings struct {
 	Services map[string]ServiceSettings `json:"services" mapstructure:"services"`
 }
 
+// New ServiceSettings
 func NewServiceSettings() *ServiceSettings {
 	return &ServiceSettings{
 		InputDummy: make([]string, 0),
@@ -100,6 +102,7 @@ func NewServiceSettings() *ServiceSettings {
 	}
 }
 
+// New AppSettings
 func NewAppSettings() *AppSettings {
 	return &AppSettings{
 		ServiceSettings: *NewServiceSettings(),

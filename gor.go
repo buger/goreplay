@@ -72,10 +72,12 @@ func loggingMiddleware(addr string, next http.Handler) http.Handler {
 	})
 }
 
+// FlagSetter
 type FlagSetter interface {
 	Set(string) error
 }
 
+// MultiOption decoder
 func MultiOptionDecoder(f reflect.Type, t reflect.Type, data interface{}) (interface{}, error) {
 	// fmt.Printf("%v %v %#v \n", f, t, data)
 

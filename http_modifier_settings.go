@@ -56,6 +56,7 @@ func (h *HTTPHeaderFilters) Set(value string) error {
 	return nil
 }
 
+// Type is here so that HTTPHeaderFilters can implement pflag.StringSlice
 func (h *HTTPHeaderFilters) Type() string {
 	return "httpHeaderFilters"
 }
@@ -86,6 +87,7 @@ func (h *HTTPHeaderBasicAuthFilters) Set(value string) error {
 	return nil
 }
 
+// Type is here so that HTTPHeaderBasicAuthFilters can implement pflag.StringSlice
 func (h *HTTPHeaderBasicAuthFilters) Type() string {
 	return "httpHeaderBasicAuthFilters"
 }
@@ -137,6 +139,7 @@ func (h *HTTPHashFilters) Set(value string) error {
 	return nil
 }
 
+// Type is here so that HTTPHashFilters can implement pflag.StringSlice
 func (h *HTTPHashFilters) Type() string {
 	return "httpHashFilters"
 }
@@ -228,6 +231,7 @@ func (h *HTTPMethods) Set(value string) error {
 	return nil
 }
 
+// Type is here so that HTTPMethods can implement pflag.StringSlice
 func (r * HTTPMethods) Type() string {
 	return "httpMethods"
 }
@@ -261,6 +265,7 @@ func (r *URLRewriteMap) Set(value string) error {
 	return nil
 }
 
+// Type is here so that URLRewriteMap can implement pflag.StringSlice
 func (r * URLRewriteMap) Type() string {
 	return "urlRewriteMap"
 }
@@ -303,6 +308,7 @@ func (r *HeaderRewriteMap) Set(value string) error {
 	return nil
 }
 
+// Type is here so that HeaderRewriteMap can implement pflag.StringSlice
 func (r *HeaderRewriteMap) Type() string {
 	return "headerRewriteMap"
 }
@@ -330,6 +336,7 @@ func (r *HTTPURLRegexp) Set(value string) error {
 	return err
 }
 
+// Type is here so that HTTPURLRegexp can implement pflag.StringSlice
 func (r *HTTPURLRegexp) Type() string {
 	return "urlRegexp"
 }
