@@ -30,7 +30,7 @@ services:
       - "Foo: bar"
       - "Bar: foo"
 `)
-	
+
 	Settings = *NewAppSettings()
 	loadConfig(yamlExample)
 	defer func() {
@@ -52,7 +52,7 @@ services:
 	}
 	expectedConfig.ServiceSettings.Verbose = 2
 	expectedConfig.ServiceSettings.InputRAW = MultiOption{"80"}
-	expectedConfig.ServiceSettings.OutputDummy = MultiOption{"1"}
+	expectedConfig.ServiceSettings.OutputDummy = MultiOption{"true"}
 
 	assert.Equal(t, expectedConfig, Settings, "config should match")
 }
