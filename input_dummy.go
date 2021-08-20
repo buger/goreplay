@@ -6,8 +6,9 @@ import (
 
 // DummyInput used for debugging. It generate 1 "GET /"" request per second.
 type DummyInput struct {
-	data chan []byte
-	quit chan struct{}
+	data    chan []byte
+	quit    chan struct{}
+	Service string
 }
 
 // NewDummyInput constructor for DummyInput
@@ -40,10 +41,10 @@ func (i *DummyInput) emit() {
 		select {
 		case <-ticker.C:
 			uuid := uuid()
-			reqh := payloadHeader(RequestPayload, uuid, time.Now().UnixNano(), -1)
+			reqh := payloadHeader(RequestPayload, uuid, time.Now().UnixNano(), -1, i.Service)
 			i.data <- append(reqh, []byte("GET / HTTP/1.1\r\nHost: www.w3.org\r\nUser-Agent: Go 1.1 package http\r\nAccept-Encoding: gzip\r\n\r\n")...)
 
-			resh := payloadHeader(ResponsePayload, uuid, time.Now().UnixNano()+1, 1)
+			resh := payloadHeader(ResponsePayload, uuid, time.Now().UnixNano()+1, 1, i.Service)
 			i.data <- append(resh, []byte("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")...)
 		}
 	}

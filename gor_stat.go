@@ -13,6 +13,8 @@ type GorStat struct {
 	mean     int
 	max      int
 	count    int
+
+	Service string
 }
 
 func NewGorStat(statName string, rateMs int) (s *GorStat) {

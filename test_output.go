@@ -5,10 +5,12 @@ type writeCallback func(*Message)
 // TestOutput used in testing to intercept any output into callback
 type TestOutput struct {
 	cb writeCallback
+
+	Service string
 }
 
 // NewTestOutput constructor for TestOutput, accepts callback which get called on each incoming Write
-func NewTestOutput(cb writeCallback) PluginWriter {
+func NewTestOutput(cb writeCallback) *TestOutput {
 	i := new(TestOutput)
 	i.cb = cb
 

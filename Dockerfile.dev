@@ -5,10 +5,24 @@ RUN apt-get update && apt-get install ruby vim-common -y
 RUN apt-get install flex bison -y
 RUN wget http://www.tcpdump.org/release/libpcap-1.10.0.tar.gz && tar xzf libpcap-1.10.0.tar.gz && cd libpcap-1.10.0 && ./configure && make install
 
+#RUN go get github.com/google/gopacket
+#RUN go get -u golang.org/x/lint/golint
+
+RUN mkdir -p $GOPATH/src/golang.org/x
+RUN cd $GOPATH/src/golang.org/x
+RUN git clone https://github.com/golang/gopacket.git
+RUN rm -rf gopacket/.git
 RUN go get github.com/google/gopacket
-RUN go get -u golang.org/x/lint/golint
+
+RUN mkdir -p $GOPATH/src/golang.org/x
+RUN cd $GOPATH/src/golang.org/x
+RUN git clone https://github.com/golang/lint.git
+RUN rm -rf lint/.git
+#RUN go get -u golang.org/x/lint/golint
 
 WORKDIR /go/src/github.com/buger/goreplay/
 ADD . /go/src/github.com/buger/goreplay/
+
+ENV GOPROXY https://mirrors.aliyun.com/goproxy/
 
 RUN go get

@@ -66,20 +66,20 @@ func TestEmitterFiltered(t *testing.T) {
 	wg.Add(2)
 
 	id := uuid()
-	reqh := payloadHeader(RequestPayload, id, time.Now().UnixNano(), -1)
+	reqh := payloadHeader(RequestPayload, id, time.Now().UnixNano(), -1, "")
 	reqb := append(reqh, []byte("POST / HTTP/1.1\r\nHost: www.w3.org\r\nUser-Agent: Go 1.1 package http\r\nAccept-Encoding: gzip\r\n\r\n")...)
 
-	resh := payloadHeader(ResponsePayload, id, time.Now().UnixNano()+1, 1)
+	resh := payloadHeader(ResponsePayload, id, time.Now().UnixNano()+1, 1, "")
 	respb := append(resh, []byte("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")...)
 
 	input.EmitBytes(reqb)
 	input.EmitBytes(respb)
 
 	id = uuid()
-	reqh = payloadHeader(RequestPayload, id, time.Now().UnixNano(), -1)
+	reqh = payloadHeader(RequestPayload, id, time.Now().UnixNano(), -1, "")
 	reqb = append(reqh, []byte("GET / HTTP/1.1\r\nHost: www.w3.org\r\nUser-Agent: Go 1.1 package http\r\nAccept-Encoding: gzip\r\n\r\n")...)
 
-	resh = payloadHeader(ResponsePayload, id, time.Now().UnixNano()+1, 1)
+	resh = payloadHeader(ResponsePayload, id, time.Now().UnixNano()+1, 1, "")
 	respb = append(resh, []byte("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")...)
 
 	input.EmitBytes(reqb)
@@ -89,6 +89,63 @@ func TestEmitterFiltered(t *testing.T) {
 	emitter.Close()
 
 	Settings.ModifierConfig = HTTPModifierConfig{}
+}
+
+func TestMultipleServices(t *testing.T) {
+	globalWg := new(sync.WaitGroup)
+
+	globalInput := NewTestInput()
+	globalOutput := NewTestOutput(func(*Message) {
+		globalWg.Done()
+	})
+
+	service1Input := NewTestInput()
+	service1Input.Service = "foo"
+
+	wg1 := new(sync.WaitGroup)
+	service1Output := NewTestOutput(func(*Message) {
+		wg1.Done()
+	})
+	service1Output.Service = "foo"
+
+	service2Input := NewTestInput()
+	service2Input.Service = "bar"
+
+	wg2 := new(sync.WaitGroup)
+	service2Output := NewTestOutput(func(*Message) {
+		wg2.Done()
+	})
+	service2Output.Service = "bar"
+
+	plugins := &InOutPlugins{
+		Inputs:  []PluginReader{globalInput, service1Input, service2Input},
+		Outputs: []PluginWriter{globalOutput, service1Output, service2Output},
+	}
+	plugins.All = append(plugins.All, globalInput, globalOutput, service1Input, service2Input, service1Output, service2Output)
+
+	emitter := NewEmitter()
+	go emitter.Start(plugins, Settings.Middleware)
+
+	for i := 0; i < 100; i++ {
+		globalWg.Add(1)
+		wg1.Add(1)
+		wg2.Add(1)
+		globalInput.EmitGET()
+
+		globalWg.Add(1)
+		wg1.Add(1)
+		service1Input.EmitGET()
+
+		globalWg.Add(1)
+		wg2.Add(1)
+		service2Input.EmitGET()
+	}
+
+	globalWg.Wait()
+	wg1.Wait()
+	wg2.Wait()
+
+	emitter.Close()
 }
 
 func TestEmitterSplitRoundRobin(t *testing.T) {

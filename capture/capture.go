@@ -123,6 +123,10 @@ func (eng *EngineType) String() (e string) {
 	return e
 }
 
+func (eng *EngineType) Type() string {
+	return "engineType"
+}
+
 // NewListener creates and initialize a new Listener. if transport or/and engine are invalid/unsupported
 // is "tcp" and "pcap", are assumed. l.Engine and l.Transport can help to get the values used.
 // if there is an error it will be associated with getting network interfaces
@@ -598,12 +602,27 @@ func (l *Listener) setInterfaces() (err error) {
 			return
 		}
 
+		if runtime.GOOS != "windows" {
+			if len(pi.Addresses) == 0 {
+				continue
+			}
+
+			if ni.Flags&net.FlagUp == 0 {
+				continue
+			}
+		}
+
 		l.Interfaces = append(l.Interfaces, pi)
 	}
 	return
 }
 
 func isDevice(addr string, ifi pcap.Interface) bool {
+	// Windows npcap loopback have no IPs
+	if addr == "127.0.0.1" && ifi.Name == `\Device\NPF_Loopback` {
+		return true
+	}
+
 	if addr == ifi.Name {
 		return true
 	}

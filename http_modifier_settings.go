@@ -10,18 +10,18 @@ import (
 
 // HTTPModifierConfig holds configuration options for built-in traffic modifier
 type HTTPModifierConfig struct {
-	URLNegativeRegexp      HTTPURLRegexp              `json:"http-disallow-url"`
-	URLRegexp              HTTPURLRegexp              `json:"http-allow-url"`
-	URLRewrite             URLRewriteMap              `json:"http-rewrite-url"`
-	HeaderRewrite          HeaderRewriteMap           `json:"http-rewrite-header"`
-	HeaderFilters          HTTPHeaderFilters          `json:"http-allow-header"`
-	HeaderNegativeFilters  HTTPHeaderFilters          `json:"http-disallow-header"`
-	HeaderBasicAuthFilters HTTPHeaderBasicAuthFilters `json:"http-basic-auth-filter"`
-	HeaderHashFilters      HTTPHashFilters            `json:"http-header-limiter"`
-	ParamHashFilters       HTTPHashFilters            `json:"http-param-limiter"`
-	Params                 HTTPParams                 `json:"http-set-param"`
-	Headers                HTTPHeaders                `json:"http-set-header"`
-	Methods                HTTPMethods                `json:"http-allow-method"`
+	URLNegativeRegexp      HTTPURLRegexp              `json:"http-disallow-url" mapstructure:"http-disallow-url"`
+	URLRegexp              HTTPURLRegexp              `json:"http-allow-url" mapstructure:"http-allow-url"`
+	URLRewrite             URLRewriteMap              `json:"http-rewrite-url" mapstructure:"http-rewrite-url"`
+	HeaderRewrite          HeaderRewriteMap           `json:"http-rewrite-header" mapstructure:"http-rewrite-header"`
+	HeaderFilters          HTTPHeaderFilters          `json:"http-allow-header" mapstructure:"http-allow-header"`
+	HeaderNegativeFilters  HTTPHeaderFilters          `json:"http-disallow-header" mapstructure:"http-disallow-header"`
+	HeaderBasicAuthFilters HTTPHeaderBasicAuthFilters `json:"http-basic-auth-filter" mapstructure:"http-basic-auth-filter"`
+	HeaderHashFilters      HTTPHashFilters            `json:"http-header-limiter" mapstructure:"http-header-limiter"`
+	ParamHashFilters       HTTPHashFilters            `json:"http-param-limiter" mapstructure:"http-param-limiter"`
+	Params                 HTTPParams                 `json:"http-set-param" mapstructure:"http-set-param"`
+	Headers                HTTPHeaders                `json:"http-set-header" mapstructure:"http-set-header"`
+	Methods                HTTPMethods                `json:"http-allow-method" mapstructure:"http-allow-method"`
 }
 
 //
@@ -56,6 +56,10 @@ func (h *HTTPHeaderFilters) Set(value string) error {
 	return nil
 }
 
+func (h *HTTPHeaderFilters) Type() string {
+	return "httpHeaderFilters"
+}
+
 //
 // Handling of --http-basic-auth-filter option
 //
@@ -80,6 +84,10 @@ func (h *HTTPHeaderBasicAuthFilters) Set(value string) error {
 	*h = append(*h, basicAuthFilter{regexp: r})
 
 	return nil
+}
+
+func (h *HTTPHeaderBasicAuthFilters) Type() string {
+	return "httpHeaderBasicAuthFilters"
 }
 
 //
@@ -129,6 +137,10 @@ func (h *HTTPHashFilters) Set(value string) error {
 	return nil
 }
 
+func (h *HTTPHashFilters) Type() string {
+	return "httpHashFilters"
+}
+
 //
 // Handling of --http-set-header option
 //
@@ -158,6 +170,10 @@ func (h *HTTPHeaders) Set(value string) error {
 
 	*h = append(*h, header)
 	return nil
+}
+
+func (h *HTTPHeaders) Type() string {
+	return "httpHeader"
 }
 
 //
@@ -191,6 +207,10 @@ func (h *HTTPParams) Set(value string) error {
 	return nil
 }
 
+func (h *HTTPParams) Type() string {
+	return "httpParams"
+}
+
 //
 // Handling of --http-allow-method option
 //
@@ -206,6 +226,10 @@ func (h *HTTPMethods) String() string {
 func (h *HTTPMethods) Set(value string) error {
 	*h = append(*h, []byte(value))
 	return nil
+}
+
+func (r * HTTPMethods) Type() string {
+	return "httpMethods"
 }
 
 //
@@ -235,6 +259,10 @@ func (r *URLRewriteMap) Set(value string) error {
 	}
 	*r = append(*r, urlRewrite{src: regexp, target: []byte(valArr[1])})
 	return nil
+}
+
+func (r * URLRewriteMap) Type() string {
+	return "urlRewriteMap"
 }
 
 //
@@ -275,6 +303,10 @@ func (r *HeaderRewriteMap) Set(value string) error {
 	return nil
 }
 
+func (r *HeaderRewriteMap) Type() string {
+	return "headerRewriteMap"
+}
+
 //
 // Handling of --http-allow-url option
 //
@@ -296,4 +328,8 @@ func (r *HTTPURLRegexp) Set(value string) error {
 	*r = append(*r, urlRegexp{regexp: regexp})
 
 	return err
+}
+
+func (r *HTTPURLRegexp) Type() string {
+	return "urlRegexp"
 }

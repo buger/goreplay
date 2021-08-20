@@ -5,12 +5,12 @@ import (
 )
 
 func TestPluginsRegistration(t *testing.T) {
-	Settings.InputDummy = MultiOption{"[]"}
-	Settings.OutputDummy = MultiOption{"[]"}
+	Settings.InputDummy = MultiOption{""}
+	Settings.OutputDummy = MultiOption{""}
 	Settings.OutputHTTP = MultiOption{"www.example.com|10"}
 	Settings.InputFile = MultiOption{"/dev/null"}
 
-	plugins := NewPlugins()
+	plugins := NewPlugins("", Settings.ServiceSettings, nil)
 
 	if len(plugins.Inputs) != 3 {
 		t.Errorf("Should be 3 inputs got %d", len(plugins.Inputs))
