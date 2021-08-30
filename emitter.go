@@ -5,6 +5,7 @@ import (
 	"hash/fnv"
 	"io"
 	"log"
+	"reflect"
 	"sync"
 	"time"
 
@@ -24,8 +25,8 @@ func NewEmitter() *Emitter {
 
 // Start initialize loop for sending data from inputs to outputs
 func (e *Emitter) Start(plugins *InOutPlugins, middlewareCmd string) {
-	if Settings.CopyBufferSize < 1 {
-		Settings.CopyBufferSize = 5 << 20
+	if Settings.InputRAWConfig.CopyBufferSize < 1 {
+		Settings.InputRAWConfig.CopyBufferSize = 5 << 20
 	}
 	e.plugins = plugins
 
@@ -41,7 +42,7 @@ func (e *Emitter) Start(plugins *InOutPlugins, middlewareCmd string) {
 		e.Add(1)
 		go func() {
 			defer e.Done()
-			if err := CopyMulty(middleware, plugins.Outputs...); err != nil {
+			if err := e.CopyMulty(middleware, plugins.Outputs...); err != nil {
 				Debug(2, fmt.Sprintf("[EMITTER] error during copy: %q", err))
 			}
 		}()
@@ -50,7 +51,7 @@ func (e *Emitter) Start(plugins *InOutPlugins, middlewareCmd string) {
 			e.Add(1)
 			go func(in PluginReader) {
 				defer e.Done()
-				if err := CopyMulty(in, plugins.Outputs...); err != nil {
+				if err := e.CopyMulty(in, plugins.Outputs...); err != nil {
 					Debug(2, fmt.Sprintf("[EMITTER] error during copy: %q", err))
 				}
 			}(in)
@@ -73,24 +74,41 @@ func (e *Emitter) Close() {
 }
 
 // CopyMulty copies from 1 reader to multiple writers
-func CopyMulty(src PluginReader, writers ...PluginWriter) error {
+func (e *Emitter) CopyMulty(src PluginReader, writers ...PluginWriter) error {
 	wIndex := 0
 	modifier := NewHTTPModifier(&Settings.ModifierConfig)
 	filteredRequests := make(map[string]int64)
 	filteredRequestsLastCleanTime := time.Now().UnixNano()
 	filteredCount := 0
 
+	service := reflect.ValueOf(src).Elem().FieldByName("Service").String()
+
+	// Optimisatio to not check service ID on each write
+	var serviceWriters []PluginWriter
+	for _, p := range writers {
+		srv := reflect.ValueOf(p).Elem().FieldByName("Service").String()
+		if srv == service {
+			serviceWriters = append(serviceWriters, p)
+		}
+	}
+
+	serviceModifiers := make(map[string]*HTTPModifier)
+	for s, cfg := range Settings.Services {
+		serviceModifiers[s] = NewHTTPModifier(&cfg.ModifierConfig)
+	}
+
 	for {
 		msg, err := src.PluginRead()
 		if err != nil {
 			if err == ErrorStopped || err == io.EOF {
+				Debug(0, "Read Error Stopped")
 				return nil
 			}
 			return err
 		}
 		if msg != nil && len(msg.Data) > 0 {
-			if len(msg.Data) > int(Settings.CopyBufferSize) {
-				msg.Data = msg.Data[:Settings.CopyBufferSize]
+			if len(msg.Data) > int(Settings.InputRAWConfig.CopyBufferSize) {
+				msg.Data = msg.Data[:Settings.InputRAWConfig.CopyBufferSize]
 			}
 			meta := payloadMeta(msg.Meta)
 			if len(meta) < 3 {
@@ -101,6 +119,10 @@ func CopyMulty(src PluginReader, writers ...PluginWriter) error {
 			// start a subroutine only when necessary
 			if Settings.Verbose >= 3 {
 				Debug(3, "[EMITTER] input: ", byteutils.SliceToString(msg.Meta[:len(msg.Meta)-1]), " from: ", src)
+			}
+
+			if serviceModifier, ok := serviceModifiers[service]; ok {
+				modifier = serviceModifier
 			}
 			if modifier != nil {
 				Debug(3, "[EMITTER] modifier:", requestID, "from:", src)
@@ -138,21 +160,21 @@ func CopyMulty(src PluginReader, writers ...PluginWriter) error {
 					hasher := fnv.New32a()
 					hasher.Write(meta[1])
 
-					wIndex = int(hasher.Sum32()) % len(writers)
-					if _, err := writers[wIndex].PluginWrite(msg); err != nil {
+					wIndex = int(hasher.Sum32()) % len(serviceWriters)
+					if _, err := serviceWriters[wIndex].PluginWrite(msg); err != nil {
 						return err
 					}
 				} else {
 					// Simple round robin
-					if _, err := writers[wIndex].PluginWrite(msg); err != nil {
+					if _, err := serviceWriters[wIndex].PluginWrite(msg); err != nil {
 						return err
 					}
 
-					wIndex = (wIndex + 1) % len(writers)
+					wIndex = (wIndex + 1) % len(serviceWriters)
 				}
 			} else {
-				for _, dst := range writers {
-					if _, err := dst.PluginWrite(msg); err != nil && err != io.ErrClosedPipe {
+				for _, dst := range serviceWriters {
+					if _, err := dst.PluginWrite(msg); err != nil {
 						return err
 					}
 				}

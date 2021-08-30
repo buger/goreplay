@@ -62,3 +62,7 @@ func (siz *Size) Set(size string) (err error) {
 func (siz *Size) String() string {
 	return fmt.Sprintf("%d", *siz)
 }
+
+func (siz *Size) Type() string {
+	return "size"
+}

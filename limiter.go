@@ -17,6 +17,8 @@ type Limiter struct {
 
 	currentRPS  int
 	currentTime int64
+
+	Service string
 }
 
 func parseLimitOptions(options string) (limit int, isPercent bool) {
@@ -33,8 +35,9 @@ func parseLimitOptions(options string) (limit int, isPercent bool) {
 
 // NewLimiter constructor for Limiter, accepts plugin and options
 // `options` allow to sprcify relatve or absolute limiting
-func NewLimiter(plugin interface{}, options string) PluginReadWriter {
+func NewLimiter(service string, plugin interface{}, options string) PluginReadWriter {
 	l := new(Limiter)
+	l.Service = service
 	l.limit, l.isPercent = parseLimitOptions(options)
 	l.plugin = plugin
 	l.currentTime = time.Now().UnixNano()
@@ -100,7 +103,7 @@ func (l *Limiter) PluginRead() (msg *Message, err error) {
 }
 
 func (l *Limiter) String() string {
-	return fmt.Sprintf("Limiting %s to: %d (isPercent: %v)", l.plugin, l.limit, l.isPercent)
+	return fmt.Sprintf("Limiting %s service %s to: %d (isPercent: %v)", l.plugin, l.Service, l.limit, l.isPercent)
 }
 
 // Close closes the resources.

@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"strings"
 
 	"github.com/Shopify/sarama"
@@ -16,6 +16,7 @@ type KafkaInput struct {
 	consumers []sarama.PartitionConsumer
 	messages  chan *sarama.ConsumerMessage
 	quit      chan struct{}
+	Service   string
 }
 
 // NewKafkaInput creates instance of kafka consumer client with TLS config
@@ -31,13 +32,15 @@ func NewKafkaInput(address string, config *InputKafkaConfig, tlsConfig *KafkaTLS
 		con, err = sarama.NewConsumer(strings.Split(config.Host, ","), c)
 
 		if err != nil {
-			log.Fatalln("Failed to start Sarama(Kafka) consumer:", err)
+			Debug(0, "Failed to start Sarama(Kafka) consumer:", err)
+			return nil
 		}
 	}
 
 	partitions, err := con.Partitions(config.Topic)
 	if err != nil {
-		log.Fatalln("Failed to collect Sarama(Kafka) partitions:", err)
+		Debug(0, "Failed to collect Sarama(Kafka) partitions:", err)
+		return nil
 	}
 
 	i := &KafkaInput{
@@ -50,13 +53,15 @@ func NewKafkaInput(address string, config *InputKafkaConfig, tlsConfig *KafkaTLS
 	for index, partition := range partitions {
 		consumer, err := con.ConsumePartition(config.Topic, partition, sarama.OffsetNewest)
 		if err != nil {
-			log.Fatalln("Failed to start Sarama(Kafka) partition consumer:", err)
+			Debug(0, "Failed to start Sarama(Kafka) partition consumer:", err)
+			return nil
 		}
 
 		go func(consumer sarama.PartitionConsumer) {
 			defer consumer.Close()
 
 			for message := range consumer.Messages() {
+				Debug(2, "Consume topic ", message.Topic, "offset ", message.Offset)
 				i.messages <- message
 			}
 		}(consumer)
@@ -115,6 +120,7 @@ func (i *KafkaInput) String() string {
 
 // Close closes this plugin
 func (i *KafkaInput) Close() error {
+	Debug(0, fmt.Sprintf("Close %s", i))
 	close(i.quit)
 	return nil
 }

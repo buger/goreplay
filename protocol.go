@@ -47,10 +47,10 @@ func payloadScanner(data []byte, atEOF bool) (advance int, token []byte, err err
 }
 
 // Timing is request start or round-trip time, depending on payloadType
-func payloadHeader(payloadType byte, uuid []byte, timing int64, latency int64) (header []byte) {
+func payloadHeader(payloadType byte, uuid []byte, timing int64, latency int64, service string) (header []byte) {
 	//Example:
-	//  3 f45590522cd1838b4a0d5c5aab80b77929dea3b3 13923489726487326 1231\n
-	return []byte(fmt.Sprintf("%c %s %d %d\n", payloadType, uuid, timing, latency))
+	//  3 f45590522cd1838b4a0d5c5aab80b77929dea3b3 13923489726487326 1231 service\n
+	return []byte(fmt.Sprintf("%c %s %d %d %s\n", payloadType, uuid, timing, latency, service))
 }
 
 func payloadBody(payload []byte) []byte {

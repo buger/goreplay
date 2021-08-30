@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 )
@@ -49,7 +50,11 @@ func extractLimitOptions(options string) (string, string) {
 // Automatically detects type of plugin and initialize it
 //
 // See this article if curious about reflect stuff below: http://blog.burntsushi.net/type-parametric-functions-golang
-func (plugins *InOutPlugins) registerPlugin(constructor interface{}, options ...interface{}) {
+func (plugins *InOutPlugins) registerPlugin(service string, constructor interface{}, options ...interface{}) error {
+	if service == "" && Settings.Service != "" {
+		service = Settings.Service
+	}
+
 	var path, limit string
 	vc := reflect.ValueOf(constructor)
 
@@ -69,9 +74,13 @@ func (plugins *InOutPlugins) registerPlugin(constructor interface{}, options ...
 
 	// Calling our constructor with list of given options
 	plugin := vc.Call(vo)[0].Interface()
+	if reflect.ValueOf(plugin).IsNil() {
+		return fmt.Errorf("Construct service %s plugin failed", service)
+	}
+	reflect.ValueOf(plugin).Elem().FieldByName("Service").SetString(service)
 
 	if limit != "" {
-		plugin = NewLimiter(plugin, limit)
+		plugin = NewLimiter(service, plugin, limit)
 	}
 
 	// Some of the output can be Readers as well because return responses
@@ -83,79 +92,84 @@ func (plugins *InOutPlugins) registerPlugin(constructor interface{}, options ...
 		plugins.Outputs = append(plugins.Outputs, w)
 	}
 	plugins.All = append(plugins.All, plugin)
+
+	fmt.Println("Loaded plugin:", service, plugin)
+	return nil
 }
 
 // NewPlugins specify and initialize all available plugins
-func NewPlugins() *InOutPlugins {
-	plugins := new(InOutPlugins)
-
-	for _, options := range Settings.InputDummy {
-		plugins.registerPlugin(NewDummyInput, options)
+func NewPlugins(service string, config ServiceSettings, plugins *InOutPlugins) *InOutPlugins {
+	if plugins == nil {
+		plugins = new(InOutPlugins)
 	}
 
-	for range Settings.OutputDummy {
-		plugins.registerPlugin(NewDummyOutput)
+	for _, options := range config.InputDummy {
+		plugins.registerPlugin(service, NewDummyInput, options)
 	}
 
-	if Settings.OutputStdout {
-		plugins.registerPlugin(NewDummyOutput)
+	for range config.OutputDummy {
+		plugins.registerPlugin(service, NewDummyOutput)
 	}
 
-	if Settings.OutputNull {
-		plugins.registerPlugin(NewNullOutput)
+	if config.OutputStdout {
+		plugins.registerPlugin(service, NewDummyOutput)
 	}
 
-	for _, options := range Settings.InputRAW {
-		plugins.registerPlugin(NewRAWInput, options, Settings.RAWInputConfig)
+	if config.OutputNull {
+		plugins.registerPlugin(service, NewNullOutput)
 	}
 
-	for _, options := range Settings.InputTCP {
-		plugins.registerPlugin(NewTCPInput, options, &Settings.InputTCPConfig)
+	for _, options := range config.InputRAW {
+		plugins.registerPlugin(service, NewRAWInput, options, config.InputRAWConfig)
 	}
 
-	for _, options := range Settings.OutputTCP {
-		plugins.registerPlugin(NewTCPOutput, options, &Settings.OutputTCPConfig)
+	for _, options := range config.InputTCP {
+		plugins.registerPlugin(service, NewTCPInput, options, &config.InputTCPConfig)
 	}
 
-	for _, options := range Settings.InputFile {
-		plugins.registerPlugin(NewFileInput, options, Settings.InputFileLoop, Settings.InputFileReadDepth, Settings.InputFileMaxWait, Settings.InputFileDryRun)
+	for _, options := range config.OutputTCP {
+		plugins.registerPlugin(service, NewTCPOutput, options, &config.OutputTCPConfig)
 	}
 
-	for _, path := range Settings.OutputFile {
+	for _, options := range config.InputFile {
+		plugins.registerPlugin(service, NewFileInput, options, config.InputFileLoop)
+	}
+
+	for _, path := range config.OutputFile {
 		if strings.HasPrefix(path, "s3://") {
-			plugins.registerPlugin(NewS3Output, path, &Settings.OutputFileConfig)
+			plugins.registerPlugin(service, NewS3Output, path, &config.OutputFileConfig)
 		} else {
-			plugins.registerPlugin(NewFileOutput, path, &Settings.OutputFileConfig)
+			plugins.registerPlugin(service, NewFileOutput, path, &config.OutputFileConfig)
 		}
 	}
 
-	for _, options := range Settings.InputHTTP {
-		plugins.registerPlugin(NewHTTPInput, options)
+	for _, options := range config.InputHTTP {
+		plugins.registerPlugin(service, NewHTTPInput, options)
 	}
 
 	// If we explicitly set Host header http output should not rewrite it
 	// Fix: https://github.com/buger/gor/issues/174
-	for _, header := range Settings.ModifierConfig.Headers {
+	for _, header := range config.ModifierConfig.Headers {
 		if header.Name == "Host" {
-			Settings.OutputHTTPConfig.OriginalHost = true
+			config.OutputHTTPConfig.OriginalHost = true
 			break
 		}
 	}
 
-	for _, options := range Settings.OutputHTTP {
-		plugins.registerPlugin(NewHTTPOutput, options, &Settings.OutputHTTPConfig)
+	for _, options := range config.OutputHTTP {
+		plugins.registerPlugin(service, NewHTTPOutput, options, &config.OutputHTTPConfig)
 	}
 
-	for _, options := range Settings.OutputBinary {
-		plugins.registerPlugin(NewBinaryOutput, options, &Settings.OutputBinaryConfig)
+	for _, options := range config.OutputBinary {
+		plugins.registerPlugin(service, NewBinaryOutput, options, &config.OutputBinaryConfig)
 	}
 
-	if Settings.OutputKafkaConfig.Host != "" && Settings.OutputKafkaConfig.Topic != "" {
-		plugins.registerPlugin(NewKafkaOutput, "", &Settings.OutputKafkaConfig, &Settings.KafkaTLSConfig)
+	if config.OutputKafkaConfig.Host != "" && config.OutputKafkaConfig.Topic != "" {
+		plugins.registerPlugin(service, NewKafkaOutput, "", &config.OutputKafkaConfig, &config.KafkaTLSConfig)
 	}
 
-	if Settings.InputKafkaConfig.Host != "" && Settings.InputKafkaConfig.Topic != "" {
-		plugins.registerPlugin(NewKafkaInput, "", &Settings.InputKafkaConfig, &Settings.KafkaTLSConfig)
+	if config.InputKafkaConfig.Host != "" && config.InputKafkaConfig.Topic != "" {
+		plugins.registerPlugin(service, NewKafkaInput, "", &config.InputKafkaConfig, &config.KafkaTLSConfig)
 	}
 
 	return plugins

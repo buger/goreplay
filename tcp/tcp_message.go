@@ -48,6 +48,10 @@ func (protocol *TCPProtocol) String() string {
 	}
 }
 
+func (protocal * TCPProtocol) Type() string {
+	return "tcpProtocol"
+}
+
 // Stats every message carry its own stats object
 type Stats struct {
 	LostData  int

@@ -18,25 +18,25 @@ import (
 type InputKafkaConfig struct {
 	producer sarama.AsyncProducer
 	consumer sarama.Consumer
-	Host     string `json:"input-kafka-host"`
-	Topic    string `json:"input-kafka-topic"`
-	UseJSON  bool   `json:"input-kafka-json-format"`
+	Host     string `json:"input-kafka-host" mapstructure:"input-kafka-host"`
+	Topic    string `json:"input-kafka-topic" mapstructure:"input-kafka-topic"`
+	UseJSON  bool   `json:"input-kafka-json-format" mapstructure:"input-kafka-json-format"`
 }
 
 // OutputKafkaConfig is the representation of kfka output configuration
 type OutputKafkaConfig struct {
 	producer sarama.AsyncProducer
 	consumer sarama.Consumer
-	Host     string `json:"output-kafka-host"`
-	Topic    string `json:"output-kafka-topic"`
-	UseJSON  bool   `json:"output-kafka-json-format"`
+	Host     string `json:"output-kafka-host" mapstructure:"output-kafka-host"`
+	Topic    string `json:"output-kafka-topic" mapstructure:"output-kafka-topic"`
+	UseJSON  bool   `json:"output-kafka-json-format" mapstructure:"output-kafka-json-format"`
 }
 
 // KafkaTLSConfig should contains TLS certificates for connecting to secured Kafka clusters
 type KafkaTLSConfig struct {
-	CACert     string `json:"kafka-tls-ca-cert"`
-	ClientCert string `json:"kafka-tls-client-cert"`
-	ClientKey  string `json:"kafka-tls-client-key"`
+	CACert     string `json:"kafka-tls-ca-cert" mapstructure:"kafka-tls-ca-cert"`
+	ClientCert string `json:"kafka-tls-client-cert" mapstructure:"kafka-tls-client-cert"`
+	ClientKey  string `json:"kafka-tls-client-key" mapstructure:"kafka-tls-client-key"`
 }
 
 // KafkaMessage should contains catched request information that should be

@@ -123,6 +123,11 @@ func (eng *EngineType) String() (e string) {
 	return e
 }
 
+// Type is here so that EngineType can implement flag.Var
+func (eng *EngineType) Type() string {
+	return "engineType"
+}
+
 // NewListener creates and initialize a new Listener. if transport or/and engine are invalid/unsupported
 // is "tcp" and "pcap", are assumed. l.Engine and l.Transport can help to get the values used.
 // if there is an error it will be associated with getting network interfaces

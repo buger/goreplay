@@ -11,7 +11,7 @@ func TestOutputLimiter(t *testing.T) {
 	wg := new(sync.WaitGroup)
 
 	input := NewTestInput()
-	output := NewLimiter(NewTestOutput(func(*Message) {
+	output := NewLimiter("", NewTestOutput(func(*Message) {
 		wg.Done()
 	}), "10")
 	wg.Add(10)
@@ -36,7 +36,7 @@ func TestOutputLimiter(t *testing.T) {
 func TestInputLimiter(t *testing.T) {
 	wg := new(sync.WaitGroup)
 
-	input := NewLimiter(NewTestInput(), "10")
+	input := NewLimiter("", NewTestInput(), "10")
 	output := NewTestOutput(func(*Message) {
 		wg.Done()
 	})
@@ -64,7 +64,7 @@ func TestPercentLimiter1(t *testing.T) {
 	wg := new(sync.WaitGroup)
 
 	input := NewTestInput()
-	output := NewLimiter(NewTestOutput(func(*Message) {
+	output := NewLimiter("", NewTestOutput(func(*Message) {
 		wg.Done()
 	}), "0%")
 
@@ -89,7 +89,7 @@ func TestPercentLimiter2(t *testing.T) {
 	wg := new(sync.WaitGroup)
 
 	input := NewTestInput()
-	output := NewLimiter(NewTestOutput(func(*Message) {
+	output := NewLimiter("", NewTestOutput(func(*Message) {
 		wg.Done()
 	}), "100%")
 	wg.Add(100)

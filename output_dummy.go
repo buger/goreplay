@@ -6,6 +6,7 @@ import (
 
 // DummyOutput used for debugging, prints all incoming requests
 type DummyOutput struct {
+	Service string
 }
 
 // NewDummyOutput constructor for DummyOutput

@@ -14,6 +14,7 @@ type HTTPInput struct {
 	address  string
 	listener net.Listener
 	stop     chan bool // Channel used only to indicate goroutine should shutdown
+	Service  string
 }
 
 // NewHTTPInput constructor for HTTPInput. Accepts address with port which it will listen on.
@@ -35,7 +36,7 @@ func (i *HTTPInput) PluginRead() (*Message, error) {
 		return nil, ErrorStopped
 	case buf := <-i.data:
 		msg.Data = buf
-		msg.Meta = payloadHeader(RequestPayload, uuid(), time.Now().UnixNano(), -1)
+		msg.Meta = payloadHeader(RequestPayload, uuid(), time.Now().UnixNano(), -1, i.Service)
 		return &msg, nil
 	}
 }
