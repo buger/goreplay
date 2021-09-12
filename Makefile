@@ -23,6 +23,8 @@ FPMCOMMON= \
     -s dir \
     -C /tmp/gor-build \
 
+.PHONY: vendor
+
 release: release-x64 release-x86 release-mac release-windows
 
 vendor:
@@ -31,7 +33,7 @@ vendor:
 release-bin: vendor
 	docker run --rm -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i $(CONTAINER) go build -mod=vendor -o $(BIN_NAME) -tags netgo $(LDFLAGS)
 
-release-bin-x64: vendor
+release-bin-x86: vendor
 	docker run --rm -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=386 -i $(CONTAINER) go build -mod=vendor -o $(BIN_NAME) -tags netgo $(LDFLAGS)
 
 release-bin-mac: vendor
@@ -51,7 +53,7 @@ release-x64: release-bin
 	fpm $(FPMCOMMON) -a amd64 -t rpm ./=/usr/local/bin
 	rm -rf /tmp/gor-build
 
-release-x86: release-bin-x64
+release-x86: release-bin-x86
 	tar -czf gor_$(VERSION)$(PREFIX)_x86.tar.gz $(BIN_NAME)
 	rm $(BIN_NAME)
 
