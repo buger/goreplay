@@ -213,7 +213,8 @@ func TestMessageParserWithoutHint(t *testing.T) {
 }
 
 func TestMessageTimeoutReached(t *testing.T) {
-	var data [63 << 10]byte
+	const size = 63 << 11
+	var data [size >> 1]byte
 	packets := GetPackets(true, 1, 2, data[:])
 	p := NewMessageParser(nil, nil, nil, 10*time.Millisecond, true)
 	p.processPacket(packets[0])
@@ -222,8 +223,8 @@ func TestMessageTimeoutReached(t *testing.T) {
 
 	p.processPacket(packets[1])
 	m := p.Read()
-	if m.Length != 63<<10 {
-		t.Errorf("expected %d to equal %d", m.Length, 63<<10)
+	if m.Length != size {
+		t.Errorf("expected %d to equal %d", m.Length, size)
 	}
 	if !m.TimedOut {
 		t.Error("expected message to be timeout")
