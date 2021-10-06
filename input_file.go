@@ -76,7 +76,7 @@ func (f *fileInputReader) parse(init chan struct{}) error {
 
 	for {
 		line, err := f.reader.ReadBytes('\n')
-		lineNum += 1
+		lineNum++
 
 		if err != nil {
 			if err != io.EOF {
