@@ -361,8 +361,8 @@ func (parser *MessageParser) processPacket(pckt *Packet) {
 
 	m = new(Message)
 	m.Direction = pckt.Direction
-	m.SrcAddr = pckt.SrcIP.String()
-	m.DstAddr = pckt.DstIP.String()
+	m.SrcAddr = pckt.Src()
+	m.DstAddr = pckt.Dst()
 
 	parser.m[mIDX][mID] = m
 
