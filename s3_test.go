@@ -127,7 +127,7 @@ func TestInputFileFromS3(t *testing.T) {
 		<-output.closeCh
 	}
 
-	input := NewFileInput(fmt.Sprintf("s3://test-gor-eu/%d", rnd), false)
+	input := NewFileInput(fmt.Sprintf("s3://test-gor-eu/%d", rnd), false, 100, 0, false)
 
 	buf := make([]byte, 1000)
 	for i := 0; i <= 19999; i++ {

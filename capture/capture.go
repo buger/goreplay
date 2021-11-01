@@ -3,6 +3,7 @@ package capture
 import (
 	"context"
 	"errors"
+	"expvar"
 	"fmt"
 	"io"
 	"log"
@@ -14,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/buger/goreplay/proto"
 	"github.com/buger/goreplay/size"
 	"github.com/buger/goreplay/tcp"
 
@@ -22,8 +24,19 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
+var stats *expvar.Map
+
+func init() {
+	stats = expvar.NewMap("raw")
+	stats.Init()
+}
+
 // PacketHandler is a function that is used to handle packets
 type PacketHandler func(*tcp.Packet)
+
+type PcapStatProvider interface {
+	Stats() (*pcap.Stats, error)
+}
 
 // PcapOptions options that can be set on a pcap capture handle,
 // these options take effect on inactive pcap handles
@@ -47,9 +60,13 @@ type Listener struct {
 	loopIndex  int
 	Reading    chan bool // this channel is closed when the listener has started reading packets
 	PcapOptions
-	Engine        EngineType
-	ports         []uint16 // src or/and dst ports
-	trackResponse bool
+	Engine          EngineType
+	ports           []uint16 // src or/and dst ports
+	trackResponse   bool
+	expiry          time.Duration
+	allowIncomplete bool
+	messages        chan *tcp.Message
+	protocol        tcp.TCPProtocol
 
 	host string // pcap file name or interface (name, hardware addr, index or ip address)
 
@@ -58,7 +75,7 @@ type Listener struct {
 }
 
 type packetHandle struct {
-	handler gopacket.ZeroCopyPacketDataSource
+	handler gopacket.PacketDataSource
 	ips     []net.IP
 }
 
@@ -109,7 +126,7 @@ func (eng *EngineType) String() (e string) {
 // NewListener creates and initialize a new Listener. if transport or/and engine are invalid/unsupported
 // is "tcp" and "pcap", are assumed. l.Engine and l.Transport can help to get the values used.
 // if there is an error it will be associated with getting network interfaces
-func NewListener(host string, ports []uint16, transport string, engine EngineType, trackResponse bool) (l *Listener, err error) {
+func NewListener(host string, ports []uint16, transport string, engine EngineType, protocol tcp.TCPProtocol, trackResponse bool, expiry time.Duration, allowIncomplete bool) (l *Listener, err error) {
 	l = &Listener{}
 
 	l.host = host
@@ -127,6 +144,11 @@ func NewListener(host string, ports []uint16, transport string, engine EngineTyp
 	l.closeDone = make(chan struct{})
 	l.quit = make(chan struct{})
 	l.Reading = make(chan bool)
+	l.expiry = expiry
+	l.allowIncomplete = allowIncomplete
+	l.protocol = protocol
+	l.messages = make(chan *tcp.Message, 10000)
+
 	switch engine {
 	default:
 		l.Engine = EnginePcap
@@ -159,8 +181,8 @@ func (l *Listener) SetPcapOptions(opts PcapOptions) {
 // Listen listens for packets from the handles, and call handler on every packet received
 // until the context done signal is sent or there is unrecoverable error on all handles.
 // this function must be called after activating pcap handles
-func (l *Listener) Listen(ctx context.Context, handler PacketHandler) (err error) {
-	l.read(handler)
+func (l *Listener) Listen(ctx context.Context) (err error) {
+	l.read()
 	done := ctx.Done()
 	select {
 	case <-done:
@@ -173,11 +195,11 @@ func (l *Listener) Listen(ctx context.Context, handler PacketHandler) (err error
 }
 
 // ListenBackground is like listen but can run concurrently and signal error through channel
-func (l *Listener) ListenBackground(ctx context.Context, handler PacketHandler) chan error {
+func (l *Listener) ListenBackground(ctx context.Context) chan error {
 	err := make(chan error, 1)
 	go func() {
 		defer close(err)
-		if e := l.Listen(ctx, handler); err != nil {
+		if e := l.Listen(ctx); err != nil {
 			err <- e
 		}
 	}()
@@ -196,7 +218,7 @@ func (l *Listener) Filter(ifi pcap.Interface) (filter string) {
 
 	filter = portsFilter(l.Transport, "dst", l.ports)
 
-	if len(hosts) != 0 {
+	if len(hosts) != 0 && !l.Promiscuous {
 		filter = fmt.Sprintf("((%s) and (%s))", filter, hostsFilter("dst", hosts))
 	} else {
 		filter = fmt.Sprintf("(%s)", filter)
@@ -205,7 +227,7 @@ func (l *Listener) Filter(ifi pcap.Interface) (filter string) {
 	if l.trackResponse {
 		responseFilter := portsFilter(l.Transport, "src", l.ports)
 
-		if len(hosts) != 0 {
+		if len(hosts) != 0 && !l.Promiscuous {
 			responseFilter = fmt.Sprintf("((%s) and (%s))", responseFilter, hostsFilter("src", hosts))
 		} else {
 			responseFilter = fmt.Sprintf("(%s)", responseFilter)
@@ -213,8 +235,6 @@ func (l *Listener) Filter(ifi pcap.Interface) (filter string) {
 
 		filter = fmt.Sprintf("%s or %s", filter, responseFilter)
 	}
-
-	// filter = fmt.Sprintf("((((ip[2:2] - ((ip[0]&0xf)<<2)) - ((tcp[12]&0xf0)>>2)) != 0)) and (%s)", filter)
 
 	return
 }
@@ -229,9 +249,10 @@ func (l *Listener) PcapHandle(ifi pcap.Interface) (handle *pcap.Handle, err erro
 	}
 	defer inactive.CleanUp()
 
-	if l.TimestampType != "" {
+	if l.TimestampType != "" && l.TimestampType != "go" {
 		var ts pcap.TimestampSource
 		ts, err = pcap.TimestampSourceFromString(l.TimestampType)
+		fmt.Println("Setting custom Timestamp Source. Supported values: `go`, ", inactive.SupportedTimestamps())
 		err = inactive.SetTimestampSource(ts)
 		if err != nil {
 			return nil, fmt.Errorf("%q: supported timestamps: %q, interface: %q", err, inactive.SupportedTimestamps(), ifi.Name)
@@ -319,11 +340,34 @@ func (l *Listener) SocketHandle(ifi pcap.Interface) (handle Socket, err error) {
 	return
 }
 
-func (l *Listener) read(handler PacketHandler) {
+func http1StartHint(pckt *tcp.Packet) (isRequest, isResponse bool) {
+	if proto.HasRequestTitle(pckt.Payload) {
+		return true, false
+	}
+
+	if proto.HasResponseTitle(pckt.Payload) {
+		return false, true
+	}
+
+	// No request or response detected
+	return false, false
+}
+
+func http1EndHint(m *tcp.Message) bool {
+	if m.MissingChunk() {
+		return false
+	}
+
+	return proto.HasFullPayload(m, m.PacketData()...)
+}
+
+func (l *Listener) read() {
 	l.Lock()
 	defer l.Unlock()
 	for key, handle := range l.Handles {
 		go func(key string, hndl packetHandle) {
+			runtime.LockOSThread()
+
 			defer l.closeHandles(key)
 			linkSize := 14
 			linkType := int(layers.LinkTypeEthernet)
@@ -338,29 +382,41 @@ func (l *Listener) read(handler PacketHandler) {
 				}
 			}
 
+			messageParser := tcp.NewMessageParser(l.messages, l.ports, hndl.ips, l.expiry, l.allowIncomplete)
+
+			if l.protocol == tcp.ProtocolHTTP {
+				messageParser.Start = http1StartHint
+				messageParser.End = http1EndHint
+			}
+
+			timer := time.NewTicker(1 * time.Second)
+
 			for {
 				select {
 				case <-l.quit:
 					return
-				default:
-					data, ci, err := hndl.handler.ZeroCopyReadPacketData()
-					if err == nil {
-						pckt, err := tcp.ParsePacket(data, linkType, linkSize, &ci, false)
+				case <-timer.C:
+					if h, ok := hndl.handler.(PcapStatProvider); ok {
+						s, err := h.Stats()
 						if err == nil {
-							for _, p := range l.ports {
-								if pckt.DstPort == p {
-									for _, ip := range hndl.ips {
-										if pckt.DstIP.Equal(ip) {
-											pckt.Incoming = true
-											break
-										}
-									}
-									break
-								}
-							}
-
-							handler(pckt)
+							stats.Add("packets_received", int64(s.PacketsReceived))
+							stats.Add("packets_dropped", int64(s.PacketsDropped))
+							stats.Add("packets_if_dropped", int64(s.PacketsIfDropped))
 						}
+					}
+				default:
+					data, ci, err := hndl.handler.ReadPacketData()
+					if err == nil {
+						if l.TimestampType == "go" {
+							ci.Timestamp = time.Now()
+						}
+
+						messageParser.PacketHandler(&tcp.PcapPacket{
+							Data:     data,
+							LType:    linkType,
+							LTypeLen: linkSize,
+							Ci:       &ci,
+						})
 						continue
 					}
 					if enext, ok := err.(pcap.NextError); ok && enext == pcap.NextErrorTimeoutExpired {
@@ -384,6 +440,10 @@ func (l *Listener) read(handler PacketHandler) {
 		}(key, handle)
 	}
 	close(l.Reading)
+}
+
+func (l *Listener) Messages() chan *tcp.Message {
+	return l.messages
 }
 
 func (l *Listener) closeHandles(key string) {
@@ -462,6 +522,9 @@ func (l *Listener) activatePcapFile() (err error) {
 		handle.Close()
 		return fmt.Errorf("BPF filter error: %q, filter: %s", e, l.BPFFilter)
 	}
+
+	fmt.Println("BPF Filter:", l.BPFFilter)
+
 	l.Handles["pcap_file"] = packetHandle{
 		handler: handle,
 	}
@@ -511,34 +574,54 @@ func (l *Listener) setInterfaces() (err error) {
 	}
 
 	for _, pi := range pifis {
+		if isDevice(l.host, pi) {
+			l.Interfaces = []pcap.Interface{pi}
+			return
+		}
+
 		var ni net.Interface
 		for _, i := range ifis {
 			if i.Name == pi.Name {
 				ni = i
 				break
 			}
+
+			addrs, _ := i.Addrs()
+			for _, a := range addrs {
+				for _, pa := range pi.Addresses {
+					if a.String() == pa.IP.String() {
+						ni = i
+						break
+					}
+				}
+			}
 		}
 
 		if ni.Flags&net.FlagLoopback != 0 {
 			l.loopIndex = ni.Index
 		}
-		if ni.Flags&net.FlagUp == 0 {
-			continue
+
+		if runtime.GOOS != "windows" {
+			if len(pi.Addresses) == 0 {
+				continue
+			}
+
+			if ni.Flags&net.FlagUp == 0 {
+				continue
+			}
 		}
 
-		if isDevice(l.host, pi) {
-			l.Interfaces = []pcap.Interface{pi}
-			return
-		}
-
-		if len(pi.Addresses) != 0 {
-			l.Interfaces = append(l.Interfaces, pi)
-		}
+		l.Interfaces = append(l.Interfaces, pi)
 	}
 	return
 }
 
 func isDevice(addr string, ifi pcap.Interface) bool {
+	// Windows npcap loopback have no IPs
+	if addr == "127.0.0.1" && ifi.Name == `\Device\NPF_Loopback` {
+		return true
+	}
+
 	if addr == ifi.Name {
 		return true
 	}

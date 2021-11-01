@@ -215,6 +215,7 @@ func (o *HTTPOutput) sendRequest(client *HTTPClient, msg *Message) {
 	if !isRequestPayload(msg.Meta) {
 		return
 	}
+
 	uuid := payloadID(msg.Meta)
 	start := time.Now()
 	resp, err := client.Send(msg.Data)

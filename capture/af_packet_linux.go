@@ -48,9 +48,9 @@ func newAfpacketHandle(device string, snaplen int, block_size int, num_blocks in
 	return h, err
 }
 
-// ZeroCopyReadPacketData satisfies ZeroCopyPacketDataSource interface
-func (h *afpacketHandle) ZeroCopyReadPacketData() (data []byte, ci gopacket.CaptureInfo, err error) {
-	return h.TPacket.ZeroCopyReadPacketData()
+// ReadPacketData satisfies PacketDataSource interface
+func (h *afpacketHandle) ReadPacketData() (data []byte, ci gopacket.CaptureInfo, err error) {
+	return h.TPacket.ReadPacketData()
 }
 
 // SetBPFFilter translates a BPF filter string into BPF RawInstruction and applies them.

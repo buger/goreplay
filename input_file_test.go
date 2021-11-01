@@ -104,7 +104,7 @@ func TestInputFileMultipleFilesWithRequestsOnly(t *testing.T) {
 	file2.Write([]byte(payloadSeparator))
 	file2.Close()
 
-	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false)
+	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false, 100, 0, false)
 
 	for i := '1'; i <= '4'; i++ {
 		msg, _ := input.PluginRead()
@@ -130,7 +130,7 @@ func TestInputFileRequestsWithLatency(t *testing.T) {
 	file.Write([]byte("1 3 250000000\nrequest3"))
 	file.Write([]byte(payloadSeparator))
 
-	input := NewFileInput(fmt.Sprintf("/tmp/%d", rnd), false)
+	input := NewFileInput(fmt.Sprintf("/tmp/%d", rnd), false, 100, 0, false)
 
 	start := time.Now().UnixNano()
 	for i := 0; i < 3; i++ {
@@ -170,7 +170,7 @@ func TestInputFileMultipleFilesWithRequestsAndResponses(t *testing.T) {
 	file2.Write([]byte(payloadSeparator))
 	file2.Close()
 
-	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false)
+	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false, 100, 0, false)
 
 	for i := '1'; i <= '4'; i++ {
 		msg, _ := input.PluginRead()
@@ -198,7 +198,7 @@ func TestInputFileLoop(t *testing.T) {
 	file.Write([]byte(payloadSeparator))
 	file.Close()
 
-	input := NewFileInput(fmt.Sprintf("/tmp/%d", rnd), true)
+	input := NewFileInput(fmt.Sprintf("/tmp/%d", rnd), true, 100, 0, false)
 
 	// Even if we have just 2 requests in file, it should indifinitly loop
 	for i := 0; i < 1000; i++ {
@@ -226,7 +226,7 @@ func TestInputFileCompressed(t *testing.T) {
 	name2 := output2.file.Name()
 	output2.Close()
 
-	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false)
+	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false, 100, 0, false)
 	for i := 0; i < 2000; i++ {
 		input.PluginRead()
 	}
@@ -326,7 +326,7 @@ func CreateCaptureFile(requestGenerator *RequestGenerator) *CaptureFile {
 func ReadFromCaptureFile(captureFile *os.File, count int, callback writeCallback) (err error) {
 	wg := new(sync.WaitGroup)
 
-	input := NewFileInput(captureFile.Name(), false)
+	input := NewFileInput(captureFile.Name(), false, 100, 0, false)
 	output := NewTestOutput(func(msg *Message) {
 		callback(msg)
 		wg.Done()

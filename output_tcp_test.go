@@ -125,8 +125,9 @@ func TestBufferDistribution(t *testing.T) {
 	}
 }
 
-func getTestBytes() []byte {
-	reqh := payloadHeader(RequestPayload, uuid(), time.Now().UnixNano(), -1)
-	reqb := append(reqh, []byte("GET / HTTP/1.1\r\nHost: www.w3.org\r\nUser-Agent: Go 1.1 package http\r\nAccept-Encoding: gzip\r\n\r\n")...)
-	return reqb
+func getTestBytes() *Message {
+	return &Message{
+		Meta: payloadHeader(RequestPayload, uuid(), time.Now().UnixNano(), -1),
+		Data: []byte("GET / HTTP/1.1\r\nHost: www.w3.org\r\nUser-Agent: Go 1.1 package http\r\nAccept-Encoding: gzip\r\n\r\n"),
+	}
 }

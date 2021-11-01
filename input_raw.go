@@ -16,40 +16,6 @@ import (
 	"github.com/buger/goreplay/tcp"
 )
 
-// TCPProtocol is a number to indicate type of protocol
-type TCPProtocol uint8
-
-const (
-	// ProtocolHTTP ...
-	ProtocolHTTP TCPProtocol = iota
-	// ProtocolBinary ...
-	ProtocolBinary
-)
-
-// Set is here so that TCPProtocol can implement flag.Var
-func (protocol *TCPProtocol) Set(v string) error {
-	switch v {
-	case "", "http":
-		*protocol = ProtocolHTTP
-	case "binary":
-		*protocol = ProtocolBinary
-	default:
-		return fmt.Errorf("unsupported protocol %s", v)
-	}
-	return nil
-}
-
-func (protocol *TCPProtocol) String() string {
-	switch *protocol {
-	case ProtocolBinary:
-		return "binary"
-	case ProtocolHTTP:
-		return "http"
-	default:
-		return ""
-	}
-}
-
 // RAWInputConfig represents configuration that can be applied on raw input
 type RAWInputConfig struct {
 	capture.PcapOptions
@@ -57,7 +23,7 @@ type RAWInputConfig struct {
 	CopyBufferSize  size.Size          `json:"copy-buffer-size"`
 	Engine          capture.EngineType `json:"input-raw-engine"`
 	TrackResponse   bool               `json:"input-raw-track-response"`
-	Protocol        TCPProtocol        `json:"input-raw-protocol"`
+	Protocol        tcp.TCPProtocol    `json:"input-raw-protocol"`
 	RealIPHeader    string             `json:"input-raw-realip-header"`
 	Stats           bool               `json:"input-raw-stats"`
 	AllowIncomplete bool               `json:"input-raw-allow-incomplete"`
@@ -117,12 +83,12 @@ func (i *RAWInput) PluginRead() (*Message, error) {
 	select {
 	case <-i.quit:
 		return nil, ErrorStopped
-	case msgTCP = <-i.messageParser.Messages():
+	case msgTCP = <-i.listener.Messages():
 		msg.Data = msgTCP.Data()
 	}
 
 	var msgType byte = ResponsePayload
-	if msgTCP.IsRequest {
+	if msgTCP.Direction == tcp.DirIncoming {
 		msgType = RequestPayload
 		if i.RealIPHeader != "" {
 			msg.Data = proto.SetHeader(msg.Data, []byte(i.RealIPHeader), []byte(msgTCP.SrcAddr))
@@ -142,14 +108,13 @@ func (i *RAWInput) PluginRead() (*Message, error) {
 		stat := msgTCP.Stats
 		go i.addStats(stat)
 	}
-	msgTCP.Finalize()
 	msgTCP = nil
 	return &msg, nil
 }
 
 func (i *RAWInput) listen(address string) {
 	var err error
-	i.listener, err = capture.NewListener(i.host, i.ports, "", i.Engine, i.TrackResponse)
+	i.listener, err = capture.NewListener(i.host, i.ports, "", i.Engine, i.Protocol, i.TrackResponse, i.Expire, i.AllowIncomplete)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -158,15 +123,10 @@ func (i *RAWInput) listen(address string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	i.messageParser = tcp.NewMessageParser(i.CopyBufferSize, i.Expire, i.AllowIncomplete, Debug)
 
-	if i.Protocol == ProtocolHTTP {
-		i.messageParser.Start = http1StartHint
-		i.messageParser.End = http1EndHint
-	}
 	var ctx context.Context
 	ctx, i.cancelListener = context.WithCancel(context.Background())
-	errCh := i.listener.ListenBackground(ctx, i.messageParser.PacketHandler)
+	errCh := i.listener.ListenBackground(ctx)
 	<-i.listener.Reading
 	Debug(1, i)
 	go func() {
@@ -209,25 +169,4 @@ func (i *RAWInput) addStats(mStats tcp.Stats) {
 	}
 	i.messageStats = append(i.messageStats, mStats)
 	i.Unlock()
-}
-
-func http1StartHint(pckt *tcp.Packet) (isRequest, isResponse bool) {
-	if proto.HasRequestTitle(pckt.Payload) {
-		return true, false
-	}
-
-	if proto.HasResponseTitle(pckt.Payload) {
-		return false, true
-	}
-
-	// No request or response detected
-	return false, false
-}
-
-func http1EndHint(m *tcp.Message) bool {
-	if m.MissingChunk() {
-		return false
-	}
-
-	return proto.HasFullPayload(m, m.PacketData()...)
 }

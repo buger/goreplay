@@ -152,7 +152,7 @@ func CopyMulty(src PluginReader, writers ...PluginWriter) error {
 				}
 			} else {
 				for _, dst := range writers {
-					if _, err := dst.PluginWrite(msg); err != nil {
+					if _, err := dst.PluginWrite(msg); err != nil && err != io.ErrClosedPipe {
 						return err
 					}
 				}

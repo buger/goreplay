@@ -16,6 +16,7 @@ import (
 
 	"github.com/buger/goreplay/capture"
 	"github.com/buger/goreplay/proto"
+	"github.com/buger/goreplay/tcp"
 )
 
 const testRawExpire = time.Millisecond * 200
@@ -43,7 +44,7 @@ func TestRAWInputIPv4(t *testing.T) {
 	conf := RAWInputConfig{
 		Engine:        capture.EnginePcap,
 		Expire:        0,
-		Protocol:      ProtocolHTTP,
+		Protocol:      tcp.ProtocolHTTP,
 		TrackResponse: true,
 		RealIPHeader:  "X-Real-IP",
 	}
@@ -113,7 +114,7 @@ func TestRAWInputNoKeepAlive(t *testing.T) {
 	conf := RAWInputConfig{
 		Engine:        capture.EnginePcap,
 		Expire:        testRawExpire,
-		Protocol:      ProtocolHTTP,
+		Protocol:      tcp.ProtocolHTTP,
 		TrackResponse: true,
 	}
 	input := NewRAWInput(":"+port, conf)
@@ -121,10 +122,11 @@ func TestRAWInputNoKeepAlive(t *testing.T) {
 	output := NewTestOutput(func(msg *Message) {
 		if msg.Meta[0] == '1' {
 			atomic.AddInt64(&reqCounter, 1)
+			wg.Done()
 		} else {
 			atomic.AddInt64(&respCounter, 1)
+			wg.Done()
 		}
-		wg.Done()
 	})
 
 	plugins := &InOutPlugins{
@@ -178,7 +180,7 @@ func TestRAWInputIPv6(t *testing.T) {
 	var respCounter, reqCounter int64
 	conf := RAWInputConfig{
 		Engine:        capture.EnginePcap,
-		Protocol:      ProtocolHTTP,
+		Protocol:      tcp.ProtocolHTTP,
 		TrackResponse: true,
 	}
 	input := NewRAWInput(originAddr, conf)
@@ -233,10 +235,11 @@ func TestInputRAWChunkedEncoding(t *testing.T) {
 
 	originAddr := strings.Replace(origin.Listener.Addr().String(), "[::]", "127.0.0.1", -1)
 	conf := RAWInputConfig{
-		Engine:        capture.EnginePcap,
-		Expire:        time.Second,
-		Protocol:      ProtocolHTTP,
-		TrackResponse: true,
+		Engine:          capture.EnginePcap,
+		Expire:          time.Second,
+		Protocol:        tcp.ProtocolHTTP,
+		TrackResponse:   true,
+		AllowIncomplete: true,
 	}
 	input := NewRAWInput(originAddr, conf)
 
@@ -314,7 +317,7 @@ func BenchmarkRAWInputWithReplay(b *testing.B) {
 	conf := RAWInputConfig{
 		Engine:        capture.EnginePcap,
 		Expire:        testRawExpire,
-		Protocol:      ProtocolHTTP,
+		Protocol:      tcp.ProtocolHTTP,
 		TrackResponse: true,
 	}
 	input := NewRAWInput(originAddr, conf)

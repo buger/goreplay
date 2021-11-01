@@ -24,6 +24,7 @@ func (i *DummyOutput) PluginWrite(msg *Message) (int, error) {
 	n += nn
 	nn, err = os.Stdout.Write(payloadSeparatorAsBytes)
 	n += nn
+
 	return n, err
 }
 

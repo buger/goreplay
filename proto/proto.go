@@ -77,9 +77,12 @@ func header(payload []byte, name []byte) (value []byte, headerStart, headerEnd, 
 		headerEnd += headerStart
 		colonIndex = bytes.IndexByte(payload[headerStart:headerEnd], ':')
 		if colonIndex == -1 {
-			break
+			// Malformed header, skip, most likely packet with partial headers
+			headerStart = headerEnd + 1
+			continue
 		}
 		colonIndex += headerStart
+
 		if bytes.EqualFold(payload[headerStart:colonIndex], name) {
 			valueStart = colonIndex + 1
 			valueEnd = headerEnd - 2
@@ -448,34 +451,36 @@ type ProtocolStateSetter interface {
 	ProtocolState() interface{}
 }
 
-type httpProto struct {
-	body         int // body index
-	headerStart  int
-	headerParsed bool // we checked necessary headers
-	hasFullBody  bool // all chunks has been parsed
-	isChunked    bool // Transfer-Encoding: chunked
-	bodyLen      int  // Content-Length's value
-	hasTrailer   bool // Trailer header?
+type HTTPState struct {
+	Body           int // body index
+	HeaderStart    int
+	HeaderEnd      int
+	HeaderParsed   bool // we checked necessary headers
+	HasFullPayload bool // all chunks has been parsed
+	IsChunked      bool // Transfer-Encoding: chunked
+	BodyLen        int  // Content-Length's value
+	HasTrailer     bool // Trailer header?
+	Continue100    bool
 }
 
 // HasFullPayload checks if this message has full or valid payloads and returns true.
 // Message param is optional but recommended on cases where 'data' is storing
 // partial-to-full stream of bytes(packets).
 func HasFullPayload(m ProtocolStateSetter, payloads ...[]byte) bool {
-	var state *httpProto
+	var state *HTTPState
 	if m != nil {
-		state, _ = m.ProtocolState().(*httpProto)
+		state, _ = m.ProtocolState().(*HTTPState)
 	}
 	if state == nil {
-		state = new(httpProto)
+		state = new(HTTPState)
 		if m != nil {
 			m.SetProtocolState(state)
 		}
 	}
-	if state.headerStart < 1 {
+	if state.HeaderStart < 1 {
 		for _, data := range payloads {
-			state.headerStart = MIMEHeadersStartPos(data)
-			if state.headerStart < 0 {
+			state.HeaderStart = MIMEHeadersStartPos(data)
+			if state.HeaderStart < 0 {
 				return false
 			} else {
 				break
@@ -483,7 +488,7 @@ func HasFullPayload(m ProtocolStateSetter, payloads ...[]byte) bool {
 		}
 	}
 
-	if state.body < 1 {
+	if state.Body < 1 || state.HeaderEnd < 1 {
 		var pos int
 		for _, data := range payloads {
 			endPos := MIMEHeadersEndPos(data)
@@ -491,32 +496,42 @@ func HasFullPayload(m ProtocolStateSetter, payloads ...[]byte) bool {
 				pos += len(data)
 			} else {
 				pos += endPos
+				state.HeaderEnd = pos
 			}
 
 			if endPos > 0 {
-				state.body = pos
+				state.Body = pos
 				break
 			}
 		}
 	}
-	if !state.headerParsed {
+
+	if state.HeaderEnd < 1 {
+		return false
+	}
+
+	if !state.HeaderParsed {
 		var pos int
 		for _, data := range payloads {
 			chunked := Header(data, []byte("Transfer-Encoding"))
 
 			if len(chunked) > 0 && bytes.Index(data, []byte("chunked")) > 0 {
-				state.isChunked = true
+				state.IsChunked = true
 				// trailers are generally not allowed in non-chunks body
-				state.hasTrailer = len(Header(data, []byte("Trailer"))) > 0
+				state.HasTrailer = len(Header(data, []byte("Trailer"))) > 0
 			} else {
 				contentLen := Header(data, []byte("Content-Length"))
-				state.bodyLen, _ = atoI(contentLen, 10)
+				state.BodyLen, _ = atoI(contentLen, 10)
 			}
 
 			pos += len(data)
 
-			if state.bodyLen > 0 || pos >= state.body {
-				state.headerParsed = true
+			if string(Header(data, []byte("Expect"))) == "100-continue" {
+				state.Continue100 = true
+			}
+
+			if state.BodyLen > 0 || pos >= state.Body {
+				state.HeaderParsed = true
 				break
 			}
 		}
@@ -526,22 +541,22 @@ func HasFullPayload(m ProtocolStateSetter, payloads ...[]byte) bool {
 	for _, data := range payloads {
 		bodyLen += len(data)
 	}
-	bodyLen -= state.body
+	bodyLen -= state.Body
 
-	if state.isChunked {
+	if state.IsChunked {
 		// check chunks
 		if bodyLen < 1 {
 			return false
 		}
 
 		// check trailer headers
-		if state.hasTrailer {
+		if state.HasTrailer {
 			if bytes.HasSuffix(payloads[len(payloads)-1], []byte("\r\n\r\n")) {
 				return true
 			}
 		} else {
 			if bytes.HasSuffix(payloads[len(payloads)-1], []byte("0\r\n\r\n")) {
-				state.hasFullBody = true
+				state.HasFullPayload = true
 				return true
 			}
 		}
@@ -550,7 +565,7 @@ func HasFullPayload(m ProtocolStateSetter, payloads ...[]byte) bool {
 	}
 
 	// check for content-length header
-	return state.bodyLen == bodyLen
+	return state.BodyLen == bodyLen
 }
 
 // this works with positive integers

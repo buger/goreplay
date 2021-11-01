@@ -39,7 +39,7 @@ func TestFileOutput(t *testing.T) {
 	emitter.Close()
 
 	var counter int64
-	input2 := NewFileInput("/tmp/test_requests.gor", false)
+	input2 := NewFileInput("/tmp/test_requests.gor", false, 100, 0, false)
 	output2 := NewTestOutput(func(*Message) {
 		atomic.AddInt64(&counter, 1)
 		wg.Done()
@@ -315,7 +315,6 @@ func TestFileOutputAppendSizeLimitOverflow(t *testing.T) {
 	name2 := output.file.Name()
 
 	output.flush()
-	output.updateName()
 
 	output.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
 	name3 := output.file.Name()

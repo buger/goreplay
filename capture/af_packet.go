@@ -21,8 +21,8 @@ func afpacketComputeSize(targetSizeMb int, snaplen int, pageSize int) (
 
 type afpacketHandle struct{}
 
-// ZeroCopyReadPacketData satisfies ZeroCopyPacketDataSource interface
-func (h *afpacketHandle) ZeroCopyReadPacketData() (data []byte, ci gopacket.CaptureInfo, err error) {
+// ReadPacketData satisfies PacketDataSource interface
+func (h *afpacketHandle) ReadPacketData() (data []byte, ci gopacket.CaptureInfo, err error) {
 	return nil, gopacket.CaptureInfo{}, fmt.Errorf("Not implemented")
 }
 

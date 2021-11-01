@@ -62,17 +62,17 @@ type FileOutputConfig struct {
 // FileOutput output plugin
 type FileOutput struct {
 	sync.RWMutex
-	pathTemplate   string
-	currentName    string
-	file           *os.File
-	QueueLength    int
-	chunkSize      int
-	writer         io.Writer
-	requestPerFile bool
-	currentID      []byte
-	payloadType    []byte
-	closed         bool
-	totalFileSize  size.Size
+	pathTemplate    string
+	currentName     string
+	file            *os.File
+	QueueLength     int
+	writer          io.Writer
+	requestPerFile  bool
+	currentID       []byte
+	payloadType     []byte
+	closed          bool
+	currentFileSize int
+	totalFileSize   size.Size
 
 	config *FileOutputConfig
 }
@@ -82,7 +82,6 @@ func NewFileOutput(pathTemplate string, config *FileOutputConfig) *FileOutput {
 	o := new(FileOutput)
 	o.pathTemplate = pathTemplate
 	o.config = config
-	o.updateName()
 
 	if strings.Contains(pathTemplate, "%r") {
 		o.requestPerFile = true
@@ -98,7 +97,6 @@ func NewFileOutput(pathTemplate string, config *FileOutputConfig) *FileOutput {
 			if o.IsClosed() {
 				break
 			}
-			o.updateName()
 			o.flush()
 		}
 	}()
@@ -174,7 +172,7 @@ func (o *FileOutput) filename() string {
 
 		if o.currentName == "" ||
 			((o.config.QueueLimit > 0 && o.QueueLength >= o.config.QueueLimit) ||
-				(o.config.SizeLimit > 0 && o.chunkSize >= int(o.config.SizeLimit))) {
+				(o.config.SizeLimit > 0 && o.currentFileSize >= int(o.config.SizeLimit))) {
 			nextChunk = true
 		}
 
@@ -253,6 +251,7 @@ func (o *FileOutput) PluginWrite(msg *Message) (n int, err error) {
 	n += nn
 
 	o.totalFileSize += size.Size(n)
+	o.currentFileSize += n
 	o.QueueLength++
 
 	if Settings.OutputFileConfig.OutputFileMaxSize > 0 && o.totalFileSize >= Settings.OutputFileConfig.OutputFileMaxSize {
@@ -281,7 +280,7 @@ func (o *FileOutput) flush() {
 		}
 
 		if stat, err := o.file.Stat(); err == nil {
-			o.chunkSize = int(stat.Size())
+			o.currentFileSize = int(stat.Size())
 		} else {
 			Debug(0, "[OUTPUT-HTTP] error accessing file size", err)
 		}
@@ -307,6 +306,8 @@ func (o *FileOutput) closeLocked() error {
 	}
 
 	o.closed = true
+	o.currentFileSize = 0
+
 	return nil
 }
 

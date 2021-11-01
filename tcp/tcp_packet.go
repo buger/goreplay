@@ -5,149 +5,50 @@ import (
 	"expvar"
 	"fmt"
 	"net"
-	_ "runtime"
-	"runtime/debug"
 	"time"
 
 	"github.com/google/gopacket"
 )
 
-func copySlice(to []byte, from ...[]byte) ([]byte, int) {
+func copySlice(to []byte, skip int, from ...[]byte) ([]byte, int) {
 	var totalLen int
 	for _, s := range from {
 		totalLen += len(s)
 	}
+	totalLen += skip
 
 	if cap(to) < totalLen {
-		diff := (cap(to) - len(to)) + totalLen
+		diff := totalLen - cap(to)
 		to = append(to, make([]byte, diff)...)
 	}
 
-	var i int
 	for _, s := range from {
-		i += copy(to[i:], s)
+		skip += copy(to[skip:], s)
 	}
 
-	return to, i
+	return to, skip
 }
 
-var now time.Time
-
 var stats *expvar.Map
-var bufPoolCount *expvar.Int
-var releasedCount *expvar.Int
+var packetQueueLen, messageQueueLen *expvar.Int
 
 func init() {
-	bufPoolCount = new(expvar.Int)
-	releasedCount = new(expvar.Int)
+	packetQueueLen = new(expvar.Int)
+	messageQueueLen = new(expvar.Int)
 
 	stats = expvar.NewMap("tcp")
 	stats.Init()
-	stats.Set("buffer_pool_count", bufPoolCount)
-	stats.Set("buffer_released", releasedCount)
-
-	go func() {
-		for {
-			// Accurate enough
-			now = time.Now()
-			time.Sleep(500 * time.Millisecond)
-		}
-	}()
+	stats.Set("packet_queue", packetQueueLen)
+	stats.Set("message_queue", messageQueueLen)
 }
 
-var packetPool = NewPacketPool(10000, 1)
+type Dir int
 
-// Pool holds Clients.
-type pktPool struct {
-	packets chan *Packet
-	ttl     int
-}
-
-// NewPool creates a new pool of Clients.
-func NewPacketPool(max int, ttl int) *pktPool {
-	pool := &pktPool{
-		packets: make(chan *Packet, max),
-		ttl:     ttl,
-	}
-
-	// Ensure that memory released over time
-	go func() {
-		// GC
-		var released int
-		for {
-			for i := 0; i < 500; i++ {
-				select {
-				case c := <-pool.packets:
-					// GC If buffer is too big and lived for too long
-					if len(c.buf) < 8192 || now.Sub(c.created) < time.Duration(ttl)*time.Second {
-						select {
-						case pool.packets <- c:
-							// Jump to next item in for loop
-							continue
-						default:
-						}
-					}
-
-					released++
-
-					// Else GC
-					c.buf = nil
-					c.gc = true
-
-					stats.Add("active_packet_count", -1)
-				default:
-					break
-				}
-			}
-
-			if released > 500 {
-				released = 0
-				debug.FreeOSMemory()
-			}
-
-			time.Sleep(1000 * time.Millisecond)
-		}
-	}()
-
-	return pool
-}
-
-// Borrow a Client from the pool.
-func (p *pktPool) Get() *Packet {
-	var c *Packet
-	select {
-	case c = <-p.packets:
-	default:
-		stats.Add("active_packet_count", 1)
-		c = new(Packet)
-		c.created = now
-
-		// Use this technique to find if pool leaks, and objects get GCd
-		//
-		// runtime.SetFinalizer(c, func(p *Packet) {
-		// 	if !p.gc {
-		// 		panic("Pool leak")
-		// 	}
-		// })
-	}
-	return c
-}
-
-// Return returns a Client to the pool.
-func (p *pktPool) Put(c *Packet) {
-	select {
-	case p.packets <- c:
-	default:
-		stats.Add("active_packet_count", -1)
-		c.gc = true
-		c.buf = nil
-		// if pool overloaded, let it go
-	}
-}
-
-func (p *pktPool) Len() int {
-	return len(p.packets)
-}
+const (
+	DirUnknown = iota
+	DirIncoming
+	DirOutcoming
+)
 
 /*
 Packet represent data and layers of packet.
@@ -156,7 +57,7 @@ calllers must make sure that ParsePacket has'nt returned any error before callin
 function.
 */
 type Packet struct {
-	Incoming           bool
+	Direction          Dir
 	messageID          uint64
 	SrcIP, DstIP       net.IP
 	Version            uint8
@@ -174,11 +75,17 @@ type Packet struct {
 	gc      bool
 }
 
+type PcapPacket struct {
+	Data     []byte
+	LType    int
+	LTypeLen int
+	Ci       *gopacket.CaptureInfo
+}
+
 // ParsePacket parse raw packets
-func ParsePacket(data []byte, lType, lTypeLen int, cp *gopacket.CaptureInfo, allowEmpty bool) (pckt *Packet, err error) {
-	pckt = packetPool.Get()
-	if err := pckt.parse(data, lType, lTypeLen, cp, allowEmpty); err != nil {
-		packetPool.Put(pckt)
+func ParsePacket(data []byte, lType, lTypeLen int, ci *gopacket.CaptureInfo, allowEmpty bool) (pckt *Packet, err error) {
+	pckt = new(Packet)
+	if err := pckt.parse(data, lType, lTypeLen, ci, allowEmpty); err != nil {
 		return nil, err
 	}
 
@@ -262,7 +169,16 @@ func (pckt *Packet) parse(data []byte, lType, lTypeLen int, cp *gopacket.Capture
 		return ErrHdrLength("TCP opts")
 	}
 
-	if !allowEmpty && len(ndata[dOf:]) == 0 {
+	// There are case when packet have padding but dOf shows its not
+	empty := true
+	for i := 0; i < len(ndata[dOf:]); i++ {
+		if ndata[dOf:][i] != 0 {
+			empty = false
+			break
+		}
+	}
+
+	if !allowEmpty && empty {
 		return EmptyPacket("")
 	}
 
@@ -290,8 +206,8 @@ func (pckt *Packet) parse(data []byte, lType, lTypeLen int, cp *gopacket.Capture
 	pckt.RST = transLayer[13]&0x04 != 0
 	pckt.ACK = transLayer[13]&0x10 != 0
 	pckt.Lost = uint32(cp.Length - cp.CaptureLength)
-	pckt.buf, _ = copySlice(pckt.buf, ndata[dOf:])
-	pckt.Payload = pckt.buf[:len(ndata[dOf:])]
+
+	pckt.Payload = ndata[dOf:]
 
 	return nil
 }

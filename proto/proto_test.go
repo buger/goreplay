@@ -56,6 +56,12 @@ func TestHeader(t *testing.T) {
 	if val = Header(payload, []byte("host")); !bytes.Equal(val, []byte("www.w3.org")) {
 		t.Error("Should find lower case 1 word header")
 	}
+
+	payload = []byte("GT\r\nContent-Length: 10\r\n\r\n")
+
+	if val = Header(payload, []byte("Content-Length")); !bytes.Equal(val, []byte("10")) {
+		t.Error("Should find in partial payload")
+	}
 }
 
 func TestMIMEHeadersEndPos(t *testing.T) {

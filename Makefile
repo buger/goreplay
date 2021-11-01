@@ -23,19 +23,24 @@ FPMCOMMON= \
     -s dir \
     -C /tmp/gor-build \
 
-release: vendor release-x64 release-mac release-windows
+release: release-x64 release-x86 release-mac release-windows
 
 vendor:
 	go mod vendor
 
-release-bin:
-	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i $(CONTAINER) go build -mod=vendor -o $(BIN_NAME) -tags netgo $(LDFLAGS)
+release-bin: vendor
+	docker run --rm -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i $(CONTAINER) go build -mod=vendor -o $(BIN_NAME) -tags netgo $(LDFLAGS)
 
-release-bin-mac:
-	GOOS=darwin go build -o $(BIN_NAME) $(MAC_LDFLAGS)
+release-bin-x64: vendor
+	docker run --rm -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=386 -i $(CONTAINER) go build -mod=vendor -o $(BIN_NAME) -tags netgo $(LDFLAGS)
 
-release-x64:
-	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i $(CONTAINER) go build -mod=vendor -o $(BIN_NAME) -tags netgo $(LDFLAGS)
+release-bin-mac: vendor
+	GOOS=darwin go build -mod=vendor -o $(BIN_NAME) $(MAC_LDFLAGS)
+
+release-bin-windows: vendor
+	docker run -it --rm -v `pwd`:$(SOURCE_PATH) -w $(SOURCE_PATH) -e CGO_ENABLED=1 docker.elastic.co/beats-dev/golang-crossbuild:1.16.4-main --build-cmd "make VERSION=$(VERSION) build" -p "windows/amd64"
+
+release-x64: release-bin
 	tar -czf gor_$(VERSION)$(PREFIX)_x64.tar.gz $(BIN_NAME)
 	mkdir -p /tmp/gor-build
 	mv ./$(BIN_NAME) /tmp/gor-build/$(BIN_NAME)
@@ -46,13 +51,11 @@ release-x64:
 	fpm $(FPMCOMMON) -a amd64 -t rpm ./=/usr/local/bin
 	rm -rf /tmp/gor-build
 
-release-x86:
-	docker run -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=386 -i $(CONTAINER) go build -mod=vendor -o $(BIN_NAME) -tags netgo $(LDFLAGS)
+release-x86: release-bin-x64
 	tar -czf gor_$(VERSION)$(PREFIX)_x86.tar.gz $(BIN_NAME)
 	rm $(BIN_NAME)
 
-release-mac:
-	go build -mod=vendor -o $(BIN_NAME) $(MAC_LDFLAGS)
+release-mac: release-bin-mac
 	tar -czf gor_$(VERSION)$(PREFIX)_mac.tar.gz $(BIN_NAME)
 	mkdir -p /tmp/gor-build
 	mv ./$(BIN_NAME) /tmp/gor-build/$(BIN_NAME)
@@ -61,14 +64,7 @@ release-mac:
 	fpm $(FPMCOMMON) -a amd64 -t osxpkg ./=/usr/local/bin
 	rm -rf /tmp/gor-build
 
-release-windows:
-	docker run -it --rm \
-	  -v `pwd`:/go/src/github.com/buger/goreplay \
-	  -w /go/src/github.com/buger/goreplay \
-	  -e CGO_ENABLED=1 \
-	  docker.elastic.co/beats-dev/golang-crossbuild:1.16.4-main \
-	  --build-cmd "make VERSION=$(VERSION) build" \
-	  -p "windows/amd64"
+release-windows: release-bin-windows
 	mv ./gor ./gor.exe
 	zip gor-$(VERSION)$(PREFIX)_windows.zip ./gor.exe
 	rm -rf ./gor.exe

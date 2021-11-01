@@ -95,16 +95,15 @@ func (o *TCPOutput) worker(bufferIndex int) {
 	}
 }
 
-func (o *TCPOutput) getBufferIndex(data []byte) int {
+func (o *TCPOutput) getBufferIndex(msg *Message) int {
 	if !o.config.Sticky {
 		o.workerIndex++
 		return int(o.workerIndex) % o.config.Workers
 	}
 
 	hasher := fnv.New32a()
-	hasher.Write(payloadMeta(data)[1])
+	hasher.Write(payloadID(msg.Meta))
 	return int(hasher.Sum32()) % o.config.Workers
-
 }
 
 // PluginWrite writes message to this plugin
@@ -113,7 +112,7 @@ func (o *TCPOutput) PluginWrite(msg *Message) (n int, err error) {
 		return len(msg.Data), nil
 	}
 
-	bufferIndex := o.getBufferIndex(msg.Data)
+	bufferIndex := o.getBufferIndex(msg)
 	o.buf[bufferIndex] <- msg
 
 	if Settings.OutputTCPStats {

@@ -45,10 +45,13 @@ type AppSettings struct {
 	OutputTCPConfig TCPOutputConfig
 	OutputTCPStats  bool `json:"output-tcp-stats"`
 
-	InputFile        MultiOption `json:"input-file"`
-	InputFileLoop    bool        `json:"input-file-loop"`
-	OutputFile       MultiOption `json:"output-file"`
-	OutputFileConfig FileOutputConfig
+	InputFile          MultiOption   `json:"input-file"`
+	InputFileLoop      bool          `json:"input-file-loop"`
+	InputFileReadDepth int           `json:"input-file-read-depth"`
+	InputFileDryRun    bool          `json:"input-file-dry-run"`
+	InputFileMaxWait   time.Duration `json:"input-file-max-wait"`
+	OutputFile         MultiOption   `json:"output-file"`
+	OutputFileConfig   FileOutputConfig
 
 	InputRAW MultiOption `json:"input_raw"`
 	RAWInputConfig
@@ -113,6 +116,9 @@ func init() {
 
 	flag.Var(&Settings.InputFile, "input-file", "Read requests from file: \n\tgor --input-file ./requests.gor --output-http staging.com")
 	flag.BoolVar(&Settings.InputFileLoop, "input-file-loop", false, "Loop input files, useful for performance testing.")
+	flag.IntVar(&Settings.InputFileReadDepth, "input-file-read-depth", 100, "GoReplay tries to read and cache multiple records, in advance. In parallel it also perform sorting of requests, if they came out of order. Since it needs hold this buffer in memory, bigger values can cause worse performance")
+	flag.BoolVar(&Settings.InputFileDryRun, "input-file-dry-run", false, "Simulate reading from the data source without replaying it. You will get information about expected replay time, number of found records etc.")
+	flag.DurationVar(&Settings.InputFileMaxWait, "input-file-max-wait", 0, "Set the maximum time between requests. Can help in situations when you have too long periods between request, and you want to skip them. Example: --input-raw-max-wait 1s")
 
 	flag.Var(&Settings.OutputFile, "output-file", "Write incoming requests to file: \n\tgor --input-raw :80 --output-file ./requests.gor")
 	flag.DurationVar(&Settings.OutputFileConfig.FlushInterval, "output-file-flush-interval", time.Second, "Interval for forcing buffer flush to the file, default: 1s.")
@@ -188,7 +194,7 @@ func init() {
 	flag.StringVar(&Settings.KafkaTLSConfig.ClientCert, "kafka-tls-client-cert", "", "Client certificate for Kafka TLS Config (mandatory with to kafka-tls-ca-cert and kafka-tls-client-key)")
 	flag.StringVar(&Settings.KafkaTLSConfig.ClientKey, "kafka-tls-client-key", "", "Client Key for Kafka TLS Config (mandatory with to kafka-tls-client-cert and kafka-tls-client-key)")
 
-	flag.Var(&Settings.ModifierConfig.Headers, "http-set-header", "Inject additional headers to http reqest:\n\tgor --input-raw :8080 --output-http staging.com --http-set-header 'User-Agent: Gor'")
+	flag.Var(&Settings.ModifierConfig.Headers, "http-set-header", "Inject additional headers to http request:\n\tgor --input-raw :8080 --output-http staging.com --http-set-header 'User-Agent: Gor'")
 	flag.Var(&Settings.ModifierConfig.HeaderRewrite, "http-rewrite-header", "Rewrite the request header based on a mapping:\n\tgor --input-raw :8080 --output-http staging.com --http-rewrite-header Host: (.*).example.com,$1.beta.example.com")
 	flag.Var(&Settings.ModifierConfig.Params, "http-set-param", "Set request url param, if param already exists it will be overwritten:\n\tgor --input-raw :8080 --output-http staging.com --http-set-param api_key=1")
 	flag.Var(&Settings.ModifierConfig.Methods, "http-allow-method", "Whitelist of HTTP methods to replay. Anything else will be dropped:\n\tgor --input-raw :8080 --output-http staging.com --http-allow-method GET --http-allow-method OPTIONS")
