@@ -19,7 +19,9 @@ package proto
 import (
 	"bufio"
 	"bytes"
-	_ "fmt"
+	"fmt"
+
+	//_ "fmt"
 	"net/http"
 	"net/textproto"
 	"strings"
@@ -463,6 +465,30 @@ type HTTPState struct {
 	Continue100    bool
 }
 
+var ValidHttpStart = [][]byte{
+	[]byte("HTTP"),
+	[]byte("GET"),
+	[]byte("POST"),
+	[]byte("HEAD"),
+	[]byte("PUT"),
+	[]byte("DELETE"),
+	[]byte("CONNECT"),
+	[]byte("OPTIONS"),
+	[]byte("TRACE"),
+	[]byte("PATCH"),
+}
+
+// HasValidStart checks to make sure that the data starts with a valid HTTP beginning.
+// This can only be one of a few things, which are tracked in ValidHttpStart
+func HasValidStart(data []byte) bool {
+	for _, start := range ValidHttpStart {
+		if bytes.HasPrefix(data, start) {
+			return true
+		}
+	}
+	return false
+}
+
 // HasFullPayload checks if this message has full or valid payloads and returns true.
 // Message param is optional but recommended on cases where 'data' is storing
 // partial-to-full stream of bytes(packets).
@@ -477,6 +503,16 @@ func HasFullPayload(m ProtocolStateSetter, payloads ...[]byte) bool {
 			m.SetProtocolState(state)
 		}
 	}
+
+	// Http Packets can only start with a few things, check if this is one of them
+	if len(payloads) == 0 {
+		return false
+	}
+	if !HasRequestTitle(payloads[0]) && !HasResponseTitle(payloads[0]) {
+		fmt.Printf("--- JBF returning because it doesnt start with something valid\n")
+		return false
+	}
+
 	if state.HeaderStart < 1 {
 		for _, data := range payloads {
 			state.HeaderStart = MIMEHeadersStartPos(data)

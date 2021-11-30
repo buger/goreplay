@@ -2,7 +2,7 @@ SOURCE = $(shell ls -1 *.go | grep -v _test.go)
 SOURCE_PATH = /go/src/github.com/buger/goreplay/
 PORT = 8000
 FADDR = :8000
-CONTAINER=gor
+CONTAINER=gor-dev
 PREFIX=
 RUN = docker run -v `pwd`:$(SOURCE_PATH) -e AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) -e AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY) -p 0.0.0.0:$(PORT):$(PORT) -t -i $(CONTAINER)
 BENCHMARK = BenchmarkRAWInput
@@ -157,3 +157,9 @@ build_packages:
 	go build -i -o /tmp/gor-build/$(BIN_NAME)
 	fpm $(FPMCOMMON) -a amd64 -t deb ./=/usr/local/bin
 	fpm $(FPMCOMMON) -a amd64 -t rpm ./=/usr/local/bin
+
+jbf-build: release-bin
+	docker build . -t gorlocal
+
+jbf-run: jbf-build
+	docker run -it -p 8080:8080 gorlocal --input-raw :8080 --input-raw-protocol http --output-stdout

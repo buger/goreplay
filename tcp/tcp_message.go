@@ -1,6 +1,7 @@
 package tcp
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -64,10 +65,11 @@ type Stats struct {
 
 // Message is the representation of a tcp message
 type Message struct {
-	packets  []*Packet
-	parser   *MessageParser
-	feedback interface{}
-	Idx      uint16
+	packets          []*Packet
+	parser           *MessageParser
+	feedback         interface{}
+	Idx              uint16
+	continueAdjusted bool
 	Stats
 }
 
@@ -139,8 +141,10 @@ func (m *Message) Packets() []*Packet {
 
 func (m *Message) MissingChunk() bool {
 	nextSeq := m.packets[0].Seq
+	fmt.Printf("checking for missing chunks\n")
 
 	for _, p := range m.packets {
+		fmt.Printf("(%v:%v) nextSeq: %v, p.Seq: %v\n", m.Idx, p.MessageID(), nextSeq, p.Seq)
 		if p.Seq != nextSeq {
 			return true
 		}
@@ -311,7 +315,11 @@ func (parser *MessageParser) parsePacket(pcapPkt *PcapPacket) *Packet {
 	return pckt
 }
 
+var glock sync.Mutex
+
 func (parser *MessageParser) processPacket(pckt *Packet) {
+	glock.Lock()
+	defer glock.Unlock()
 	if pckt == nil {
 		return
 	}
@@ -320,6 +328,8 @@ func (parser *MessageParser) processPacket(pckt *Packet) {
 	// No matter if it is request or response, all packets in the same message have same
 	mID := pckt.MessageID()
 	mIDX := pckt.SrcPort % 10
+
+	fmt.Printf("Look it's a packet: srcPort: %v, mId: %v, mIDX: %v, direction: %v\n", pckt.SrcPort, mID, mIDX, pckt.Direction)
 
 	parser.mL[mIDX].Lock()
 	m, ok := parser.m[mIDX][mID]
@@ -375,14 +385,30 @@ func (parser *MessageParser) processPacket(pckt *Packet) {
 }
 
 func (parser *MessageParser) addPacket(m *Message, pckt *Packet) bool {
+	fmt.Printf("Adding a packet (ack %v syn %v fin %v rst %v): %v\n", pckt.ACK, pckt.SYN, pckt.FIN, pckt.RST, m.Idx)
 	if !m.add(pckt) {
+		fmt.Printf("add failed\n")
 		return false
+	}
+	fmt.Printf("message %v has %v packets now (%v)\n", m.Idx, len(m.packets), pckt.Direction)
+	if bytes.Contains(pckt.Payload, []byte("continue")) {
+		fmt.Printf("=====\n%v\n=====\n", string(pckt.Payload))
+	}
+
+	for _, p := range m.packets {
+		fmt.Printf("%v\n", p.MessageID())
+		if len(p.Payload) > 20 {
+			fmt.Printf("(%v:%v)\n\t len: %v\n\t%v\n\t%v\n", m.Idx, p.MessageID(), len(pckt.Payload), string(p.Payload[:20]), string(p.Payload[len(p.Payload)-20:]))
+		} else {
+			fmt.Printf("(%v:%v)\n\t len: %v(%v)\n", m.Idx, pckt.MessageID(), len(pckt.Payload), len(pckt.buf))
+		}
 	}
 
 	// If we are using protocol parsing, like HTTP, depend on its parsing func.
 	// For the binary procols wait for message to expire
 	if parser.End != nil {
 		if parser.End(m) {
+			fmt.Printf("This is the end\n")
 			parser.Emit(m)
 			return true
 		}
@@ -394,7 +420,12 @@ func (parser *MessageParser) addPacket(m *Message, pckt *Packet) bool {
 }
 
 func (parser *MessageParser) Fix100Continue(m *Message) {
-	if state, ok := m.feedback.(*proto.HTTPState); ok && state.Continue100 {
+	fmt.Printf("Attempting to fix 100 Continue for %v #packets: %v\n", m.packets[0].MessageID(), len(m.packets))
+	origId := m.packets[0].MessageID()
+
+	// Only adjust a message once
+	if state, ok := m.feedback.(*proto.HTTPState); ok && state.Continue100 && !m.continueAdjusted {
+		fmt.Printf("deleting original Id %v\n", origId)
 		delete(parser.m[m.Idx], m.packets[0].MessageID())
 
 		// Shift Ack by given offset
@@ -412,8 +443,12 @@ func (parser *MessageParser) Fix100Continue(m *Message) {
 		}
 
 		// Re-add (or override) again with new message and ID
+		fmt.Printf("Readding %v back with new id %v\n", origId, m.packets[0].MessageID())
 		parser.m[m.Idx][m.packets[0].MessageID()] = m
+		//parser.m[m.Idx][origId] = m
+		m.continueAdjusted = true
 	}
+	fmt.Printf("End of fix 100 Continue for %v #packets: %v\n", m.packets[0].MessageID(), len(m.packets))
 }
 
 func (parser *MessageParser) Read() *Message {
@@ -423,6 +458,7 @@ func (parser *MessageParser) Read() *Message {
 
 func (parser *MessageParser) Emit(m *Message) {
 	stats.Add("message_count", 1)
+	fmt.Printf("Emitting message: #packets = %v mId: %v direction: %v\n", len(m.packets), m.Idx, m.Direction)
 
 	delete(parser.m[m.Idx], m.packets[0].MessageID())
 
@@ -442,16 +478,17 @@ func (parser *MessageParser) timer(now time.Time, index int) {
 	packetQueueLen.Set(int64(len(parser.packets)))
 	messageQueueLen.Set(int64(len(parser.m[index])))
 
-	for _, m := range parser.m[index] {
+	for id, m := range parser.m[index] {
 		if now.Sub(m.End) > parser.messageExpire {
 			m.TimedOut = true
+			fmt.Printf("timing out message: %v\n", m.Idx)
 			stats.Add("message_timeout_count", 1)
 			failMsg++
 			if parser.End == nil || parser.allowIncompete {
 				parser.Emit(m)
 			}
 
-			delete(parser.m[index], m.packets[0].MessageID())
+			delete(parser.m[index], id) //m.packets[0].MessageID())
 		}
 	}
 
