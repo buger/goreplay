@@ -66,7 +66,6 @@ func loggingMiddleware(addr string, next http.Handler) http.Handler {
 }
 
 func main() {
-  fmt.Print("fuuuuuuuuuuuuck you")
 	if os.Getenv("GOMAXPROCS") == "" {
 		runtime.GOMAXPROCS(runtime.NumCPU() * 2)
 	}

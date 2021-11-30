@@ -322,8 +322,6 @@ func (parser *MessageParser) processPacket(pckt *Packet) {
 	mID := pckt.MessageID()
 	mIDX := pckt.SrcPort % 10
 
-	fmt.Printf("Look it's a packet: srcPort: %v, mId: %v, mIDX: %v, direction: %v\n", pckt.SrcPort, mID, mIDX, pckt.Direction)
-
 	parser.mL[mIDX].Lock()
 	m, ok := parser.m[mIDX][mID]
 	if !ok {
@@ -381,16 +379,6 @@ func (parser *MessageParser) addPacket(m *Message, pckt *Packet) bool {
 	if !m.add(pckt) {
 		return false
 	}
-	fmt.Printf("message %v has %v packets now (%v)\n", m.Idx, len(m.packets), pckt.Direction)
-
-	for _, p := range m.packets {
-		fmt.Printf("%v\n", p.MessageID())
-		if len(p.Payload) > 20 {
-			fmt.Printf("(%v:%v)\n\t len: %v\n\t%v\n\t%v\n", m.Idx, p.MessageID(), len(pckt.Payload), string(p.Payload[:20]), string(p.Payload[len(p.Payload)-20:]))
-		} else {
-			fmt.Printf("(%v:%v)\n\t len: %v(%v)\n", m.Idx, pckt.MessageID(), len(pckt.Payload), len(pckt.buf))
-		}
-	}
 
 	// If we are using protocol parsing, like HTTP, depend on its parsing func.
 	// For the binary procols wait for message to expire
@@ -407,8 +395,6 @@ func (parser *MessageParser) addPacket(m *Message, pckt *Packet) bool {
 }
 
 func (parser *MessageParser) Fix100Continue(m *Message) {
-	origId := m.packets[0].MessageID()
-
 	// Only adjust a message once
 	if state, ok := m.feedback.(*proto.HTTPState); ok && state.Continue100 && !m.continueAdjusted {
 		delete(parser.m[m.Idx], m.packets[0].MessageID())
@@ -429,7 +415,6 @@ func (parser *MessageParser) Fix100Continue(m *Message) {
 
 		// Re-add (or override) again with new message and ID
 		parser.m[m.Idx][m.packets[0].MessageID()] = m
-		//parser.m[m.Idx][origId] = m
 		m.continueAdjusted = true
 	}
 }
@@ -469,7 +454,7 @@ func (parser *MessageParser) timer(now time.Time, index int) {
 				parser.Emit(m)
 			}
 
-			delete(parser.m[index], id) //m.packets[0].MessageID())
+			delete(parser.m[index], id)
 		}
 	}
 
