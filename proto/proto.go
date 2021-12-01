@@ -19,9 +19,8 @@ package proto
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 
-	//_ "fmt"
+	_ "fmt"
 	"net/http"
 	"net/textproto"
 	"strings"
