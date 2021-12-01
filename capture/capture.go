@@ -354,7 +354,6 @@ func http1StartHint(pckt *tcp.Packet) (isRequest, isResponse bool) {
 }
 
 func http1EndHint(m *tcp.Message) bool {
-	fmt.Printf("JBF JBF JBF is missing anything?\n")
 	if m.MissingChunk() {
 		return false
 	}
