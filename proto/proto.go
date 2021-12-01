@@ -464,30 +464,6 @@ type HTTPState struct {
 	Continue100    bool
 }
 
-var ValidHttpStart = [][]byte{
-	[]byte("HTTP"),
-	[]byte("GET"),
-	[]byte("POST"),
-	[]byte("HEAD"),
-	[]byte("PUT"),
-	[]byte("DELETE"),
-	[]byte("CONNECT"),
-	[]byte("OPTIONS"),
-	[]byte("TRACE"),
-	[]byte("PATCH"),
-}
-
-// HasValidStart checks to make sure that the data starts with a valid HTTP beginning.
-// This can only be one of a few things, which are tracked in ValidHttpStart
-func HasValidStart(data []byte) bool {
-	for _, start := range ValidHttpStart {
-		if bytes.HasPrefix(data, start) {
-			return true
-		}
-	}
-	return false
-}
-
 // HasFullPayload checks if this message has full or valid payloads and returns true.
 // Message param is optional but recommended on cases where 'data' is storing
 // partial-to-full stream of bytes(packets).
