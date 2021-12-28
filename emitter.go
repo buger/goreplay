@@ -6,9 +6,9 @@ import (
 	"io"
 	"log"
 	"sync"
-	"time"
 
 	"github.com/buger/goreplay/byteutils"
+	"github.com/coocood/freecache"
 )
 
 // Emitter represents an abject to manage plugins communication
@@ -76,9 +76,7 @@ func (e *Emitter) Close() {
 func CopyMulty(src PluginReader, writers ...PluginWriter) error {
 	wIndex := 0
 	modifier := NewHTTPModifier(&Settings.ModifierConfig)
-	filteredRequests := make(map[string]int64)
-	filteredRequestsLastCleanTime := time.Now().UnixNano()
-	filteredCount := 0
+	filteredRequests := freecache.NewCache(200 * 1024 * 1024) // 200M
 
 	for {
 		msg, err := src.PluginRead()
@@ -97,7 +95,7 @@ func CopyMulty(src PluginReader, writers ...PluginWriter) error {
 				Debug(2, fmt.Sprintf("[EMITTER] Found malformed record %q from %q", msg.Meta, src))
 				continue
 			}
-			requestID := byteutils.SliceToString(meta[1])
+			requestID := meta[1]
 			// start a subroutine only when necessary
 			if Settings.Verbose >= 3 {
 				Debug(3, "[EMITTER] input: ", byteutils.SliceToString(msg.Meta[:len(msg.Meta)-1]), " from: ", src)
@@ -108,16 +106,15 @@ func CopyMulty(src PluginReader, writers ...PluginWriter) error {
 					msg.Data = modifier.Rewrite(msg.Data)
 					// If modifier tells to skip request
 					if len(msg.Data) == 0 {
-						filteredRequests[requestID] = time.Now().UnixNano()
-						filteredCount++
+						filteredRequests.Set(requestID, []byte{}, 60) //
 						continue
 					}
 					Debug(3, "[EMITTER] Rewritten input:", requestID, "from:", src)
 
 				} else {
-					if _, ok := filteredRequests[requestID]; ok {
-						delete(filteredRequests, requestID)
-						filteredCount--
+					_, err := filteredRequests.Get(requestID)
+					if err == nil {
+						filteredRequests.Del(requestID)
 						continue
 					}
 				}
@@ -156,21 +153,6 @@ func CopyMulty(src PluginReader, writers ...PluginWriter) error {
 						return err
 					}
 				}
-			}
-		}
-
-		// Run GC on each 1000 request
-		if filteredCount > 0 && filteredCount%1000 == 0 {
-			// Clean up filtered requests for which we didn't get a response to filter
-			now := time.Now().UnixNano()
-			if now-filteredRequestsLastCleanTime > int64(60*time.Second) {
-				for k, v := range filteredRequests {
-					if now-v > int64(60*time.Second) {
-						delete(filteredRequests, k)
-						filteredCount--
-					}
-				}
-				filteredRequestsLastCleanTime = time.Now().UnixNano()
 			}
 		}
 	}
