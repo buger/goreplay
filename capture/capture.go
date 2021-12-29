@@ -357,8 +357,9 @@ func http1EndHint(m *tcp.Message) bool {
 	if m.MissingChunk() {
 		return false
 	}
-
-	return proto.HasFullPayload(m, m.PacketData()...)
+	
+	req, res := http1StartHint(m.Packets()[0])
+	return proto.HasFullPayload(m, m.PacketData()...) && (req || res)
 }
 
 func (l *Listener) read() {
