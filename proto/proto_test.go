@@ -485,6 +485,14 @@ func TestHasFullPayload(t *testing.T) {
 	if got != expected {
 		t.Errorf("expected %v to equal %v", got, expected)
 	}
+
+	// check with trailer and no header
+	m = "Content-Type: text/plain\r\nContent-Length: 23\r\n\r\nMozillaDeveloperNetwork"
+	got = HasFullPayload(nil, []byte(m))
+	expected = false
+	if got != expected {
+		t.Errorf("expected %v to equal %v", got, expected)
+	}
 }
 
 func BenchmarkHasFullPayload(b *testing.B) {

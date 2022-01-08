@@ -19,6 +19,7 @@ package proto
 import (
 	"bufio"
 	"bytes"
+
 	_ "fmt"
 	"net/http"
 	"net/textproto"
@@ -477,6 +478,15 @@ func HasFullPayload(m ProtocolStateSetter, payloads ...[]byte) bool {
 			m.SetProtocolState(state)
 		}
 	}
+
+	// Http Packets can only start with a few things, check if this is one of them
+	if len(payloads) == 0 {
+		return false
+	}
+	if !HasRequestTitle(payloads[0]) && !HasResponseTitle(payloads[0]) {
+		return false
+	}
+
 	if state.HeaderStart < 1 {
 		for _, data := range payloads {
 			state.HeaderStart = MIMEHeadersStartPos(data)
