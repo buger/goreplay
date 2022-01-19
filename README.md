@@ -4,7 +4,7 @@
 
 ## https://goreplay.org/
 
-GoReplay is an open-source network monitoring tool which can record your live traffic, and use it for shadowing, load testing, monitoring and detailed analysis.
+GoReplay is an open-source network monitoring tool which can record your live traffic and use it for shadowing, load testing, monitoring and detailed analysis.
 
 ## About
 
@@ -13,29 +13,28 @@ As your application grows, the effort required to test it also grows exponential
 GoReplay increases your confidence in code deployments, configuration and infrastructure changes.
 
 
-GoReplay offers unique approach for shadowing. Instead of being a proxy, GoReplay in background listen for traffic on your network interface, requiring no changes in your production infrastructure, rather then running GoReplay daemon on the same machine as your service.
+GoReplay offers a unique approach for shadowing. Instead of being a proxy, GoReplay listens in the background for traffic on your network interfaces, requiring no changes in your production infrastructure, other than running GoReplay daemon on the same machine as your service.
 
 ![Diagram](https://i.imgur.com/IN2xfDm.png)
 
 Check [latest documentation](http://github.com/buger/goreplay/wiki).
 
 ## Installation
-Download latest binary from https://github.com/buger/goreplay/releases or [compile by yourself](https://github.com/buger/goreplay/wiki/Compilation).
+Download the latest binary from https://github.com/buger/goreplay/releases or [compile by yourself](https://github.com/buger/goreplay/wiki/Compilation).
 
 ## Getting started
 
 The most basic setup will be `sudo ./gor --input-raw :8000 --output-stdout` which acts like tcpdump.
-If you already have test environment you can start replaying: `sudo ./gor --input-raw :8000 --output-http http://staging.env`.
+If you already have a test environment, you can start replaying by running: `sudo ./gor --input-raw :8000 --output-http http://staging.env`.
 
-See the our [documentation](https://github.com/buger/goreplay/wiki/) and [Getting started](https://github.com/buger/goreplay/wiki/Getting-Started) page for more info. 
+See our [documentation](https://github.com/buger/goreplay/wiki/) and the [Getting Started](https://github.com/buger/goreplay/wiki/Getting-Started) page for more info. 
 
 ## Newsletter
-Subscribe to our [newsletter](https://www.getdrip.com/forms/89690474/submissions/new) to stay informed about the latest features and changes to Gor project.
-
+Subscribe to our [newsletter](https://www.getdrip.com/forms/89690474/submissions/new) to stay informed about the latest features and changes to the Gor project.
 
 ## Want to Upgrade?
 
-We have created a [GoReplay PRO](https://goreplay.org/pro.html) extension which provides additional features such as support for binary protocols like Thrift or ProtocolBuffers, saving and replaying from cloud storage, TCP sessions replication, etc. The PRO version also includes a commercial-friendly license, dedicated support, and it also allows you to support high-quality open source development. 
+We have created a [GoReplay PRO](https://goreplay.org/pro.html) extension which provides additional features such as support for binary protocols like Thrift or ProtocolBuffers, saving and replaying from cloud storage, TCP session replication, etc. The PRO version also includes a commercial-friendly license, dedicated support, and it also allows you to support high-quality open source development. 
 
 
 ## Problems?
