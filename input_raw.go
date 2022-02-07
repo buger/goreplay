@@ -45,6 +45,10 @@ func NewRAWInput(address string, config RAWInputConfig) (i *RAWInput) {
 			host = address
 			_ports = "0"
 			err = nil
+		} else if strings.HasPrefix(address, "k8s://") {
+			portIndex := strings.LastIndex(address, ":")
+			host = address[:portIndex]
+			_ports = address[portIndex+1:]
 		} else {
 			log.Fatalf("input-raw: error while parsing address: %s", err)
 		}

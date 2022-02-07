@@ -1,0 +1,12 @@
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: goreplay-reader-binding
+subjects:
+- kind: ServiceAccount
+  name: goreplay
+  namespace: goreplay
+roleRef:
+  kind: ClusterRole
+  name: pod-reader
+  apiGroup: ""

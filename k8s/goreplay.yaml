@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: goreplay-daemon
+  namespace: goreplay
+spec:
+  selector:
+      matchLabels:
+        name: goreplay-daemon
+  template:
+    metadata:
+      labels:
+        name: goreplay-daemon
+    spec:
+      hostNetwork: true
+      serviceAccountName: goreplay
+      containers:
+      - name: goreplay-daemon
+        image: nicolaka/netshoot 
+        command: [ "/bin/bash", "-c", "--" ]
+        args: [ "while true; do sleep 30; done;" ]

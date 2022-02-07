@@ -30,7 +30,10 @@ vendor:
 	go mod vendor
 
 release-bin: vendor
-	docker run --rm -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i $(CONTAINER) go build -mod=vendor -o $(BIN_NAME) -tags netgo $(LDFLAGS)
+	docker run  --rm -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i $(CONTAINER) go build -mod=vendor -o $(BIN_NAME) -tags netgo $(LDFLAGS)
+
+release-arm64-bin: vendor
+	docker run  --rm -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=arm64  -i $(CONTAINER) go build -mod=vendor -o $(BIN_NAME) -tags netgo $(LDFLAGS)
 
 release-bin-mac: vendor
 	GOOS=darwin go build -mod=vendor -o $(BIN_NAME) $(MAC_LDFLAGS)
@@ -80,8 +83,16 @@ build:
 install:
 	go install $(MAC_LDFLAGS)
 
-build-env:
+build-env: build-x64-env build-arm64-env
+
+build-x64-env:
 	docker buildx build --platform linux/amd64 -t $(CONTAINER) -f Dockerfile.dev .
+
+build-arm64-env:
+	docker buildx build --platform linux/arm64 -t $(CONTAINER) -f Dockerfile.dev .
+
+build-docker:
+	docker build -t gor-dev -f Dockerfile .
 
 profile:
 	go build && ./$(BIN_NAME) --output-http="http://localhost:9000" --input-dummy 0 --input-raw :9000 --input-http :9000 --memprofile=./mem.out --cpuprofile=./cpu.out --stats --output-http-stats --output-http-timeout 100ms

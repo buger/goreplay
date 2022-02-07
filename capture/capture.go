@@ -22,6 +22,10 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 var stats *expvar.Map
@@ -251,14 +255,81 @@ func (l *Listener) ListenBackground(ctx context.Context) chan error {
 	return err
 }
 
+// Allowed format:
+//   [namespace/]pod/[pod_name]
+//   [namespace/]deployment/[deployment_name]
+//   [namespace/]daemonset/[daemonset_name]
+//   [namespace/]labelSelector/[selector]
+//   [namespace/]fieldSelector/[selector]
+func k8sIPs(addr string) []string {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		panic(err.Error())
+	}
+
+	// creates the clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	sections := strings.Split(addr, "/")
+
+	if len(sections) < 2 {
+		panic("Not supported k8s scheme. Allowed values: [namespace/]pod/[pod_name], [namespace/]deployment/[deployment_name], [namespace/]daemonset/[daemonset_name], [namespace/]label/[label-name]/[label-value]")
+	}
+
+	// If no namespace passed, assume it is ALL
+	switch sections[0] {
+	case "pod", "deployment", "daemonset", "labelSelector", "fieldSelector":
+		sections = append([]string{""}, sections...)
+	}
+
+	namespace, selectorType, selectorValue := sections[0], sections[1], sections[2]
+
+	labelSelector := ""
+	fieldSelector := ""
+
+	switch selectorType {
+	case "pod":
+		fieldSelector = "metadata.name=" + selectorValue
+	case "deployment":
+		labelSelector = "app=" + selectorValue
+	case "daemonset":
+		labelSelector = "pod-template-generation=1,name=" + selectorValue
+	case "labelSelector":
+		labelSelector = selectorValue
+	case "fieldSelector":
+		fieldSelector = selectorValue
+	}
+
+	pods, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector, FieldSelector: fieldSelector})
+	if err != nil {
+		panic(err.Error())
+	}
+
+	var podIPs []string
+	for _, pod := range pods.Items {
+		for _, podIP := range pod.Status.PodIPs {
+			podIPs = append(podIPs, podIP.IP)
+		}
+	}
+	return podIPs
+}
+
 // Filter returns automatic filter applied by goreplay
 // to a pcap handle of a specific interface
 func (l *Listener) Filter(ifi pcap.Interface) (filter string) {
 	// https://www.tcpdump.org/manpages/pcap-filter.7.html
 
 	hosts := []string{l.host}
-	if listenAll(l.host) || isDevice(l.host, ifi) {
-		hosts = interfaceAddresses(ifi)
+
+	if strings.HasPrefix(l.host, "k8s://") {
+		hosts = k8sIPs(l.host[6:])
+	} else {
+		if listenAll(l.host) || isDevice(l.host, ifi) {
+			hosts = interfaceAddresses(ifi)
+		}
 	}
 
 	filter = portsFilter(l.config.Transport, "dst", l.ports)
@@ -659,6 +730,12 @@ func (l *Listener) setInterfaces() (err error) {
 
 		if ignore {
 			continue
+		}
+
+		if strings.HasPrefix(l.host, "k8s://") {
+			if !strings.HasPrefix(pi.Name, "veth") {
+				continue
+			}
 		}
 
 		if isDevice(l.host, pi) {

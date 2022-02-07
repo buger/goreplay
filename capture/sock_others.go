@@ -1,4 +1,5 @@
-// +build !linux
+//go:build (!linux && ignore) || arm64 || darwin
+// +build !linux,ignore arm64 darwin
 
 package capture
 
