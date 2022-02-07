@@ -1,21 +1,33 @@
 # Native k8s integration
 
 After following steps below, you will be able to capture traffic inside k8s like this:
+
 ```
-./gor --input-raw k8s://namespace/deployment/app:80 --output-http http://replay.com
+gor --input-raw k8s://namespace/deployment/app:80 --output-http http://replay.com
 ```
 
 GoReplay will running as a daemonset (e.g. on each phisical k8s node. 
 It will also require giving required permission to have read access to K8s APIs, so it can dynamically filter traffic for a specific pods.
 
-1. Create a namespace
+Supported format for filtering required pods:
+
+```
+k8s://[namespace/]pod/[pod_name] - k8s://default/pod/nginx-7848d4b86f-5nxz8
+k8s://[namespace/]deployment/[deployment_name] - k8s://default/deployment/nginx
+k8s://[namespace/]daemonset/[daemonset_name] - k8s://default/daemonset/nginx
+k8s://[namespace/]labelSelector/[selector] - k8s://default/labelSelector/app=nginx
+k8s://[namespace/]fieldSelector/[selector] - k8s://default/fieldSelector/metadata.name=nginx-7848d4b86f-5nxz8
+```
+`namespace` is optional, omit to use all namespaces: `k8s://labelSelector/app=replay`
+
+## 1. Create a namespace
 `kubectl create namespace goreplay`
 
-2. Create the Kubernetes service account in the namespace:
+## 2. Create the Kubernetes service account in the namespace:
 
 `kubectl create serviceaccount goreplay --namespace goreplay`
 
-3. Create Cluster Role which gives read-only access to the pods:
+## 3. Create Cluster Role which gives read-only access to the pods:
 `kubectl -n goreplay -f clusterrole.yaml apply`
 
 ```yaml
@@ -35,7 +47,7 @@ rules:
   verbs: ["get", "watch", "list"]
 ```
 
-4. Attach role to goreplay service account
+## 4. Attach role to goreplay service account
 `kubectl -n goreplay -f rolebinding.yaml apply`
 
 ```yaml
@@ -53,7 +65,7 @@ roleRef:
   apiGroup: ""
 ```
 
-5. Start goreplay daemonset
+## 5. Start goreplay daemonset
 
 `kubectl -n goreplay -f goreplay.yaml apply`
 
@@ -79,7 +91,7 @@ spec:
           - "--output-stdout"
 ```
 
-6. Create a simple http service (Optionally)
+## 6. Create a simple http service (Optionally)
 
 `kubectl -n default -f nginx.yaml apply`
 
@@ -123,7 +135,7 @@ spec:
 ```
 
 
-7. Verify installation
+## 7. Verify installation
 
 Find url for your service using `kubectl get svc` or `minikube service --url ngnix-service -n http`, and make a call to it.
 
