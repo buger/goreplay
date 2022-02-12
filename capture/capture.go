@@ -353,10 +353,15 @@ func (l *Listener) Filter(ifi pcap.Interface, hosts ...string) (filter string) {
 	// https://www.tcpdump.org/manpages/pcap-filter.7.html
 
 	if len(hosts) == 0 {
-		hosts = []string{l.host}
+		// If k8s have not found any IPs
+		if strings.HasPrefix(l.host, "k8s://") {
+			hosts = []string{}
+		} else {
+			hosts = []string{l.host}
 
-		if listenAll(l.host) || isDevice(l.host, ifi) {
-			hosts = interfaceAddresses(ifi)
+			if listenAll(l.host) || isDevice(l.host, ifi) {
+				hosts = interfaceAddresses(ifi)
+			}
 		}
 	}
 
