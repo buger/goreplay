@@ -85,7 +85,7 @@ spec:
       serviceAccountName: goreplay
       containers:
       - name: goreplay
-        image: buger/goreplay:latest
+        image: buger/goreplay:2.0.0-rc2
         command:
           - "--input-raw k8s://deployments/nginx:80"
           - "--output-stdout"

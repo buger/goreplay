@@ -1,21 +1,15 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: goreplay-daemon
-  namespace: goreplay
+  name: goreplay-daemon
 spec:
-  selector:
-      matchLabels:
-        name: goreplay-daemon
-  template:
-    metadata:
-      labels:
-        name: goreplay-daemon
-    spec:
+  template:
+    spec:
       hostNetwork: true
       serviceAccountName: goreplay
-      containers:
-      - name: goreplay-daemon
-        image: nicolaka/netshoot 
-        command: [ "/bin/bash", "-c", "--" ]
-        args: [ "while true; do sleep 30; done;" ]
+      containers:
+      - name: goreplay
+        image: buger/goreplay:2.0.0-rc2
+        command:
+          - "--input-raw k8s://deployments/nginx:80"
+          - "--output-stdout"

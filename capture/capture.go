@@ -42,6 +42,10 @@ type PcapStatProvider interface {
 	Stats() (*pcap.Stats, error)
 }
 
+type PcapSetFilter interface {
+	SetBPFFilter(string) error
+}
+
 // PcapOptions options that can be set on a pcap capture handle,
 // these options take effect on inactive pcap handles
 type PcapOptions struct {
@@ -85,6 +89,7 @@ type Listener struct {
 
 	closeDone chan struct{}
 	quit      chan struct{}
+	closed    bool
 }
 
 type packetHandle struct {
@@ -162,7 +167,11 @@ func NewListener(host string, ports []uint16, config PcapOptions) (l *Listener, 
 	l.Reading = make(chan bool)
 	l.messages = make(chan *tcp.Message, 10000)
 
-	switch l.config.Engine {
+	if strings.HasPrefix(l.host, "k8s://") {
+		l.config.BPFFilter = l.Filter(pcap.Interface{}, k8sIPs(l.host[6:])...)
+	}
+
+	switch config.Engine {
 	default:
 		l.Activate = l.activatePcap
 	case EngineRawSocket:
@@ -197,6 +206,26 @@ func (l *Listener) Listen(ctx context.Context) (err error) {
 	go func() {
 		for {
 			time.Sleep(time.Second)
+
+			if l.closed {
+				return
+			}
+
+			// Check for Pod IP changes
+			if strings.HasPrefix(l.host, "k8s://") {
+				newFilter := l.Filter(pcap.Interface{}, k8sIPs(l.host[6:])...)
+				if newFilter != l.config.BPFFilter {
+					fmt.Println("k8s pods configuration changed, new filter: ", newFilter)
+					for _, h := range l.Handles {
+						if _, ok := h.handler.(PcapSetFilter); ok {
+							h.handler.(PcapSetFilter).SetBPFFilter(newFilter)
+						}
+					}
+
+					l.config.BPFFilter = newFilter
+				}
+			}
+
 			var prevInterfaces []string
 			for _, in := range l.Interfaces {
 				prevInterfaces = append(prevInterfaces, in.Name)
@@ -240,6 +269,7 @@ func (l *Listener) Listen(ctx context.Context) (err error) {
 	case <-l.closeDone: // all handles closed voluntarily
 	}
 
+	l.closed = true
 	return
 }
 
@@ -319,14 +349,12 @@ func k8sIPs(addr string) []string {
 
 // Filter returns automatic filter applied by goreplay
 // to a pcap handle of a specific interface
-func (l *Listener) Filter(ifi pcap.Interface) (filter string) {
+func (l *Listener) Filter(ifi pcap.Interface, hosts ...string) (filter string) {
 	// https://www.tcpdump.org/manpages/pcap-filter.7.html
 
-	hosts := []string{l.host}
+	if len(hosts) == 0 {
+		hosts = []string{l.host}
 
-	if strings.HasPrefix(l.host, "k8s://") {
-		hosts = k8sIPs(l.host[6:])
-	} else {
 		if listenAll(l.host) || isDevice(l.host, ifi) {
 			hosts = interfaceAddresses(ifi)
 		}
