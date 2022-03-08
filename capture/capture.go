@@ -49,26 +49,27 @@ type PcapSetFilter interface {
 // PcapOptions options that can be set on a pcap capture handle,
 // these options take effect on inactive pcap handles
 type PcapOptions struct {
-	BufferTimeout   time.Duration   `json:"input-raw-buffer-timeout"`
-	TimestampType   string          `json:"input-raw-timestamp-type"`
-	BPFFilter       string          `json:"input-raw-bpf-filter"`
-	BufferSize      size.Size       `json:"input-raw-buffer-size"`
-	Promiscuous     bool            `json:"input-raw-promisc"`
-	Monitor         bool            `json:"input-raw-monitor"`
-	Snaplen         bool            `json:"input-raw-override-snaplen"`
-	Engine          EngineType      `json:"input-raw-engine"`
-	VXLANPort       int             `json:"input-raw-vxlan-port"`
-	VXLANVNIs       []int           `json:"input-raw-vxlan-vni"`
-	VLAN            bool            `json:"input-raw-vlan"`
-	VLANVIDs        []int           `json:"input-raw-vlan-vid"`
-	Expire          time.Duration   `json:"input-raw-expire"`
-	TrackResponse   bool            `json:"input-raw-track-response"`
-	Protocol        tcp.TCPProtocol `json:"input-raw-protocol"`
-	RealIPHeader    string          `json:"input-raw-realip-header"`
-	Stats           bool            `json:"input-raw-stats"`
-	AllowIncomplete bool            `json:"input-raw-allow-incomplete"`
-	IgnoreInterface []string        `json:"input-raw-ignore-interface"`
-	Transport       string
+	BufferTimeout     time.Duration   `json:"input-raw-buffer-timeout"`
+	TimestampType     string          `json:"input-raw-timestamp-type"`
+	BPFFilter         string          `json:"input-raw-bpf-filter"`
+	BufferSize        size.Size       `json:"input-raw-buffer-size"`
+	Promiscuous       bool            `json:"input-raw-promisc"`
+	K8sNoMatchPromisc bool            `json:"input-raw-k8s-nomatch-promisc"`
+	Monitor           bool            `json:"input-raw-monitor"`
+	Snaplen           bool            `json:"input-raw-override-snaplen"`
+	Engine            EngineType      `json:"input-raw-engine"`
+	VXLANPort         int             `json:"input-raw-vxlan-port"`
+	VXLANVNIs         []int           `json:"input-raw-vxlan-vni"`
+	VLAN              bool            `json:"input-raw-vlan"`
+	VLANVIDs          []int           `json:"input-raw-vlan-vid"`
+	Expire            time.Duration   `json:"input-raw-expire"`
+	TrackResponse     bool            `json:"input-raw-track-response"`
+	Protocol          tcp.TCPProtocol `json:"input-raw-protocol"`
+	RealIPHeader      string          `json:"input-raw-realip-header"`
+	Stats             bool            `json:"input-raw-stats"`
+	AllowIncomplete   bool            `json:"input-raw-allow-incomplete"`
+	IgnoreInterface   []string        `json:"input-raw-ignore-interface"`
+	Transport         string
 }
 
 // Listener handle traffic capture, this is its representation.
@@ -356,6 +357,12 @@ func (l *Listener) Filter(ifi pcap.Interface, hosts ...string) (filter string) {
 		// If k8s have not found any IPs
 		if strings.HasPrefix(l.host, "k8s://") {
 			hosts = []string{}
+			if l.config.K8sNoMatchPromisc {
+				fmt.Println("No pods found matching the schema:", l.host, ". BPF filter will be updated to match given ports for all available interfaces.")
+			} else {
+				fmt.Println("No pods found matching the schema:", l.host, ". BPF filter will be updated to prevent capturing any packets.")
+				return "not (ip or ip6 or arp or rarp or decnet or tcp or udp)"
+			}
 		} else {
 			hosts = []string{l.host}
 
