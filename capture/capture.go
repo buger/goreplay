@@ -49,27 +49,29 @@ type PcapSetFilter interface {
 // PcapOptions options that can be set on a pcap capture handle,
 // these options take effect on inactive pcap handles
 type PcapOptions struct {
-	BufferTimeout     time.Duration   `json:"input-raw-buffer-timeout"`
-	TimestampType     string          `json:"input-raw-timestamp-type"`
-	BPFFilter         string          `json:"input-raw-bpf-filter"`
-	BufferSize        size.Size       `json:"input-raw-buffer-size"`
-	Promiscuous       bool            `json:"input-raw-promisc"`
-	K8sNoMatchPromisc bool            `json:"input-raw-k8s-nomatch-promisc"`
-	Monitor           bool            `json:"input-raw-monitor"`
-	Snaplen           bool            `json:"input-raw-override-snaplen"`
-	Engine            EngineType      `json:"input-raw-engine"`
-	VXLANPort         int             `json:"input-raw-vxlan-port"`
-	VXLANVNIs         []int           `json:"input-raw-vxlan-vni"`
-	VLAN              bool            `json:"input-raw-vlan"`
-	VLANVIDs          []int           `json:"input-raw-vlan-vid"`
-	Expire            time.Duration   `json:"input-raw-expire"`
-	TrackResponse     bool            `json:"input-raw-track-response"`
-	Protocol          tcp.TCPProtocol `json:"input-raw-protocol"`
-	RealIPHeader      string          `json:"input-raw-realip-header"`
-	Stats             bool            `json:"input-raw-stats"`
-	AllowIncomplete   bool            `json:"input-raw-allow-incomplete"`
-	IgnoreInterface   []string        `json:"input-raw-ignore-interface"`
-	Transport         string
+	BufferTimeout       time.Duration   `json:"input-raw-buffer-timeout"`
+	TimestampType       string          `json:"input-raw-timestamp-type"`
+	BPFFilter           string          `json:"input-raw-bpf-filter"`
+	BufferSize          size.Size       `json:"input-raw-buffer-size"`
+	Promiscuous         bool            `json:"input-raw-promisc"`
+	K8sNoMatchNoCapture bool            `json:"input-raw-k8s-nomatch-nocap"`
+	K8sSkipSVC          []string        `json:"input-raw-k8s-skip-svc"`
+	K8sSkipNS           []string        `json:"input-raw-k8s-skip-ns"`
+	Monitor             bool            `json:"input-raw-monitor"`
+	Snaplen             bool            `json:"input-raw-override-snaplen"`
+	Engine              EngineType      `json:"input-raw-engine"`
+	VXLANPort           int             `json:"input-raw-vxlan-port"`
+	VXLANVNIs           []int           `json:"input-raw-vxlan-vni"`
+	VLAN                bool            `json:"input-raw-vlan"`
+	VLANVIDs            []int           `json:"input-raw-vlan-vid"`
+	Expire              time.Duration   `json:"input-raw-expire"`
+	TrackResponse       bool            `json:"input-raw-track-response"`
+	Protocol            tcp.TCPProtocol `json:"input-raw-protocol"`
+	RealIPHeader        string          `json:"input-raw-realip-header"`
+	Stats               bool            `json:"input-raw-stats"`
+	AllowIncomplete     bool            `json:"input-raw-allow-incomplete"`
+	IgnoreInterface     []string        `json:"input-raw-ignore-interface"`
+	Transport           string
 }
 
 // Listener handle traffic capture, this is its representation.
@@ -91,6 +93,8 @@ type Listener struct {
 	closeDone chan struct{}
 	quit      chan struct{}
 	closed    bool
+
+	noPortsPassed bool
 }
 
 type packetHandle struct {
@@ -169,7 +173,8 @@ func NewListener(host string, ports []uint16, config PcapOptions) (l *Listener, 
 	l.messages = make(chan *tcp.Message, 10000)
 
 	if strings.HasPrefix(l.host, "k8s://") {
-		l.config.BPFFilter = l.Filter(pcap.Interface{}, k8sIPs(l.host[6:])...)
+		l.noPortsPassed = len(ports) == 0
+		l.config.BPFFilter = l.Filter(pcap.Interface{}, l.k8sIPs()...)
 	}
 
 	switch config.Engine {
@@ -214,9 +219,9 @@ func (l *Listener) Listen(ctx context.Context) (err error) {
 
 			// Check for Pod IP changes
 			if strings.HasPrefix(l.host, "k8s://") {
-				newFilter := l.Filter(pcap.Interface{}, k8sIPs(l.host[6:])...)
+				newFilter := l.Filter(pcap.Interface{}, l.k8sIPs()...)
 				if newFilter != l.config.BPFFilter {
-					fmt.Println("k8s pods configuration changed, new filter: ", newFilter)
+					fmt.Printf("k8s pods configuration changed for %s, new filter: %s\n", l.host, newFilter)
 					for _, h := range l.Handles {
 						if _, ok := h.handler.(PcapSetFilter); ok {
 							h.handler.(PcapSetFilter).SetBPFFilter(newFilter)
@@ -288,11 +293,13 @@ func (l *Listener) ListenBackground(ctx context.Context) chan error {
 
 // Allowed format:
 //   [namespace/]pod/[pod_name]
+//   [namespace/]service/[service_name]
 //   [namespace/]deployment/[deployment_name]
 //   [namespace/]daemonset/[daemonset_name]
 //   [namespace/]labelSelector/[selector]
 //   [namespace/]fieldSelector/[selector]
-func k8sIPs(addr string) []string {
+func (l *Listener) k8sIPs() []string {
+	// gets k8s config from inside the pod
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		panic(err.Error())
@@ -304,30 +311,151 @@ func k8sIPs(addr string) []string {
 		panic(err.Error())
 	}
 
-	sections := strings.Split(addr, "/")
+	sections := strings.Split(l.host[6:], "/")
 
-	if len(sections) < 2 {
-		panic("Not supported k8s scheme. Allowed values: [namespace/]pod/[pod_name], [namespace/]deployment/[deployment_name], [namespace/]daemonset/[daemonset_name], [namespace/]label/[label-name]/[label-value]")
+	if (len(sections) == 1 && sections[0] == "service") || (len(sections) == 2 && sections[1] == "service") {
+		// service discovery for all namespaces (k8s://service) or for a specific namespace (k8s://somenamespace/service)
+		ns := ""
+		if len(sections) == 2 {
+			ns = sections[0]
+		}
+		services, err := clientset.CoreV1().Services(ns).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			panic(err.Error())
+		}
+		var podsIPs []string
+		// Pod names and IPs are unique, but the same pod can be selected with mutiple label combinations (aka different services)
+		// A set can be used to make sure PodIPs aren't repeated
+		podsIPsSet := make(map[string]bool)
+		// Ports are not unique, however it is better to avoid repeating them to make the filter less verbose.
+		// Similarly, a set can be used for this purpose. It is only initialized and used when port discovery is enabled.
+		var podsPortsSet map[uint16]bool
+		if l.noPortsPassed {
+			l.ports = []uint16{}
+			podsPortsSet = make(map[uint16]bool)
+		}
+	nextsvc:
+		for _, svc := range services.Items {
+			// skip kube-system pods, as well as other namespaces/services specified as options
+			for _, svcToSkip := range l.config.K8sSkipSVC {
+				if svc.Name == svcToSkip {
+					continue nextsvc
+				}
+			}
+			for _, nsToSkip := range l.config.K8sSkipNS {
+				if svc.Namespace == nsToSkip {
+					continue nextsvc
+				}
+			}
+			// building the string with all the selector labels (k=v) as comma-separated values ("k1=v1,k2=v2,k3=v3"), for each service
+			selectors := ""
+			for k, v := range svc.Spec.Selector {
+				selectors = fmt.Sprintf("%s%s=%s,", selectors, k, v)
+			}
+			if selectors != "" {
+				selectors = selectors[:len(selectors)-1]
+			}
+			// getting all pods matching the specific combination of selector labels, skipping the ones we already found
+			sections = []string{svc.Namespace, "labelSelector", selectors}
+			svcPodsIPs, svcPodsPorts := getPodsIPs(sections, clientset, l.noPortsPassed)
+			for _, podIP := range svcPodsIPs {
+				if !podsIPsSet[podIP] {
+					podsIPs = append(podsIPs, podIP)
+					podsIPsSet[podIP] = true
+				}
+			}
+			if l.noPortsPassed {
+				for _, podPort := range svcPodsPorts {
+					if !podsPortsSet[podPort] {
+						l.ports = append(l.ports, podPort)
+						podsPortsSet[podPort] = true
+					}
+				}
+			}
+		}
+		return podsIPs
+	} else if len(sections) < 2 {
+		// TODO: add support for pod and deployment discovery (when no pod_name or deployment_name are passed)
+		panic("Not supported k8s scheme. Allowed values: [namespace/]pod/[pod_name], [namespace]/service/[service_name], [namespace/]deployment/[deployment_name], [namespace/]daemonset/[daemonset_name], [namespace/]label/[label-name]/[label-value]")
+	} else {
+		podsIPs, podsPorts := getPodsIPs(sections, clientset, l.noPortsPassed)
+		if l.noPortsPassed {
+			l.ports = podsPorts
+		}
+		return podsIPs
 	}
+}
 
+func getPodsIPs(sections []string, clientset *kubernetes.Clientset, discoverPorts bool) ([]string, []uint16) {
 	// If no namespace passed, assume it is ALL
 	switch sections[0] {
 	case "pod", "deployment", "daemonset", "labelSelector", "fieldSelector":
 		sections = append([]string{""}, sections...)
+	case "service":
+		panic("Not supported k8s scheme. A namespace must be provided when service is provided.")
 	}
 
 	namespace, selectorType, selectorValue := sections[0], sections[1], sections[2]
+	// sections[2] throws index out of range exception for pod discovery
 
 	labelSelector := ""
 	fieldSelector := ""
 
+	if selectorType == "service" {
+		svc, err := clientset.CoreV1().Services(namespace).Get(context.TODO(), selectorValue, metav1.GetOptions{})
+		if err != nil {
+			panic(err.Error())
+		}
+		if svc == nil {
+			panic("Service not found")
+		}
+		selectorType = "labelSelector"
+		selectorValue = ""
+		for k, v := range svc.Spec.Selector {
+			selectorValue = fmt.Sprintf("%s%s=%s,", selectorValue, k, v)
+		}
+		if selectorValue != "" {
+			selectorValue = selectorValue[:len(selectorValue)-1]
+		}
+	}
+
 	switch selectorType {
 	case "pod":
-		fieldSelector = "metadata.name=" + selectorValue
+		if selectorValue != "" {
+			fieldSelector = "metadata.name=" + selectorValue
+		}
 	case "deployment":
 		labelSelector = "app=" + selectorValue
+		// // TODO: not all deployment pods have labels with an "app" key. It is better to get labels from listing deployments
+		// deploys, err := clientset.AppsV1().Deployments(namespace).List(context.TODO(), metav1.ListOptions{})
+		// if err != nil {
+		// 	panic(err.Error())
+		// }
+		// for _, deploy := range deploys.Items {
+		// 	for k,v := range deploy.Labels {
+		// 		fmt.Printf("%s=%s", k, v)
+		// 	}
+		// }
+		// // The above will work for deployment discovery. To get a specific deployment use the following similar to service above
+		// deploy, err := clientset.AppsV1().Deployments(namespace).Get(context.TODO(), selectorValue, metav1.GetOptions{})
+		// if err != nil {
+		// 	panic(err.Error())
+		// }
+		// if deploy == nil {
+		// 	panic("Deployment not found")
+		// }
+		// selectorValue = ""
+		// for k, v := range deploy.Spec.Selector.MatchLabels {
+		// 	selectorValue = fmt.Sprintf("%s%s=%s,", selectorValue, k, v)
+		// }
+		// if selectorValue != "" {
+		// 	selectorValue = selectorValue[:len(selectorValue)-1]
+		// }
 	case "daemonset":
 		labelSelector = "pod-template-generation=1,name=" + selectorValue
+		// TODO: the pod-template-generation value will depend on the number of nodes
+		// In addition, labels are ANDed so the above can only work for pods with those two labels only
+		// It is probably better to do a discovery strategy like with services
 	case "labelSelector":
 		labelSelector = selectorValue
 	case "fieldSelector":
@@ -340,12 +468,20 @@ func k8sIPs(addr string) []string {
 	}
 
 	var podIPs []string
+	var podPorts []uint16
 	for _, pod := range pods.Items {
 		for _, podIP := range pod.Status.PodIPs {
 			podIPs = append(podIPs, podIP.IP)
 		}
+		if discoverPorts {
+			for _, c := range pod.Spec.Containers {
+				for _, port := range c.Ports {
+					podPorts = append(podPorts, uint16(port.ContainerPort))
+				}
+			}
+		}
 	}
-	return podIPs
+	return podIPs, podPorts
 }
 
 // Filter returns automatic filter applied by goreplay
@@ -357,10 +493,7 @@ func (l *Listener) Filter(ifi pcap.Interface, hosts ...string) (filter string) {
 		// If k8s have not found any IPs
 		if strings.HasPrefix(l.host, "k8s://") {
 			hosts = []string{}
-			if l.config.K8sNoMatchPromisc {
-				fmt.Println("No pods found matching the schema:", l.host, ". BPF filter will be updated to match given ports for all available interfaces.")
-			} else {
-				fmt.Println("No pods found matching the schema:", l.host, ". BPF filter will be updated to prevent capturing any packets.")
+			if l.config.K8sNoMatchNoCapture {
 				return "not (ip or ip6 or arp or rarp or decnet or tcp or udp)"
 			}
 		} else {
@@ -772,11 +905,11 @@ func (l *Listener) setInterfaces() (err error) {
 			continue
 		}
 
-		if strings.HasPrefix(l.host, "k8s://") {
-			if !strings.HasPrefix(pi.Name, "veth") {
-				continue
-			}
-		}
+		// if strings.HasPrefix(l.host, "k8s://") {
+		// 	if !strings.HasPrefix(pi.Name, "veth") {
+		// 		continue
+		// 	}
+		// }
 
 		if isDevice(l.host, pi) {
 			l.Interfaces = []pcap.Interface{pi}
