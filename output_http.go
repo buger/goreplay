@@ -48,6 +48,32 @@ type HTTPOutputConfig struct {
 	url            *url.URL
 }
 
+//Clone Deep copy HTTPOutputConfig
+func (c *HTTPOutputConfig) Clone() HTTPOutputConfig {
+	var configURL *url.URL
+	if c.url != nil {
+		configURL, _ = url.Parse(c.url.Path)
+	}
+
+	return HTTPOutputConfig{
+		TrackResponses: c.TrackResponses,
+		Stats:          c.Stats,
+		OriginalHost:   c.OriginalHost,
+		RedirectLimit:  c.RedirectLimit,
+		WorkersMin:     c.WorkersMin,
+		WorkersMax:     c.WorkersMax,
+		StatsMs:        c.StatsMs,
+		QueueLen:       c.QueueLen,
+		ElasticSearch:  c.ElasticSearch,
+		Timeout:        c.Timeout,
+		WorkerTimeout:  c.WorkerTimeout,
+		BufferSize:     c.BufferSize,
+		SkipVerify:     c.SkipVerify,
+		rawURL:         c.rawURL,
+		url:            configURL,
+	}
+}
+
 // HTTPOutput plugin manage pool of workers which send request to replayed server
 // By default workers pool is dynamic and starts with 1 worker or workerMin workers
 // You can specify maximum number of workers using `--output-http-workers`

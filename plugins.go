@@ -143,7 +143,8 @@ func NewPlugins() *InOutPlugins {
 	}
 
 	for _, options := range Settings.OutputHTTP {
-		plugins.registerPlugin(NewHTTPOutput, options, &Settings.OutputHTTPConfig)
+		config := Settings.OutputHTTPConfig.Clone()
+		plugins.registerPlugin(NewHTTPOutput, options, &config)
 	}
 
 	for _, options := range Settings.OutputBinary {
