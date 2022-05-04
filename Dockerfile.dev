@@ -1,14 +1,12 @@
-FROM golang:1.17
+FROM golang:1.18
 
 RUN apt-get update && apt-get install ruby vim-common -y
 
 RUN apt-get install flex bison -y
 RUN wget http://www.tcpdump.org/release/libpcap-1.10.0.tar.gz && tar xzf libpcap-1.10.0.tar.gz && cd libpcap-1.10.0 && ./configure && make install
 
-RUN go get github.com/google/gopacket
-RUN go get -u golang.org/x/lint/golint
-
 WORKDIR /go/src/github.com/buger/goreplay/
 ADD . /go/src/github.com/buger/goreplay/
 
+RUN go get golang.org/x/lint/golint
 RUN go get
