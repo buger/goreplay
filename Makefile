@@ -39,7 +39,7 @@ release-bin-mac: vendor
 	GOOS=darwin go build -mod=vendor -o $(BIN_NAME) $(MAC_LDFLAGS)
 
 release-bin-windows: vendor
-	docker run -it --rm -v `pwd`:$(SOURCE_PATH) -w $(SOURCE_PATH) -e CGO_ENABLED=1 docker.elastic.co/beats-dev/golang-crossbuild:1.16.4-main --build-cmd "make VERSION=$(VERSION) build" -p "windows/amd64"
+	docker run -it --rm -v `pwd`:$(SOURCE_PATH) -w $(SOURCE_PATH) -e CGO_ENABLED=1 docker.elastic.co/beats-dev/golang-crossbuild:1.18.1-main --build-cmd "make VERSION=$(VERSION) build" -p "windows/amd64"
 
 release-x64: release-bin
 	tar -czf gor_$(VERSION)$(PREFIX)_x64.tar.gz $(BIN_NAME)

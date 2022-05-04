@@ -1,4 +1,4 @@
-// +build pro
+//go:build pro
 
 package main
 
