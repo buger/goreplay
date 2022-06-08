@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"crypto/sha512"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -11,25 +13,33 @@ import (
 
 	"github.com/Shopify/sarama"
 	"github.com/buger/goreplay/proto"
+	"github.com/xdg-go/scram"
 )
+
+type SASLKafkaConfig struct {
+	UseSASL   bool   `json:"input-kafka-use-sasl"`
+	Mechanism string `json:"input-kafka-mechanism"`
+	Username  string `json:"input-kafka-username"`
+	Password  string `json:"input-kafka-password"`
+}
 
 // InputKafkaConfig should contains required information to
 // build producers.
 type InputKafkaConfig struct {
-	producer sarama.AsyncProducer
-	consumer sarama.Consumer
-	Host     string `json:"input-kafka-host"`
-	Topic    string `json:"input-kafka-topic"`
-	UseJSON  bool   `json:"input-kafka-json-format"`
+	consumer   sarama.Consumer
+	Host       string `json:"input-kafka-host"`
+	Topic      string `json:"input-kafka-topic"`
+	UseJSON    bool   `json:"input-kafka-json-format"`
+	SASLConfig SASLKafkaConfig
 }
 
 // OutputKafkaConfig is the representation of kfka output configuration
 type OutputKafkaConfig struct {
-	producer sarama.AsyncProducer
-	consumer sarama.Consumer
-	Host     string `json:"output-kafka-host"`
-	Topic    string `json:"output-kafka-topic"`
-	UseJSON  bool   `json:"output-kafka-json-format"`
+	producer   sarama.AsyncProducer
+	Host       string `json:"output-kafka-host"`
+	Topic      string `json:"output-kafka-topic"`
+	UseJSON    bool   `json:"output-kafka-json-format"`
+	SASLConfig SASLKafkaConfig
 }
 
 // KafkaTLSConfig should contains TLS certificates for connecting to secured Kafka clusters
@@ -83,7 +93,7 @@ func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config
 }
 
 // NewKafkaConfig returns Kafka config with or without TLS
-func NewKafkaConfig(tlsConfig *KafkaTLSConfig) *sarama.Config {
+func NewKafkaConfig(saslConfig *SASLKafkaConfig, tlsConfig *KafkaTLSConfig) *sarama.Config {
 	config := sarama.NewConfig()
 	// Configuration options go here
 	if tlsConfig != nil && (tlsConfig.ClientCert != "" || tlsConfig.CACert != "") {
@@ -93,6 +103,18 @@ func NewKafkaConfig(tlsConfig *KafkaTLSConfig) *sarama.Config {
 			log.Fatal(err)
 		}
 		config.Net.TLS.Config = tlsConfig
+	}
+	if saslConfig.UseSASL {
+		mechanism := sarama.SASLMechanism(saslConfig.Mechanism)
+		config.Net.SASL.Enable = saslConfig.UseSASL
+		config.Net.SASL.Mechanism = mechanism
+		config.Net.SASL.User = saslConfig.Username
+		config.Net.SASL.Password = saslConfig.Password
+		if mechanism == sarama.SASLTypeSCRAMSHA256 {
+			config.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA256} }
+		} else if mechanism == sarama.SASLTypeSCRAMSHA512 {
+			config.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA512} }
+		}
 	}
 	return config
 }
@@ -114,4 +136,33 @@ func (m KafkaMessage) Dump() ([]byte, error) {
 	b.WriteString(m.ReqBody)
 
 	return b.Bytes(), nil
+}
+
+var (
+	SHA256 scram.HashGeneratorFcn = sha256.New
+	SHA512 scram.HashGeneratorFcn = sha512.New
+)
+
+type XDGSCRAMClient struct {
+	*scram.Client
+	*scram.ClientConversation
+	scram.HashGeneratorFcn
+}
+
+func (x *XDGSCRAMClient) Begin(userName, password, authzID string) (err error) {
+	x.Client, err = x.HashGeneratorFcn.NewClient(userName, password, authzID)
+	if err != nil {
+		return err
+	}
+	x.ClientConversation = x.Client.NewConversation()
+	return nil
+}
+
+func (x *XDGSCRAMClient) Step(challenge string) (response string, err error) {
+	response, err = x.ClientConversation.Step(challenge)
+	return
+}
+
+func (x *XDGSCRAMClient) Done() bool {
+	return x.ClientConversation.Done()
 }
