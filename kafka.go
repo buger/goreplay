@@ -16,6 +16,7 @@ import (
 	"github.com/xdg-go/scram"
 )
 
+// SASLKafkaConfig SASL configuration
 type SASLKafkaConfig struct {
 	UseSASL   bool   `json:"input-kafka-use-sasl"`
 	Mechanism string `json:"input-kafka-mechanism"`
@@ -139,16 +140,20 @@ func (m KafkaMessage) Dump() ([]byte, error) {
 }
 
 var (
+	// SHA256 SASLMechanism
 	SHA256 scram.HashGeneratorFcn = sha256.New
+	// SHA512 SASLMechanism
 	SHA512 scram.HashGeneratorFcn = sha512.New
 )
 
+// XDGSCRAMClient for SASL-Protocol
 type XDGSCRAMClient struct {
 	*scram.Client
 	*scram.ClientConversation
 	scram.HashGeneratorFcn
 }
 
+// Begin of XDGSCRAMClient
 func (x *XDGSCRAMClient) Begin(userName, password, authzID string) (err error) {
 	x.Client, err = x.HashGeneratorFcn.NewClient(userName, password, authzID)
 	if err != nil {
@@ -158,11 +163,13 @@ func (x *XDGSCRAMClient) Begin(userName, password, authzID string) (err error) {
 	return nil
 }
 
+// Step of XDGSCRAMClient
 func (x *XDGSCRAMClient) Step(challenge string) (response string, err error) {
 	response, err = x.ClientConversation.Step(challenge)
 	return
 }
 
+// Done of XDGSCRAMClient
 func (x *XDGSCRAMClient) Done() bool {
 	return x.ClientConversation.Done()
 }
