@@ -19,7 +19,7 @@ type KafkaInput struct {
 }
 
 // NewKafkaInput creates instance of kafka consumer client with TLS config
-func NewKafkaInput(address string, config *InputKafkaConfig, tlsConfig *KafkaTLSConfig) *KafkaInput {
+func NewKafkaInput(_ string, config *InputKafkaConfig, tlsConfig *KafkaTLSConfig) *KafkaInput {
 	c := NewKafkaConfig(&config.SASLConfig, tlsConfig)
 
 	var con sarama.Consumer
