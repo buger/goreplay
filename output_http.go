@@ -48,6 +48,24 @@ type HTTPOutputConfig struct {
 	url            *url.URL
 }
 
+func (hoc *HTTPOutputConfig) Copy() *HTTPOutputConfig {
+	return &HTTPOutputConfig{
+		TrackResponses: hoc.TrackResponses,
+		Stats:          hoc.Stats,
+		OriginalHost:   hoc.OriginalHost,
+		RedirectLimit:  hoc.RedirectLimit,
+		WorkersMin:     hoc.WorkersMin,
+		WorkersMax:     hoc.WorkersMax,
+		StatsMs:        hoc.StatsMs,
+		QueueLen:       hoc.QueueLen,
+		ElasticSearch:  hoc.ElasticSearch,
+		Timeout:        hoc.Timeout,
+		WorkerTimeout:  hoc.WorkerTimeout,
+		BufferSize:     hoc.BufferSize,
+		SkipVerify:     hoc.SkipVerify,
+	}
+}
+
 // HTTPOutput plugin manage pool of workers which send request to replayed server
 // By default workers pool is dynamic and starts with 1 worker or workerMin workers
 // You can specify maximum number of workers using `--output-http-workers`
@@ -68,42 +86,43 @@ type HTTPOutput struct {
 func NewHTTPOutput(address string, config *HTTPOutputConfig) PluginReadWriter {
 	o := new(HTTPOutput)
 	var err error
-	config.url, err = url.Parse(address)
+	newConfig := config.Copy()
+	newConfig.url, err = url.Parse(address)
 	if err != nil {
 		log.Fatal(fmt.Sprintf("[OUTPUT-HTTP] parse HTTP output URL error[%q]", err))
 	}
-	if config.url.Scheme == "" {
-		config.url.Scheme = "http"
+	if newConfig.url.Scheme == "" {
+		newConfig.url.Scheme = "http"
 	}
-	config.rawURL = config.url.String()
-	if config.Timeout < time.Millisecond*100 {
-		config.Timeout = time.Second
+	newConfig.rawURL = newConfig.url.String()
+	if newConfig.Timeout < time.Millisecond*100 {
+		newConfig.Timeout = time.Second
 	}
-	if config.BufferSize <= 0 {
-		config.BufferSize = 100 * 1024 // 100kb
+	if newConfig.BufferSize <= 0 {
+		newConfig.BufferSize = 100 * 1024 // 100kb
 	}
-	if config.WorkersMin <= 0 {
-		config.WorkersMin = 1
+	if newConfig.WorkersMin <= 0 {
+		newConfig.WorkersMin = 1
 	}
-	if config.WorkersMin > 1000 {
-		config.WorkersMin = 1000
+	if newConfig.WorkersMin > 1000 {
+		newConfig.WorkersMin = 1000
 	}
-	if config.WorkersMax <= 0 {
-		config.WorkersMax = math.MaxInt32 // idealy so large
+	if newConfig.WorkersMax <= 0 {
+		newConfig.WorkersMax = math.MaxInt32 // idealy so large
 	}
-	if config.WorkersMax < config.WorkersMin {
-		config.WorkersMax = config.WorkersMin
+	if newConfig.WorkersMax < newConfig.WorkersMin {
+		newConfig.WorkersMax = newConfig.WorkersMin
 	}
-	if config.QueueLen <= 0 {
-		config.QueueLen = 1000
+	if newConfig.QueueLen <= 0 {
+		newConfig.QueueLen = 1000
 	}
-	if config.RedirectLimit < 0 {
-		config.RedirectLimit = 0
+	if newConfig.RedirectLimit < 0 {
+		newConfig.RedirectLimit = 0
 	}
-	if config.WorkerTimeout <= 0 {
-		config.WorkerTimeout = time.Second * 2
+	if newConfig.WorkerTimeout <= 0 {
+		newConfig.WorkerTimeout = time.Second * 2
 	}
-	o.config = config
+	o.config = newConfig
 	o.stop = make(chan bool)
 	if o.config.Stats {
 		o.queueStats = NewGorStat("output_http", o.config.StatsMs)
