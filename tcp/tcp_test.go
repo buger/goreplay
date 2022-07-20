@@ -216,10 +216,10 @@ func TestMessageTimeoutReached(t *testing.T) {
 	const size = 63 << 11
 	var data [size >> 1]byte
 	packets := GetPackets(true, 1, 2, data[:])
-	p := NewMessageParser(nil, nil, nil, 10*time.Millisecond, true)
+	p := NewMessageParser(nil, nil, nil, 100*time.Millisecond, true)
 	p.processPacket(packets[0])
 
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Millisecond * 20)
 
 	p.processPacket(packets[1])
 	m := p.Read()
