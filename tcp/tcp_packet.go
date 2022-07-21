@@ -17,8 +17,8 @@ func copySlice(to []byte, skip int, from ...[]byte) ([]byte, int) {
 	}
 	totalLen += skip
 
-	if cap(to) < totalLen {
-		diff := totalLen - cap(to)
+	if len(to) < totalLen {
+		diff := totalLen - len(to)
 		to = append(to, make([]byte, diff)...)
 	}
 
