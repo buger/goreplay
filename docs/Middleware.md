@@ -59,7 +59,7 @@ Content-Type: text/plain; charset=utf-8
 
 ```
 
-Header contains request meta information separated by spaces. First value is payload type, possible values: `1` - request, `2` - original response, `3` - replayed response. 
+Header contains request meta information separated by spaces. First value is payload type, possible values: `1` - request, `2` - original response, `3` - replayed response.
 Next goes request id: unique among all requests (sha1 of time and Ack), but remain same for original and replayed response, so you can create associations between request and responses. The third argument is the time when request/response was initiated/received. Forth argument is populated only for responses and means latency.
 
 You need to set `--output-http-track-response` option if you want to track output responses in the middleware (payload type `3`).
