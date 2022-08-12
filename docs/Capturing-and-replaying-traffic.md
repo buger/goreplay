@@ -26,6 +26,7 @@ gor --input-raw :80 --output-http "http://staging.com"  --output-http "http://de
 
 ### Tracking responses
 By default `input-raw` does not intercept responses, only requests. You can turn response tracking using `--input-raw-track-response` option. When enable you will be able to access response information in middleware and `output-file`.
+You need to set `--output-http-track-response` option if you want to track output responses in the middleware.
 
 
 ### Traffic interception engine
