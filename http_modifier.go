@@ -182,7 +182,7 @@ func (m *HTTPModifier) Rewrite(payload []byte) (response []byte) {
 		for _, f := range m.config.HeaderRewrite {
 			value := proto.Header(payload, f.header)
 			if len(value) == 0 {
-				break
+				continue
 			}
 
 			if f.src.Match(value) {
