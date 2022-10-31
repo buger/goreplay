@@ -7,6 +7,8 @@ require (
 	github.com/aws/aws-sdk-go v1.33.2
 	github.com/coocood/freecache v1.2.0
 	github.com/google/gopacket v1.1.20-0.20210429153827-3eaba0894325
+	github.com/gorilla/websocket v1.4.2
+	github.com/klauspost/compress v1.11.13 // indirect
 	github.com/mattbaird/elastigo v0.0.0-20170123220020-2fe47fd29e4b
 	github.com/stretchr/testify v1.7.0
 	github.com/xdg-go/scram v1.1.1
@@ -36,7 +38,6 @@ require (
 	github.com/jcmturner/gofork v1.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.3.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.9.8 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pierrec/lz4 v2.4.1+incompatible // indirect
