@@ -83,6 +83,10 @@ type AppSettings struct {
 	OutputTCPConfig TCPOutputConfig
 	OutputTCPStats  bool `json:"output-tcp-stats"`
 
+	OutputWebSocket       []string `json:"output-ws"`
+	OutputWebSocketConfig WebSocketOutputConfig
+	OutputWebSocketStats  bool `json:"output-ws-stats"`
+
 	InputFile          []string      `json:"input-file"`
 	InputFileLoop      bool          `json:"input-file-loop"`
 	InputFileReadDepth int           `json:"input-file-read-depth"`
@@ -151,6 +155,12 @@ func init() {
 	flag.BoolVar(&Settings.OutputTCPConfig.Sticky, "output-tcp-sticky", false, "Use Sticky connection. Request/Response with same ID will be sent to the same connection.")
 	flag.IntVar(&Settings.OutputTCPConfig.Workers, "output-tcp-workers", 10, "Number of parallel tcp connections, default is 10")
 	flag.BoolVar(&Settings.OutputTCPStats, "output-tcp-stats", false, "Report TCP output queue stats to console every 5 seconds.")
+
+	flag.Var(&MultiOption{&Settings.OutputWebSocket}, "output-ws", "Just like output tcp, just with WebSocket. Example: \n\t# Listen for requests on 80 port and forward them to other Gor instance on 28020 port\n\tgor --input-raw :80 --output-ws wss://replay.local:28020/endpoint")
+	flag.BoolVar(&Settings.OutputWebSocketConfig.SkipVerify, "output-ws-skip-verify", false, "Don't verify hostname on TLS secure connection.")
+	flag.BoolVar(&Settings.OutputWebSocketConfig.Sticky, "output-ws-sticky", false, "Use Sticky connection. Request/Response with same ID will be sent to the same connection.")
+	flag.IntVar(&Settings.OutputWebSocketConfig.Workers, "output-ws-workers", 10, "Number of parallel ws connections, default is 10")
+	flag.BoolVar(&Settings.OutputWebSocketStats, "output-ws-stats", false, "Report WebSocket output queue stats to console every 5 seconds.")
 
 	flag.Var(&MultiOption{&Settings.InputFile}, "input-file", "Read requests from file: \n\tgor --input-file ./requests.gor --output-http staging.com")
 	flag.BoolVar(&Settings.InputFileLoop, "input-file-loop", false, "Loop input files, useful for performance testing.")

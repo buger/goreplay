@@ -117,6 +117,10 @@ func NewPlugins() *InOutPlugins {
 		plugins.registerPlugin(NewTCPOutput, options, &Settings.OutputTCPConfig)
 	}
 
+	for _, options := range Settings.OutputWebSocket {
+		plugins.registerPlugin(NewWebSocketOutput, options, &Settings.OutputWebSocketConfig)
+	}
+
 	for _, options := range Settings.InputFile {
 		plugins.registerPlugin(NewFileInput, options, Settings.InputFileLoop, Settings.InputFileReadDepth, Settings.InputFileMaxWait, Settings.InputFileDryRun)
 	}
