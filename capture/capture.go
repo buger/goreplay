@@ -766,7 +766,7 @@ func (l *Listener) setInterfaces() (err error) {
 		}
 
 		if strings.HasPrefix(l.host, "k8s://") {
-			if !strings.HasPrefix(pi.Name, "veth") {
+			if !strings.HasPrefix(pi.Name, "eni") {
 				continue
 			}
 		}
