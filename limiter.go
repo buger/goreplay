@@ -6,7 +6,8 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
-	"time"
+
+	"golang.org/x/time/rate"
 )
 
 // Limiter is a wrapper for input or output plugin which adds rate limiting
@@ -15,8 +16,7 @@ type Limiter struct {
 	limit     int
 	isPercent bool
 
-	currentRPS  int
-	currentTime int64
+	limiter *rate.Limiter
 }
 
 func parseLimitOptions(options string) (limit int, isPercent bool) {
@@ -37,7 +37,7 @@ func NewLimiter(plugin interface{}, options string) PluginReadWriter {
 	l := new(Limiter)
 	l.limit, l.isPercent = parseLimitOptions(options)
 	l.plugin = plugin
-	l.currentTime = time.Now().UnixNano()
+	l.limiter = rate.NewLimiter(rate.Limit(l.limit), 1)
 
 	// FileInput have its own rate limiting. Unlike other inputs we not just dropping requests, we can slow down or speed up request emittion.
 	if fi, ok := l.plugin.(*FileInput); ok && l.isPercent {
@@ -57,18 +57,7 @@ func (l *Limiter) isLimited() bool {
 		return l.limit <= rand.Intn(100)
 	}
 
-	if (time.Now().UnixNano() - l.currentTime) > time.Second.Nanoseconds() {
-		l.currentTime = time.Now().UnixNano()
-		l.currentRPS = 0
-	}
-
-	if l.currentRPS >= l.limit {
-		return true
-	}
-
-	l.currentRPS++
-
-	return false
+	return !l.limiter.Allow()
 }
 
 // PluginWrite writes message to this plugin
