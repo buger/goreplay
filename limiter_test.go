@@ -5,6 +5,7 @@ package main
 import (
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestOutputLimiter(t *testing.T) {
@@ -27,6 +28,7 @@ func TestOutputLimiter(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		input.EmitGET()
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	wg.Wait()
@@ -53,6 +55,7 @@ func TestInputLimiter(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		input.(*Limiter).plugin.(*TestInput).EmitGET()
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	wg.Wait()
