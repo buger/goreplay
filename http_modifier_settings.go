@@ -1,4 +1,4 @@
-package main
+package goreplay
 
 import (
 	"errors"
@@ -24,9 +24,7 @@ type HTTPModifierConfig struct {
 	Methods                HTTPMethods                `json:"http-allow-method"`
 }
 
-//
 // Handling of --http-allow-header, --http-disallow-header options
-//
 type headerFilter struct {
 	name   []byte
 	regexp *regexp.Regexp
@@ -56,9 +54,7 @@ func (h *HTTPHeaderFilters) Set(value string) error {
 	return nil
 }
 
-//
 // Handling of --http-basic-auth-filter option
-//
 type basicAuthFilter struct {
 	regexp *regexp.Regexp
 }
@@ -82,9 +78,7 @@ func (h *HTTPHeaderBasicAuthFilters) Set(value string) error {
 	return nil
 }
 
-//
 // Handling of --http-allow-header-hash and --http-allow-param-hash options
-//
 type hashFilter struct {
 	name    []byte
 	percent uint32
@@ -129,9 +123,7 @@ func (h *HTTPHashFilters) Set(value string) error {
 	return nil
 }
 
-//
 // Handling of --http-set-header option
-//
 type httpHeader struct {
 	Name  string
 	Value string
@@ -160,9 +152,7 @@ func (h *HTTPHeaders) Set(value string) error {
 	return nil
 }
 
-//
 // Handling of --http-set-param option
-//
 type httpParam struct {
 	Name  []byte
 	Value []byte
@@ -208,9 +198,7 @@ func (h *HTTPMethods) Set(value string) error {
 	return nil
 }
 
-//
 // Handling of --http-rewrite-url option
-//
 type urlRewrite struct {
 	src    *regexp.Regexp
 	target []byte
@@ -237,9 +225,7 @@ func (r *URLRewriteMap) Set(value string) error {
 	return nil
 }
 
-//
 // Handling of --http-rewrite-header option
-//
 type headerRewrite struct {
 	header []byte
 	src    *regexp.Regexp
@@ -275,9 +261,7 @@ func (r *HeaderRewriteMap) Set(value string) error {
 	return nil
 }
 
-//
 // Handling of --http-allow-url option
-//
 type urlRegexp struct {
 	regexp *regexp.Regexp
 }

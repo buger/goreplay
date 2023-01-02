@@ -1,14 +1,13 @@
-package main
+package goreplay
 
 import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
+	"github.com/buger/goreplay/internal/proto"
 	"io/ioutil"
 	"net/http/httputil"
 	"strconv"
-
-	"github.com/buger/goreplay/proto"
 )
 
 func prettifyHTTP(p []byte) []byte {

@@ -1,10 +1,9 @@
-package main
+package goreplay
 
 import (
+	"github.com/buger/goreplay/internal/size"
 	"sync/atomic"
 	"time"
-
-	"github.com/buger/goreplay/size"
 )
 
 // BinaryOutputConfig struct for holding binary output configuration

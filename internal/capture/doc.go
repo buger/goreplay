@@ -9,27 +9,34 @@ example:
 
 // for the transport should be "tcp"
 listener, err := capture.NewListener(host, port, transport, engine, trackResponse)
-if err != nil {
-	// handle error
-}
+
+	if err != nil {
+		// handle error
+	}
+
 listener.SetPcapOptions(opts)
 err = listner.Activate()
-if err != nil {
-	// handle it
-}
 
-if err := listener.Listen(context.Background(), handler); err != nil {
-	 // handle error
-}
+	if err != nil {
+		// handle it
+	}
+
+	if err := listener.Listen(context.Background(), handler); err != nil {
+		 // handle error
+	}
+
 // or
 errCh := listener.ListenBackground(context.Background(), handler) // runs in the background
 select {
 case err := <- errCh:
+
 	// handle error
+
 case <-quit:
+
 	//
+
 case <- l.Reading: // if we have started reading
 }
-
 */
 package capture // import github.com/buger/goreplay/capture

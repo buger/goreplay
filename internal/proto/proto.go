@@ -19,13 +19,12 @@ package proto
 import (
 	"bufio"
 	"bytes"
+	"github.com/buger/goreplay/internal/byteutils"
 
 	_ "fmt"
 	"net/http"
 	"net/textproto"
 	"strings"
-
-	"github.com/buger/goreplay/byteutils"
 )
 
 // CRLF In HTTP newline defined by 2 bytes (for both windows and *nix support)

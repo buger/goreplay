@@ -1,4 +1,4 @@
-package main
+package goreplay
 
 import (
 	"io/ioutil"

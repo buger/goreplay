@@ -1,14 +1,13 @@
-package main
+package goreplay
 
 import (
 	"flag"
 	"fmt"
+	"github.com/buger/goreplay/internal/size"
 	"os"
 	"strconv"
 	"sync"
 	"time"
-
-	"github.com/buger/goreplay/size"
 )
 
 // DEMO indicates that goreplay is running in demo mode
@@ -276,7 +275,7 @@ func init() {
 
 }
 
-func checkSettings() {
+func CheckSettings() {
 	if Settings.OutputFileConfig.SizeLimit < 1 {
 		Settings.OutputFileConfig.SizeLimit.Set("32mb")
 	}

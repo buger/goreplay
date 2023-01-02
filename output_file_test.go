@@ -1,7 +1,8 @@
-package main
+package goreplay
 
 import (
 	"fmt"
+	"github.com/buger/goreplay/internal/size"
 	"math/rand"
 	"os"
 	"reflect"
@@ -10,8 +11,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/buger/goreplay/size"
 )
 
 func TestFileOutput(t *testing.T) {

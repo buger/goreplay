@@ -1,10 +1,11 @@
-package main
+package goreplay
 
 import (
 	"bufio"
 	"compress/gzip"
 	"errors"
 	"fmt"
+	"github.com/buger/goreplay/internal/size"
 	"io"
 	"log"
 	"math/rand"
@@ -16,8 +17,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/buger/goreplay/size"
 )
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")

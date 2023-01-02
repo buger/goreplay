@@ -3,6 +3,7 @@ package tcp
 import (
 	"bytes"
 	"encoding/binary"
+	"github.com/buger/goreplay/internal/proto"
 
 	// "runtime"
 	"testing"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/buger/goreplay/proto"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 )

@@ -1,12 +1,11 @@
-package main
+package goreplay
 
 import (
 	"bytes"
 	"compress/gzip"
+	"github.com/buger/goreplay/internal/proto"
 	"strconv"
 	"testing"
-
-	"github.com/buger/goreplay/proto"
 )
 
 func TestHTTPPrettifierGzip(t *testing.T) {

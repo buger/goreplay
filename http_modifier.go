@@ -1,12 +1,11 @@
-package main
+package goreplay
 
 import (
 	"bytes"
 	"encoding/base64"
+	"github.com/buger/goreplay/internal/proto"
 	"hash/fnv"
 	"strings"
-
-	"github.com/buger/goreplay/proto"
 )
 
 type HTTPModifier struct {

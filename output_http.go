@@ -1,10 +1,11 @@
-package main
+package goreplay
 
 import (
 	"bufio"
 	"bytes"
 	"crypto/tls"
 	"fmt"
+	"github.com/buger/goreplay/internal/size"
 	"log"
 	"math"
 	"net/http"
@@ -12,8 +13,6 @@ import (
 	"net/url"
 	"sync/atomic"
 	"time"
-
-	"github.com/buger/goreplay/size"
 )
 
 const (

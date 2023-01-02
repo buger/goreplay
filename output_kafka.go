@@ -1,13 +1,12 @@
-package main
+package goreplay
 
 import (
 	"encoding/json"
+	"github.com/buger/goreplay/internal/byteutils"
+	"github.com/buger/goreplay/internal/proto"
 	"log"
 	"strings"
 	"time"
-
-	"github.com/buger/goreplay/byteutils"
-	"github.com/buger/goreplay/proto"
 
 	"github.com/Shopify/sarama"
 	"github.com/Shopify/sarama/mocks"

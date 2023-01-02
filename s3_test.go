@@ -1,6 +1,6 @@
 //go:build pro
 
-package main
+package goreplay
 
 import (
 	"fmt"

@@ -5,6 +5,9 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
+	"github.com/buger/goreplay/internal/proto"
+	"github.com/buger/goreplay/internal/size"
+	"github.com/buger/goreplay/internal/tcp"
 	"io"
 	"log"
 	"net"
@@ -14,10 +17,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-
-	"github.com/buger/goreplay/proto"
-	"github.com/buger/goreplay/size"
-	"github.com/buger/goreplay/tcp"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -286,11 +285,12 @@ func (l *Listener) ListenBackground(ctx context.Context) chan error {
 }
 
 // Allowed format:
-//   [namespace/]pod/[pod_name]
-//   [namespace/]deployment/[deployment_name]
-//   [namespace/]daemonset/[daemonset_name]
-//   [namespace/]labelSelector/[selector]
-//   [namespace/]fieldSelector/[selector]
+//
+//	[namespace/]pod/[pod_name]
+//	[namespace/]deployment/[deployment_name]
+//	[namespace/]daemonset/[daemonset_name]
+//	[namespace/]labelSelector/[selector]
+//	[namespace/]fieldSelector/[selector]
 func k8sIPs(addr string) []string {
 	config, err := rest.InClusterConfig()
 	if err != nil {

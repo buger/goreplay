@@ -1,13 +1,12 @@
-package main
+package goreplay
 
 import (
 	"encoding/json"
+	"github.com/buger/goreplay/internal/proto"
 	"log"
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/buger/goreplay/proto"
 
 	elastigo "github.com/mattbaird/elastigo/lib"
 )

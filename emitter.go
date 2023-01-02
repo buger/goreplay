@@ -1,13 +1,13 @@
-package main
+package goreplay
 
 import (
 	"fmt"
+	"github.com/buger/goreplay/internal/byteutils"
 	"hash/fnv"
 	"io"
 	"log"
 	"sync"
 
-	"github.com/buger/goreplay/byteutils"
 	"github.com/coocood/freecache"
 )
 

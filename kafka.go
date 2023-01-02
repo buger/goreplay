@@ -1,4 +1,4 @@
-package main
+package goreplay
 
 import (
 	"bytes"
@@ -8,11 +8,11 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"github.com/buger/goreplay/internal/proto"
 	"io/ioutil"
 	"log"
 
 	"github.com/Shopify/sarama"
-	"github.com/buger/goreplay/proto"
 	"github.com/xdg-go/scram"
 )
 

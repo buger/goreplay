@@ -1,10 +1,9 @@
-package main
+package goreplay
 
 import (
 	"bytes"
+	"github.com/buger/goreplay/internal/proto"
 	"testing"
-
-	"github.com/buger/goreplay/proto"
 )
 
 func TestHTTPModifierWithoutConfig(t *testing.T) {

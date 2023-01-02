@@ -1,6 +1,6 @@
 //go:build !race
 
-package main
+package goreplay
 
 import (
 	"sync"

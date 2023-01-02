@@ -1,7 +1,10 @@
-package main
+package goreplay
 
 import (
 	"bytes"
+	"github.com/buger/goreplay/internal/capture"
+	"github.com/buger/goreplay/internal/proto"
+	"github.com/buger/goreplay/internal/tcp"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -13,10 +16,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"github.com/buger/goreplay/capture"
-	"github.com/buger/goreplay/proto"
-	"github.com/buger/goreplay/tcp"
 )
 
 const testRawExpire = time.Millisecond * 200

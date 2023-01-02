@@ -1,4 +1,4 @@
-package main
+package goreplay
 
 // NullOutput used for debugging, prints nothing
 type NullOutput struct {

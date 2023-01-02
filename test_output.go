@@ -1,4 +1,4 @@
-package main
+package goreplay
 
 type writeCallback func(*Message)
 
