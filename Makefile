@@ -2,80 +2,63 @@ SOURCE = $(shell ls -1 *.go | grep -v _test.go)
 SOURCE_PATH = /go/src/github.com/buger/goreplay/
 PORT = 8000
 FADDR = :8000
-CONTAINER=gor
-PREFIX=
-RUN = docker run --rm -v `pwd`:$(SOURCE_PATH) -e AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) -e AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY) -p 0.0.0.0:$(PORT):$(PORT) -t -i $(CONTAINER)
+CONTAINER_AMD=gor-amd64
+CONTAINER_ARM=gor-arm64
+RUN = docker run --rm -v `pwd`:$(SOURCE_PATH) -e AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) -e AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY) -p 0.0.0.0:$(PORT):$(PORT) -t -i $(CONTAINER_AMD)
 BENCHMARK = BenchmarkRAWInput
 TEST = TestRawListenerBench
 BIN_NAME = gor
 VERSION = DEV-$(shell date +%s)
-LDFLAGS = -ldflags "-X main.VERSION=$(VERSION)$(PREFIX) -extldflags \"-static\" -X main.DEMO=$(DEMO)"
-MAC_LDFLAGS = -ldflags "-X main.VERSION=$(VERSION)$(PREFIX) -X main.DEMO=$(DEMO)"
+LDFLAGS = -ldflags "-X main.VERSION=$(VERSION) -extldflags \"-static\" -X main.DEMO=$(DEMO)"
+MAC_LDFLAGS = -ldflags "-X main.VERSION=$(VERSION) -X main.DEMO=$(DEMO)"
 
-FPMCOMMON= \
-    --name goreplay \
-    --description "GoReplay is an open-source network monitoring tool which can record your live traffic, and use it for shadowing, load testing, monitoring and detailed analysis." \
-    -v $(VERSION) \
-    --vendor "Leonid Bugaev" \
-    -m "<support@goreplay.org>" \
-    --url "https://goreplay.org" \
-    -s dir \
-    -C /tmp/gor-build \
+release: release-linux-amd64 release-linux-arm64 release-mac-amd64 release-mac-arm64 release-windows
 
 .PHONY: vendor
-
-release: release-x64 release-mac release-windows
-
 vendor:
 	go mod vendor
 
-release-bin: vendor
-	docker run  --rm -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64  -i $(CONTAINER) go build -mod=vendor -o $(BIN_NAME) -tags netgo $(LDFLAGS)
+release-bin-linux-amd64: vendor
+	docker run --platform linux/amd64 --rm -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=amd64 -i $(CONTAINER_AMD) go build -mod=vendor -o $(BIN_NAME) -tags netgo $(LDFLAGS)
 
-release-arm64-bin: vendor
-	docker run  --rm -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=arm64  -i $(CONTAINER) go build -mod=vendor -o $(BIN_NAME) -tags netgo $(LDFLAGS)
+release-bin-linux-arm64: vendor
+	docker run --platform linux/arm64 --rm -v `pwd`:$(SOURCE_PATH) -t --env GOOS=linux --env GOARCH=arm64 -i $(CONTAINER_ARM) go build -mod=vendor -o $(BIN_NAME) -tags netgo $(LDFLAGS)
 
-release-bin-mac: vendor
+release-bin-mac-amd64: vendor
 	GOOS=darwin go build -mod=vendor -o $(BIN_NAME) $(MAC_LDFLAGS)
+
+release-bin-mac-arm64: vendor
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build -mod=vendor -o $(BIN_NAME) $(MAC_LDFLAGS)
 
 release-bin-windows: vendor
 	docker run -it --rm -v `pwd`:$(SOURCE_PATH) -w $(SOURCE_PATH) -e CGO_ENABLED=1 docker.elastic.co/beats-dev/golang-crossbuild:1.19.2-main --build-cmd "make VERSION=$(VERSION) build" -p "windows/amd64"
+	mv $(BIN_NAME) "$(BIN_NAME).exe"
 
-release-x64: release-bin
-	tar -czf gor_$(VERSION)$(PREFIX)_x64.tar.gz $(BIN_NAME)
-	mkdir -p /tmp/gor-build
-	mv ./$(BIN_NAME) /tmp/gor-build/$(BIN_NAME)
-	cd /tmp/gor-build
-	rm -f goreplay_$(VERSION)_amd64.deb
-	rm -f goreplay-$(VERSION)-1.x86_64.rpm
-	nfpm pkg --packager deb --target ./
-	nfpm pkg --packager rpm --target ./
-	rm -rf /tmp/gor-build
-
-release-x86: release-bin-x86
-	tar -czf gor_$(VERSION)$(PREFIX)_x86.tar.gz $(BIN_NAME)
+release-linux-amd64: release-bin-linux-amd64
+	tar -czf gor_$(VERSION)_linux_amd64.tar.gz $(BIN_NAME)
 	rm $(BIN_NAME)
 
-release-mac: release-bin-mac
-	tar -czf gor_$(VERSION)$(PREFIX)_mac.tar.gz $(BIN_NAME)
-	mkdir -p /tmp/gor-build
-	mv ./$(BIN_NAME) /tmp/gor-build/$(BIN_NAME)
-	cd /tmp/gor-build
-	rm -f goreplay-$(VERSION).pkg
-	fpm $(FPMCOMMON) -a amd64 -t osxpkg ./=/usr/local/bin
-	rm -rf /tmp/gor-build
+release-linux-arm64: release-bin-linux-arm64
+	tar -czf gor_$(VERSION)_linux_arm64.tar.gz $(BIN_NAME)
+	rm $(BIN_NAME)
+
+release-mac-amd64: release-bin-mac-amd64
+	mkdir -p ./dist
+	tar -czf ./dist/gor_$(VERSION)_darwin_amd64.tar.gz $(BIN_NAME)
+	rm -rf $(BIN_NAME)
+
+release-mac-arm64: release-bin-mac-arm64
+	mkdir -p ./dist
+	tar -czf ./dist/gor_$(VERSION)_darwin_arm64.tar.gz $(BIN_NAME)
+	rm -rf $(BIN_NAME)
 
 release-windows: release-bin-windows
-	mv ./gor ./gor.exe
-	zip gor-$(VERSION)$(PREFIX)_windows.zip ./gor.exe
-	rm -rf ./gor.exe
+	zip gor-$(VERSION)_windows.zip "$(BIN_NAME).exe"
+	rm -rf "$(BIN_NAME).exe"
 
 clean:
-	rm -rf *.pkg
 	rm -rf *.zip
 	rm -rf *.gz
-	rm -rf *.deb
-	rm -rf *.rpm
 
 build:
 	go build -mod=vendor -o $(BIN_NAME) $(LDFLAGS)
@@ -83,13 +66,13 @@ build:
 install:
 	go install $(MAC_LDFLAGS)
 
-build-env: build-x64-env build-arm64-env
+build-env: build-amd64-env build-arm64-env
 
-build-x64-env:
-	docker buildx build --platform linux/amd64 -t $(CONTAINER) -f Dockerfile.dev .
+build-amd64-env:
+	docker buildx build --platform linux/amd64 -t $(CONTAINER_AMD) -f Dockerfile.dev .
 
 build-arm64-env:
-	docker buildx build --platform linux/arm64 -t $(CONTAINER) -f Dockerfile.dev .
+	docker buildx build --platform linux/arm64 -t $(CONTAINER_ARM) -f Dockerfile.dev .
 
 build-docker:
 	docker build -t gor-dev -f Dockerfile .
@@ -156,20 +139,3 @@ replay:
 
 bash:
 	$(RUN) /bin/bash
-
-
-FPMCOMMON= \
-    --name gor \
-    --description "GoReplay is an open-source network monitoring tool which can record your live traffic, and use it for shadowing, load testing, monitoring and detailed analysis." \
-    -v $(VERSION) \
-    --vendor "Leonid Bugaev" \
-    -m "<support@goreplay.org>" \
-    --url "https://goreplay.org" \
-    -s dir \
-    -C /tmp/gor-build \
-
-build_packages:
-	mkdir -p /tmp/gor-build
-	go build -i -o /tmp/gor-build/$(BIN_NAME)
-	fpm $(FPMCOMMON) -a amd64 -t deb ./=/usr/local/bin
-	fpm $(FPMCOMMON) -a amd64 -t rpm ./=/usr/local/bin
