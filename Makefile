@@ -2,6 +2,7 @@ SOURCE = $(shell ls -1 *.go | grep -v _test.go)
 SOURCE_PATH = /go/src/github.com/buger/goreplay/
 PORT = 8000
 FADDR = :8000
+DIST_PATH = dist
 CONTAINER_AMD=gor-amd64
 CONTAINER_ARM=gor-arm64
 RUN = docker run --rm -v `pwd`:$(SOURCE_PATH) -e AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) -e AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY) -p 0.0.0.0:$(PORT):$(PORT) -t -i $(CONTAINER_AMD)
@@ -34,31 +35,28 @@ release-bin-windows: vendor
 	docker run -it --rm -v `pwd`:$(SOURCE_PATH) -w $(SOURCE_PATH) -e CGO_ENABLED=1 docker.elastic.co/beats-dev/golang-crossbuild:1.19.2-main --build-cmd "make VERSION=$(VERSION) build" -p "windows/amd64"
 	mv $(BIN_NAME) "$(BIN_NAME).exe"
 
-release-linux-amd64: release-bin-linux-amd64
-	tar -czf gor_$(VERSION)_linux_amd64.tar.gz $(BIN_NAME)
+release-linux-amd64: dist release-bin-linux-amd64
+	tar -czf $(DIST_PATH)/gor_$(VERSION)_linux_amd64.tar.gz $(BIN_NAME)
 	rm $(BIN_NAME)
 
-release-linux-arm64: release-bin-linux-arm64
-	tar -czf gor_$(VERSION)_linux_arm64.tar.gz $(BIN_NAME)
+release-linux-arm64: dist release-bin-linux-arm64
+	tar -czf $(DIST_PATH)/gor_$(VERSION)_linux_arm64.tar.gz $(BIN_NAME)
 	rm $(BIN_NAME)
 
-release-mac-amd64: release-bin-mac-amd64
-	mkdir -p ./dist
-	tar -czf ./dist/gor_$(VERSION)_darwin_amd64.tar.gz $(BIN_NAME)
+release-mac-amd64: dist release-bin-mac-amd64
+	tar -czf $(DIST_PATH)/gor_$(VERSION)_darwin_amd64.tar.gz $(BIN_NAME)
 	rm -rf $(BIN_NAME)
 
-release-mac-arm64: release-bin-mac-arm64
-	mkdir -p ./dist
-	tar -czf ./dist/gor_$(VERSION)_darwin_arm64.tar.gz $(BIN_NAME)
+release-mac-arm64: dist release-bin-mac-arm64
+	tar -czf $(DIST_PATH)/gor_$(VERSION)_darwin_arm64.tar.gz $(BIN_NAME)
 	rm -rf $(BIN_NAME)
 
-release-windows: release-bin-windows
-	zip gor-$(VERSION)_windows.zip "$(BIN_NAME).exe"
+release-windows: dist release-bin-windows
+	zip $(DIST_PATH)/gor-$(VERSION)_windows.zip "$(BIN_NAME).exe"
 	rm -rf "$(BIN_NAME).exe"
 
 clean:
-	rm -rf *.zip
-	rm -rf *.gz
+	rm -rf $(DIST_PATH)
 
 build:
 	go build -mod=vendor -o $(BIN_NAME) $(LDFLAGS)
@@ -139,3 +137,6 @@ replay:
 
 bash:
 	$(RUN) /bin/bash
+
+dist:
+	mkdir -p $(DIST_PATH)
