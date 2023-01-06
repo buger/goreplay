@@ -3,9 +3,9 @@
 # check https://nfpm.goreleaser.com/configuration for detailed usage
 #
 name: "GoReplay"
-arch: "amd64"
+arch: ${PLATFORM}
 platform: "linux"
-version: "v1.3.1"
+version: ${VERSION}
 section: "default"
 priority: "extra"
 provides:
@@ -17,6 +17,5 @@ vendor: "GoReplay"
 homepage: "https://goreplay.org"
 license: "AGPL"
 contents:
-- src: ./
+- src: ./${BIN_NAME}
   dst: /usr/local/bin
-  type: dir

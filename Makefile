@@ -12,8 +12,18 @@ BIN_NAME = gor
 VERSION = DEV-$(shell date +%s)
 LDFLAGS = -ldflags "-X main.VERSION=$(VERSION) -extldflags \"-static\" -X main.DEMO=$(DEMO)"
 MAC_LDFLAGS = -ldflags "-X main.VERSION=$(VERSION) -X main.DEMO=$(DEMO)"
+DOCKER_FPM_CMD := docker run --rm -t -v `pwd`:/src -w /src fleetdm/fpm
 
-release: release-linux-amd64 release-linux-arm64 release-mac-amd64 release-mac-arm64 release-windows
+FPM_COMMON= \
+    --name goreplay \
+    --description "GoReplay is an open-source network monitoring tool which can record your live traffic, and use it for shadowing, load testing, monitoring and detailed analysis." \
+    -v $(VERSION) \
+    --vendor "Leonid Bugaev" \
+    -m "<support@goreplay.org>" \
+    --url "https://goreplay.org" \
+    -s dir
+
+release: clean release-linux-amd64 release-linux-arm64 release-mac-amd64 release-mac-arm64 release-windows
 
 .PHONY: vendor
 vendor:
@@ -37,18 +47,24 @@ release-bin-windows: vendor
 
 release-linux-amd64: dist release-bin-linux-amd64
 	tar -czf $(DIST_PATH)/gor_$(VERSION)_linux_amd64.tar.gz $(BIN_NAME)
-	rm $(BIN_NAME)
+	$(DOCKER_FPM_CMD) $(FPM_COMMON) -f -t deb -a arm64 -p ./$(DIST_PATH) ./gor=/usr/local/bin
+	$(DOCKER_FPM_CMD) $(FPM_COMMON) -f -t rpm -a arm64 -p ./$(DIST_PATH) ./gor=/usr/local/bin
+	rm -rf $(BIN_NAME)
 
 release-linux-arm64: dist release-bin-linux-arm64
 	tar -czf $(DIST_PATH)/gor_$(VERSION)_linux_arm64.tar.gz $(BIN_NAME)
-	rm $(BIN_NAME)
+	$(DOCKER_FPM_CMD) $(FPM_COMMON) -f -t deb -a arm64 -p ./$(DIST_PATH) ./gor=/usr/local/bin
+	$(DOCKER_FPM_CMD) $(FPM_COMMON) -f -t rpm -a arm64 -p ./$(DIST_PATH) ./gor=/usr/local/bin
+	rm -rf $(BIN_NAME)
 
 release-mac-amd64: dist release-bin-mac-amd64
 	tar -czf $(DIST_PATH)/gor_$(VERSION)_darwin_amd64.tar.gz $(BIN_NAME)
+	fpm $(FPM_COMMON) -f -t osxpkg -a amd64 -p ./$(DIST_PATH) ./gor=/usr/local/bin
 	rm -rf $(BIN_NAME)
 
 release-mac-arm64: dist release-bin-mac-arm64
 	tar -czf $(DIST_PATH)/gor_$(VERSION)_darwin_arm64.tar.gz $(BIN_NAME)
+	fpm $(FPM_COMMON) -f -t osxpkg -a arm64 -p ./$(DIST_PATH) ./gor=/usr/local/bin
 	rm -rf $(BIN_NAME)
 
 release-windows: dist release-bin-windows
