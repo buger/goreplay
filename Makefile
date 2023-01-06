@@ -1,4 +1,5 @@
 SOURCE = $(shell ls -1 *.go | grep -v _test.go)
+PROJECT_NAME := goreplay
 SOURCE_PATH = /go/src/github.com/buger/goreplay/
 PORT = 8000
 FADDR = :8000
@@ -9,13 +10,13 @@ RUN = docker run --rm -v `pwd`:$(SOURCE_PATH) -e AWS_ACCESS_KEY_ID=$(AWS_ACCESS_
 BENCHMARK = BenchmarkRAWInput
 TEST = TestRawListenerBench
 BIN_NAME = gor
-VERSION = DEV-$(shell date +%s)
+VERSION := DEV-$(shell date +%s)
 LDFLAGS = -ldflags "-X main.VERSION=$(VERSION) -extldflags \"-static\" -X main.DEMO=$(DEMO)"
 MAC_LDFLAGS = -ldflags "-X main.VERSION=$(VERSION) -X main.DEMO=$(DEMO)"
 DOCKER_FPM_CMD := docker run --rm -t -v `pwd`:/src -w /src fleetdm/fpm
 
 FPM_COMMON= \
-    --name goreplay \
+    --name $(PROJECT_NAME) \
     --description "GoReplay is an open-source network monitoring tool which can record your live traffic, and use it for shadowing, load testing, monitoring and detailed analysis." \
     -v $(VERSION) \
     --vendor "Leonid Bugaev" \
@@ -60,11 +61,13 @@ release-linux-arm64: dist release-bin-linux-arm64
 release-mac-amd64: dist release-bin-mac-amd64
 	tar -czf $(DIST_PATH)/gor_$(VERSION)_darwin_amd64.tar.gz $(BIN_NAME)
 	fpm $(FPM_COMMON) -f -t osxpkg -a amd64 -p ./$(DIST_PATH) ./gor=/usr/local/bin
+	mv ./$(DIST_PATH)/$(PROJECT_NAME)-$(VERSION).pkg ./$(DIST_PATH)/$(PROJECT_NAME)-$(VERSION)-amd64.pkg
 	rm -rf $(BIN_NAME)
 
 release-mac-arm64: dist release-bin-mac-arm64
 	tar -czf $(DIST_PATH)/gor_$(VERSION)_darwin_arm64.tar.gz $(BIN_NAME)
 	fpm $(FPM_COMMON) -f -t osxpkg -a arm64 -p ./$(DIST_PATH) ./gor=/usr/local/bin
+	mv ./$(DIST_PATH)/$(PROJECT_NAME)-$(VERSION).pkg ./$(DIST_PATH)/$(PROJECT_NAME)-$(VERSION)-arm64.pkg
 	rm -rf $(BIN_NAME)
 
 release-windows: dist release-bin-windows
