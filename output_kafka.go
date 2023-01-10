@@ -3,7 +3,7 @@ package goreplay
 import (
 	"encoding/json"
 	"github.com/buger/goreplay/internal/byteutils"
-	"github.com/buger/goreplay/internal/proto"
+	"github.com/buger/goreplay/proto"
 	"log"
 	"strings"
 	"time"

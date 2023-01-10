@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	"github.com/buger/goreplay/internal/proto"
+	"github.com/buger/goreplay/proto"
 	"io/ioutil"
 	"net/http/httputil"
 	"strconv"

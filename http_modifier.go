@@ -3,7 +3,7 @@ package goreplay
 import (
 	"bytes"
 	"encoding/base64"
-	"github.com/buger/goreplay/internal/proto"
+	"github.com/buger/goreplay/proto"
 	"hash/fnv"
 	"strings"
 )

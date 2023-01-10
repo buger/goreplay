@@ -8,7 +8,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"github.com/buger/goreplay/internal/proto"
+	"github.com/buger/goreplay/proto"
 	"io/ioutil"
 	"log"
 

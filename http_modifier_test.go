@@ -2,7 +2,7 @@ package goreplay
 
 import (
 	"bytes"
-	"github.com/buger/goreplay/internal/proto"
+	"github.com/buger/goreplay/proto"
 	"testing"
 )
 

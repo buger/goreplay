@@ -3,7 +3,7 @@ package tcp
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/buger/goreplay/internal/proto"
+	"github.com/buger/goreplay/proto"
 
 	// "runtime"
 	"testing"

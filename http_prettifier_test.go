@@ -3,7 +3,7 @@ package goreplay
 import (
 	"bytes"
 	"compress/gzip"
-	"github.com/buger/goreplay/internal/proto"
+	"github.com/buger/goreplay/proto"
 	"strconv"
 	"testing"
 )

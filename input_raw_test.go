@@ -3,8 +3,8 @@ package goreplay
 import (
 	"bytes"
 	"github.com/buger/goreplay/internal/capture"
-	"github.com/buger/goreplay/internal/proto"
 	"github.com/buger/goreplay/internal/tcp"
+	"github.com/buger/goreplay/proto"
 	"io/ioutil"
 	"net"
 	"net/http"
