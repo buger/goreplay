@@ -385,7 +385,7 @@ func (parser *MessageParser) Fix100Continue(m *Message) {
 			p.Ack += 25
 		}
 
-		// If next section was aready approved and received, merge messages
+		// If next section was already approved and received, merge messages
 		if next, found := parser.m[m.packets[0].MessageID()]; found {
 			for _, p := range next.packets {
 				parser.addPacket(m, p)
