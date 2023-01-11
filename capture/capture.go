@@ -253,6 +253,7 @@ func (l *Listener) Listen(ctx context.Context) (err error) {
 							break
 						}
 					}
+
 					l.Unlock()
 				}
 			}
@@ -585,6 +586,10 @@ func (l *Listener) readHandle(key string, hndl packetHandle) {
 				continue
 			}
 			if err == io.EOF || err == io.ErrClosedPipe {
+				// File replays too fast, give it some time to process packets
+				if l.config.Engine == EnginePcapFile {
+					time.Sleep(time.Second)
+				}
 				log.Printf("stopped reading from %s interface with error %s\n", key, err)
 				return
 			}

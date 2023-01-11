@@ -110,6 +110,7 @@ func (pckt *Packet) parse(data []byte, lType, lTypeLen int, cp *gopacket.Capture
 	ldata := data[lTypeLen:]
 	var proto byte
 	var netLayer, transLayer []byte
+	var tcpLen int
 
 	if ldata[0]>>4 == 4 {
 		// IPv4 header
@@ -124,6 +125,10 @@ func (pckt *Packet) parse(data []byte, lType, lTypeLen int, cp *gopacket.Capture
 		if len(ldata) < ihl {
 			return ErrHdrLength("IPv4 opts")
 		}
+
+		totalPacketLen := binary.BigEndian.Uint16(ldata[2:4])
+		tcpLen = int(totalPacketLen) - ihl
+
 		netLayer = ldata[:ihl]
 	} else if ldata[0]>>4 == 6 {
 		if len(ldata) < 40 {
@@ -146,6 +151,10 @@ func (pckt *Packet) parse(data []byte, lType, lTypeLen int, cp *gopacket.Capture
 			proto = ldata[totalLen]
 			totalLen += extLen
 		}
+
+		// Unlike ipv4 this field contains not full packet length, but only payload length
+		tcpLen = int(binary.BigEndian.Uint16(ldata[4:6]))
+
 		netLayer = ldata[:totalLen]
 	} else {
 		return ErrHdrExpected("IPv4 or IPv6")
@@ -157,6 +166,12 @@ func (pckt *Packet) parse(data []byte, lType, lTypeLen int, cp *gopacket.Capture
 		return ErrHdrMissing("TCP")
 	}
 	ndata := ldata[len(netLayer):]
+
+	// When packet is less then 60 bytes, ethernet layer can add trailers to the end of packet
+	// IP layer has total length of the payload, so here we ensure that we operate only on TCP packet layer
+	// https://stackoverflow.com/questions/13738206/ip-packet-has-trailer-on-the-receiver-side-but-not-on-the-sender-side
+	ndata = ndata[:tcpLen]
+
 	// TCP header
 	if len(ndata) < 20 {
 		return ErrHdrLength("TCP")
