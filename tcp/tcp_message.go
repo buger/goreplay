@@ -327,7 +327,7 @@ func (parser *MessageParser) processPacket(pckt *Packet) {
 			if in, out := parser.Start(pckt); in || out {
 				if in {
 					m.Direction = DirIncoming
-				} else {
+				} else if out {
 					m.Direction = DirOutcoming
 				}
 			}
