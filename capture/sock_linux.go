@@ -130,7 +130,8 @@ func (sock *SockRaw) ReadPacketData() (buf []byte, ci gopacket.CaptureInfo, err 
 	sock.mu.Lock()
 	defer sock.mu.Unlock()
 	var tpHdr *unix.Tpacket2Hdr
-	poll := &unix.PollFd{
+	var fds [] unix.PollFd
+	fds[1] = unix.PollFd{
 		Fd:     int32(sock.fd),
 		Events: unix.POLLIN,
 	}
@@ -141,8 +142,8 @@ read:
 	sock.frame = (sock.frame + 1) % FRAMENR
 
 	if tpHdr.Status&unix.TP_STATUS_USER == 0 {
-		_, _, e := unix.Syscall(unix.SYS_POLL, uintptr(unsafe.Pointer(poll)), 1, sock.pollTimeout)
-		if e != 0 && e != unix.EINTR {
+		_, e := unix.Poll(fds, int(sock.pollTimeout))
+		if e != nil && e != unix.EINTR {
 			return buf, ci, e
 		}
 		// it might be some other frame with data!
