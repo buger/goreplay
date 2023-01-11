@@ -429,7 +429,10 @@ func (parser *MessageParser) timer(now time.Time) {
 			stats.Add("message_timeout_count", 1)
 			failMsg++
 			if parser.End == nil || parser.allowIncompete {
-				parser.Emit(m)
+				firstPacketData := m.PacketData()[0]
+				if proto.HasRequestTitle(firstPacketData) || proto.HasResponseTitle(firstPacketData) {
+					parser.Emit(m)
+				}
 			}
 
 			delete(parser.m, m.packets[0].MessageID())
