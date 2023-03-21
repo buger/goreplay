@@ -50,7 +50,7 @@ type KafkaTLSConfig struct {
 	ClientKey  string `json:"kafka-tls-client-key"`
 }
 
-// KafkaMessage should contains catched request information that should be
+// KafkaMessage should contains caught request information that should be
 // passed as Json to Apache Kafka.
 type KafkaMessage struct {
 	ReqURL     string            `json:"Req_URL"`
