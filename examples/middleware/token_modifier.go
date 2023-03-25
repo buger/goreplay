@@ -24,8 +24,9 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
-	"github.com/buger/goreplay/proto"
 	"os"
+
+	proto "github.com/buger/goreplay/pkg/http_proto"
 )
 
 // requestID -> originalToken

@@ -3,16 +3,14 @@ package tcp
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/buger/goreplay/proto"
-
-	// "runtime"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	proto "github.com/buger/goreplay/pkg/http_proto"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
+	"github.com/stretchr/testify/assert"
 )
 
 func generateHeader(request bool, seq uint32, length uint16) []byte {

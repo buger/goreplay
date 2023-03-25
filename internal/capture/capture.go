@@ -5,9 +5,6 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
-	"github.com/buger/goreplay/internal/size"
-	"github.com/buger/goreplay/internal/tcp"
-	"github.com/buger/goreplay/proto"
 	"io"
 	"log"
 	"net"
@@ -17,6 +14,10 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/buger/goreplay/internal/size"
+	"github.com/buger/goreplay/internal/tcp"
+	"github.com/buger/goreplay/pkg/http_proto"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -500,11 +501,11 @@ func (l *Listener) SocketHandle(ifi pcap.Interface) (handle Socket, err error) {
 }
 
 func http1StartHint(pckt *tcp.Packet) (isRequest, isResponse bool) {
-	if proto.HasRequestTitle(pckt.Payload) {
+	if http_proto.HasRequestTitle(pckt.Payload) {
 		return true, false
 	}
 
-	if proto.HasResponseTitle(pckt.Payload) {
+	if http_proto.HasResponseTitle(pckt.Payload) {
 		return false, true
 	}
 
@@ -518,7 +519,7 @@ func http1EndHint(m *tcp.Message) bool {
 	}
 
 	req, res := http1StartHint(m.Packets()[0])
-	return proto.HasFullPayload(m, m.PacketData()...) && (req || res)
+	return http_proto.HasFullPayload(m, m.PacketData()...) && (req || res)
 }
 
 func (l *Listener) readHandle(key string, hndl packetHandle) {

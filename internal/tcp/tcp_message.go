@@ -4,12 +4,13 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"github.com/buger/goreplay/proto"
 	"net"
 	"reflect"
 	"sort"
 	"time"
 	"unsafe"
+
+	"github.com/buger/goreplay/pkg/http_proto"
 )
 
 // TCPProtocol is a number to indicate type of protocol
@@ -169,9 +170,9 @@ func (m *Message) Data() []byte {
 	}
 
 	// Remove Expect header, since its replay not fully supported
-	if state, ok := m.feedback.(*proto.HTTPState); ok {
+	if state, ok := m.feedback.(*http_proto.HTTPState); ok {
 		if state.Continue100 {
-			tmp = proto.DeleteHeader(tmp, []byte("Expect"))
+			tmp = http_proto.DeleteHeader(tmp, []byte("Expect"))
 		}
 	}
 
@@ -376,7 +377,7 @@ func (parser *MessageParser) addPacket(m *Message, pckt *Packet) bool {
 
 func (parser *MessageParser) Fix100Continue(m *Message) {
 	// Only adjust a message once
-	if state, ok := m.feedback.(*proto.HTTPState); ok && state.Continue100 && !m.continueAdjusted {
+	if state, ok := m.feedback.(*http_proto.HTTPState); ok && state.Continue100 && !m.continueAdjusted {
 		// Shift Ack by given offset
 		// Size of "HTTP/1.1 100 Continue\r\n\r\n" message
 		for _, p := range m.packets {
