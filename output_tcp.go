@@ -88,8 +88,8 @@ func (o *TCPOutput) worker(bufferIndex int) {
 
 		if err != nil {
 			Debug(2, "INFO: TCP output connection closed, reconnecting")
-			o.buf[bufferIndex] <- msg
 			go o.worker(bufferIndex)
+			o.buf[bufferIndex] <- msg
 			break
 		}
 	}

@@ -97,8 +97,8 @@ func (o *WebSocketOutput) worker(bufferIndex int) {
 		err = conn.WriteMessage(websocket.BinaryMessage, append(msg.Meta, msg.Data...))
 		if err != nil {
 			Debug(2, "INFO: WebSocket output connection closed, reconnecting "+err.Error())
-			o.buf[bufferIndex] <- msg
 			go o.worker(bufferIndex)
+			o.buf[bufferIndex] <- msg
 			break
 		}
 	}
