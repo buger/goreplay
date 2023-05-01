@@ -8,3 +8,14 @@ updates:
     pull-request-branch-name:
       # Separate sections of the branch name with a hyphen
       separator: "-"
+
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      
