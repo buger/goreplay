@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/Shopify/sarama v1.26.4
 	github.com/aws/aws-sdk-go v1.33.2
-	github.com/coocood/freecache v1.2.0
+	github.com/coocood/freecache v1.2.3
 	github.com/google/gopacket v1.1.20-0.20210429153827-3eaba0894325
 	github.com/gorilla/websocket v1.4.2
 	github.com/klauspost/compress v1.11.13 // indirect
@@ -22,7 +22,7 @@ require (
 	github.com/araddon/gou v0.0.0-20211019181548-e7d08105776c // indirect
 	github.com/bitly/go-hostpool v0.1.0 // indirect
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
-	github.com/cespare/xxhash v1.1.0 // indirect
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/eapache/go-resiliency v1.2.0 // indirect
 	github.com/eapache/go-xerial-snappy v0.0.0-20180814174437-776d5712da21 // indirect
