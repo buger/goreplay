@@ -14,7 +14,7 @@ require (
 	github.com/xdg-go/scram v1.1.2
 	golang.org/x/net v0.10.0
 	golang.org/x/sys v0.8.0
-	k8s.io/apimachinery v0.27.1
+	k8s.io/apimachinery v0.27.2
 	k8s.io/client-go v0.27.1
 )
 
