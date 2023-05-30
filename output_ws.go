@@ -5,13 +5,14 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
-	"github.com/gorilla/websocket"
 	"hash/fnv"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 // WebSocketOutput used for sending raw tcp payloads
@@ -33,6 +34,8 @@ type WebSocketOutputConfig struct {
 	Sticky     bool `json:"output-ws-sticky"`
 	SkipVerify bool `json:"output-ws-skip-verify"`
 	Workers    int  `json:"output-ws-workers"`
+
+	Headers map[string][]string `json:"output-ws-headers"`
 }
 
 // NewWebSocketOutput constructor for WebSocketOutput
@@ -48,6 +51,11 @@ func NewWebSocketOutput(address string, config *WebSocketOutputConfig) PluginWri
 	o.config = config
 	o.headers = http.Header{
 		"Authorization": []string{"Basic " + base64.StdEncoding.EncodeToString([]byte(u.User.String()))},
+	}
+	for k, values := range config.Headers {
+		for _, v := range values {
+			o.headers.Add(k, v)
+		}
 	}
 
 	u.User = nil // must be after creating the headers
