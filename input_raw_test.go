@@ -380,8 +380,8 @@ func TestRAWInputOnTimer(t *testing.T) {
 	onTimer := func() {
 		if !called {
 			called = true
+			wg.Done()
 		}
-		wg.Done()
 	}
 
 	conf := RAWInputConfig{
