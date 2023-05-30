@@ -4,9 +4,12 @@ import (
 	"bufio"
 	"log"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestTCPOutput(t *testing.T) {
@@ -129,5 +132,88 @@ func getTestBytes() *Message {
 	return &Message{
 		Meta: payloadHeader(RequestPayload, uuid(), time.Now().UnixNano(), -1),
 		Data: []byte("GET / HTTP/1.1\r\nHost: www.w3.org\r\nUser-Agent: Go 1.1 package http\r\nAccept-Encoding: gzip\r\n\r\n"),
+	}
+}
+
+func TestTCPOutputGetInitMessage(t *testing.T) {
+	wg := new(sync.WaitGroup)
+
+	var dataList [][]byte
+	listener := startTCP(func(data []byte) {
+		dataList = append(dataList, data)
+		wg.Done()
+	})
+	input := NewTestInput()
+	getInitMessage := func() *Message {
+		return &Message{
+			Meta: []byte{},
+			Data: []byte("test1"),
+		}
+	}
+	output := NewTCPOutput(listener.Addr().String(), &TCPOutputConfig{Workers: 1, GetInitMessage: getInitMessage})
+
+	plugins := &InOutPlugins{
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{output},
+	}
+
+	emitter := NewEmitter()
+	go emitter.Start(plugins, Settings.Middleware)
+
+	wg.Add(1)
+	for i := 0; i < 1; i++ {
+		wg.Add(1)
+		input.EmitGET()
+	}
+
+	wg.Wait()
+	emitter.Close()
+
+	if assert.Equal(t, 2, len(dataList)) {
+		assert.Equal(t, "test1", string(dataList[0]))
+	}
+}
+
+func TestTCPOutputGetInitMessageAndWriteBeforeMessage(t *testing.T) {
+	wg := new(sync.WaitGroup)
+
+	var dataList [][]byte
+	listener := startTCP(func(data []byte) {
+		dataList = append(dataList, data)
+		wg.Done()
+	})
+	input := NewTestInput()
+	getInitMessage := func() *Message {
+		return &Message{
+			Meta: []byte{},
+			Data: []byte("test1"),
+		}
+	}
+	writeBeforeMessage := func(conn net.Conn, _ *Message) error {
+		_, err := conn.Write([]byte("before"))
+		return err
+	}
+	output := NewTCPOutput(listener.Addr().String(), &TCPOutputConfig{Workers: 1, GetInitMessage: getInitMessage, WriteBeforeMessage: writeBeforeMessage})
+
+	plugins := &InOutPlugins{
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{output},
+	}
+
+	emitter := NewEmitter()
+	go emitter.Start(plugins, Settings.Middleware)
+
+	wg.Add(1)
+	for i := 0; i < 1; i++ {
+		wg.Add(1)
+		input.EmitGET()
+	}
+
+	wg.Wait()
+	emitter.Close()
+
+	if assert.Equal(t, 2, len(dataList)) {
+		assert.Equal(t, "beforetest1", string(dataList[0]))
+		assert.True(t, strings.HasPrefix(string(dataList[1]), "before"))
 	}
 }

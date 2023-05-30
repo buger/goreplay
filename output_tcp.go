@@ -29,6 +29,9 @@ type TCPOutputConfig struct {
 	Sticky     bool `json:"output-tcp-sticky"`
 	SkipVerify bool `json:"output-tcp-skip-verify"`
 	Workers    int  `json:"output-tcp-workers"`
+
+	GetInitMessage     func() *Message                         `json:"-"`
+	WriteBeforeMessage func(conn net.Conn, msg *Message) error `json:"-"`
 }
 
 // NewTCPOutput constructor for TCPOutput
@@ -78,14 +81,14 @@ func (o *TCPOutput) worker(bufferIndex int) {
 
 	defer conn.Close()
 
+	if o.config.GetInitMessage != nil {
+		msg := o.config.GetInitMessage()
+		_ = o.writeToConnection(conn, msg)
+	}
+
 	for {
 		msg := <-o.buf[bufferIndex]
-		if _, err = conn.Write(msg.Meta); err == nil {
-			if _, err = conn.Write(msg.Data); err == nil {
-				_, err = conn.Write(payloadSeparatorAsBytes)
-			}
-		}
-
+		err = o.writeToConnection(conn, msg)
 		if err != nil {
 			Debug(2, "INFO: TCP output connection closed, reconnecting")
 			go o.worker(bufferIndex)
@@ -93,6 +96,22 @@ func (o *TCPOutput) worker(bufferIndex int) {
 			break
 		}
 	}
+}
+
+func (o *TCPOutput) writeToConnection(conn net.Conn, msg *Message) (err error) {
+	if o.config.WriteBeforeMessage != nil {
+		err = o.config.WriteBeforeMessage(conn, msg)
+	}
+
+	if err == nil {
+		if _, err = conn.Write(msg.Meta); err == nil {
+			if _, err = conn.Write(msg.Data); err == nil {
+				_, err = conn.Write(payloadSeparatorAsBytes)
+			}
+		}
+	}
+
+	return err
 }
 
 func (o *TCPOutput) getBufferIndex(msg *Message) int {
