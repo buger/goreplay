@@ -56,15 +56,17 @@ func TestListener_Filter(t *testing.T) {
 			name: "ProcessFilter",
 			fields: fields{
 				config: PcapOptions{
-					VLAN:     true,
-					VLANVIDs: []int{11, 12},
+					TrackResponse: true,
+					VLAN:          true,
+					VLANVIDs:      []int{11, 12},
 					ProcessFilter: func(filter string, config PcapOptions, portsFilter func(transport string, direction string, ports []uint16) string, ports []uint16, hostsFilter func(direction string, hosts []string) string, hosts []string) string {
-						assert.Equal(t, "( dst portrange 0-65535)", filter)
-						return "( dst portrange 0-2)"
+						// TODO: do we want "(( dst portrange 0-65535) or ( src portrange 0-65535))"
+						assert.Equal(t, "( dst portrange 0-65535) or ( src portrange 0-65535)", filter)
+						return "(dst portrange 0-2)"
 					},
 				},
 			},
-			wantFilter: "vlan 12 and vlan 11 and ( dst portrange 0-2)",
+			wantFilter: "vlan 12 and vlan 11 and (dst portrange 0-2)",
 		},
 	}
 	for _, tt := range tests {
