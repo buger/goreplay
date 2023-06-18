@@ -5,7 +5,7 @@ import (
 	"compress/gzip"
 	"fmt"
 	"github.com/buger/goreplay/proto"
-	"io/ioutil"
+	"io"
 	"net/http/httputil"
 	"strconv"
 )
@@ -31,7 +31,7 @@ func prettifyHTTP(p []byte) []byte {
 	if tEnc {
 		buf := bytes.NewReader(content)
 		r := httputil.NewChunkedReader(buf)
-		content, _ = ioutil.ReadAll(r)
+		content, _ = io.ReadAll(r)
 
 		headers = proto.DeleteHeader(headers, []byte("Transfer-Encoding"))
 
@@ -48,7 +48,7 @@ func prettifyHTTP(p []byte) []byte {
 			return []byte{}
 		}
 
-		content, err = ioutil.ReadAll(g)
+		content, err = io.ReadAll(g)
 		if err != nil {
 			Debug(1, fmt.Sprintf("[HTTP-PRETTIFIER] %q", err))
 			return p
