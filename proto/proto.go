@@ -559,12 +559,13 @@ func HasFullPayload(m ProtocolStateSetter, payloads ...[]byte) bool {
 		}
 
 		// check trailer headers
+		toCheck := getCheckBytes()
 		if state.HasTrailer {
-			if bytes.HasSuffix(payloads[len(payloads)-1], []byte("\r\n\r\n")) {
+			if bytes.HasSuffix(toCheck, []byte("\r\n\r\n")) {
 				return true
 			}
 		} else {
-			if bytes.HasSuffix(payloads[len(payloads)-1], []byte("0\r\n\r\n")) {
+			if bytes.HasSuffix(toCheck, []byte("0\r\n\r\n")) {
 				state.HasFullPayload = true
 				return true
 			}
@@ -575,6 +576,27 @@ func HasFullPayload(m ProtocolStateSetter, payloads ...[]byte) bool {
 
 	// check for content-length header
 	return state.BodyLen == bodyLen
+}
+
+func getCheckBytes(payloads ...[]byte) []byte {
+	out := make([]byte, 5)
+	if len(payloads) >= 2 {
+		i, j := len(payloads[len(payloads)-2])-1, len(payloads[len(payloads)-1])-1
+		k := 4
+		for k >= 0 {
+			if j >= 0 {
+				out[k] = payloads[len(payloads)-1][j]
+				j--
+			} else if i >= 0 {
+				out[k] = payloads[len(payloads)-2][i]
+				i--
+			}
+			k--
+		}
+	} else {
+		out = payloads[len(payloads)-1]
+	}
+	return out
 }
 
 // this works with positive integers
