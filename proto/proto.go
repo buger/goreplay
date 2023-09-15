@@ -559,7 +559,7 @@ func HasFullPayload(m ProtocolStateSetter, payloads ...[]byte) bool {
 		}
 
 		// check trailer headers
-		toCheck := getCheckBytes()
+		toCheck := getCheckBytes(payloads...)
 		if state.HasTrailer {
 			if bytes.HasSuffix(toCheck, []byte("\r\n\r\n")) {
 				return true
