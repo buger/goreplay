@@ -5,6 +5,7 @@ import (
 	"github.com/buger/goreplay/internal/size"
 	"math/rand"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"sync"
@@ -15,9 +16,10 @@ import (
 
 func TestFileOutput(t *testing.T) {
 	wg := new(sync.WaitGroup)
+	tmpDir := t.TempDir()
 
 	input := NewTestInput()
-	output := NewFileOutput("/tmp/test_requests.gor", &FileOutputConfig{FlushInterval: time.Minute, Append: true})
+	output := NewFileOutput(tmpDir + "/test_requests.gor", &FileOutputConfig{FlushInterval: time.Minute, Append: true})
 
 	plugins := &InOutPlugins{
 		Inputs:  []PluginReader{input},
@@ -38,7 +40,7 @@ func TestFileOutput(t *testing.T) {
 	emitter.Close()
 
 	var counter int64
-	input2 := NewFileInput("/tmp/test_requests.gor", false, 100, 0, false)
+	input2 := NewFileInput(tmpDir + "/test_requests.gor", false, 100, 0, false)
 	output2 := NewTestOutput(func(*Message) {
 		atomic.AddInt64(&counter, 1)
 		wg.Done()
@@ -69,10 +71,12 @@ func TestFileOutputWithNameCleaning(t *testing.T) {
 }
 
 func TestFileOutputPathTemplate(t *testing.T) {
-	output := &FileOutput{pathTemplate: "/tmp/log-%Y-%m-%d-%S-%t", config: &FileOutputConfig{FlushInterval: time.Minute, Append: true}}
+	tmpDir := t.TempDir()
+
+	output := &FileOutput{pathTemplate: tmpDir + "/log-%Y-%m-%d-%S-%t", config: &FileOutputConfig{FlushInterval: time.Minute, Append: true}}
 	now := time.Now()
 	output.payloadType = []byte("3")
-	expectedPath := fmt.Sprintf("/tmp/log-%s-%s-%s-%s-3", now.Format("2006"), now.Format("01"), now.Format("02"), now.Format("05"))
+	expectedPath := fmt.Sprintf(tmpDir + "/log-%s-%s-%s-%s-3", now.Format("2006"), now.Format("01"), now.Format("02"), now.Format("05"))
 	path := output.filename()
 
 	if expectedPath != path {
@@ -81,7 +85,9 @@ func TestFileOutputPathTemplate(t *testing.T) {
 }
 
 func TestFileOutputMultipleFiles(t *testing.T) {
-	output := NewFileOutput("/tmp/log-%Y-%m-%d-%S", &FileOutputConfig{Append: true, FlushInterval: time.Minute})
+	tmpDir := t.TempDir()
+
+	output := NewFileOutput(tmpDir + "/log-%Y-%m-%d-%S", &FileOutputConfig{Append: true, FlushInterval: time.Minute})
 
 	if output.file != nil {
 		t.Error("Should not initialize file if no writes")
@@ -98,6 +104,7 @@ func TestFileOutputMultipleFiles(t *testing.T) {
 
 	output.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
 	name3 := output.file.Name()
+	output.Close()
 
 	if name2 != name1 {
 		t.Error("Fast changes should happen in same file:", name1, name2, name3)
@@ -112,7 +119,9 @@ func TestFileOutputMultipleFiles(t *testing.T) {
 }
 
 func TestFileOutputFilePerRequest(t *testing.T) {
-	output := NewFileOutput("/tmp/log-%Y-%m-%d-%S-%r", &FileOutputConfig{Append: true})
+	tmpDir := t.TempDir()
+
+	output := NewFileOutput(tmpDir + "/log-%Y-%m-%d-%S-%r", &FileOutputConfig{Append: true})
 
 	if output.file != nil {
 		t.Error("Should not initialize file if no writes")
@@ -129,6 +138,7 @@ func TestFileOutputFilePerRequest(t *testing.T) {
 
 	output.PluginWrite(&Message{Meta: []byte("1 3 1\r\n"), Data: []byte("test")})
 	name3 := output.file.Name()
+	output.Close()
 
 	if name3 == name2 || name2 == name1 || name3 == name1 {
 		t.Error("File name should change:", name1, name2, name3)
@@ -140,7 +150,9 @@ func TestFileOutputFilePerRequest(t *testing.T) {
 }
 
 func TestFileOutputCompression(t *testing.T) {
-	output := NewFileOutput("/tmp/log-%Y-%m-%d-%S.gz", &FileOutputConfig{Append: true, FlushInterval: time.Minute})
+	tmpDir := t.TempDir()
+
+	output := NewFileOutput(tmpDir + "/log-%Y-%m-%d-%S.gz", &FileOutputConfig{Append: true, FlushInterval: time.Minute})
 
 	if output.file != nil {
 		t.Error("Should not initialize file if no writes")
@@ -162,14 +174,16 @@ func TestFileOutputCompression(t *testing.T) {
 }
 
 func TestGetFileIndex(t *testing.T) {
+	tmpDir := t.TempDir()
+
 	var tests = []struct {
 		path  string
 		index int
 	}{
-		{"/tmp/logs", -1},
-		{"/tmp/logs_1", 1},
-		{"/tmp/logs_2.gz", 2},
-		{"/tmp/logs_0.gz", 0},
+		{tmpDir + "/logs", -1},
+		{tmpDir + "/logs_1", 1},
+		{tmpDir + "/logs_2.gz", 2},
+		{tmpDir + "/logs_0.gz", 0},
 	}
 
 	for _, c := range tests {
@@ -180,17 +194,19 @@ func TestGetFileIndex(t *testing.T) {
 }
 
 func TestSetFileIndex(t *testing.T) {
+	tmpDir := t.TempDir()
+
 	var tests = []struct {
 		path    string
 		index   int
 		newPath string
 	}{
-		{"/tmp/logs", 0, "/tmp/logs_0"},
-		{"/tmp/logs.gz", 1, "/tmp/logs_1.gz"},
-		{"/tmp/logs_1", 0, "/tmp/logs_0"},
-		{"/tmp/logs_0", 10, "/tmp/logs_10"},
-		{"/tmp/logs_0.gz", 10, "/tmp/logs_10.gz"},
-		{"/tmp/logs_underscores.gz", 10, "/tmp/logs_underscores_10.gz"},
+		{tmpDir + "/logs", 0, tmpDir + "/logs_0"},
+		{tmpDir + "/logs.gz", 1, tmpDir + "/logs_1.gz"},
+		{tmpDir + "/logs_1", 0, tmpDir + "/logs_0"},
+		{tmpDir + "/logs_0", 10, tmpDir + "/logs_10"},
+		{tmpDir + "/logs_0.gz", 10, tmpDir + "/logs_10.gz"},
+		{tmpDir + "/logs_underscores.gz", 10, tmpDir + "/logs_underscores_10.gz"},
 	}
 
 	for _, c := range tests {
@@ -202,7 +218,8 @@ func TestSetFileIndex(t *testing.T) {
 
 func TestFileOutputAppendQueueLimitOverflow(t *testing.T) {
 	rnd := rand.Int63()
-	name := fmt.Sprintf("/tmp/%d", rnd)
+	tmpDir := t.TempDir()
+	name := fmt.Sprintf(tmpDir + "/%d", rnd)
 
 	output := NewFileOutput(name, &FileOutputConfig{Append: false, FlushInterval: time.Minute, QueueLimit: 2})
 
@@ -216,12 +233,13 @@ func TestFileOutputAppendQueueLimitOverflow(t *testing.T) {
 
 	output.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
 	name3 := output.file.Name()
+	output.Close()
 
-	if name2 != name1 || name1 != fmt.Sprintf("/tmp/%d_0", rnd) {
+	if name2 != name1 || name1 != filepath.FromSlash(fmt.Sprintf(tmpDir + "/%d_0", rnd)) {
 		t.Error("Fast changes should happen in same file:", name1, name2, name3)
 	}
 
-	if name3 == name1 || name3 != fmt.Sprintf("/tmp/%d_1", rnd) {
+	if name3 == name1 || name3 != filepath.FromSlash(fmt.Sprintf(tmpDir + "/%d_1", rnd)) {
 		t.Error("File name should change:", name1, name2, name3)
 	}
 
@@ -231,7 +249,8 @@ func TestFileOutputAppendQueueLimitOverflow(t *testing.T) {
 
 func TestFileOutputAppendQueueLimitNoOverflow(t *testing.T) {
 	rnd := rand.Int63()
-	name := fmt.Sprintf("/tmp/%d", rnd)
+	tmpDir := t.TempDir()
+	name := fmt.Sprintf(tmpDir + "/%d", rnd)
 
 	output := NewFileOutput(name, &FileOutputConfig{Append: false, FlushInterval: time.Minute, QueueLimit: 3})
 
@@ -245,12 +264,13 @@ func TestFileOutputAppendQueueLimitNoOverflow(t *testing.T) {
 
 	output.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
 	name3 := output.file.Name()
+	output.Close()
 
-	if name2 != name1 || name1 != fmt.Sprintf("/tmp/%d_0", rnd) {
+	if name2 != name1 || name1 != filepath.FromSlash(fmt.Sprintf(tmpDir + "/%d_0", rnd)) {
 		t.Error("Fast changes should happen in same file:", name1, name2, name3)
 	}
 
-	if name3 != name1 || name3 != fmt.Sprintf("/tmp/%d_0", rnd) {
+	if name3 != name1 || name3 != filepath.FromSlash(fmt.Sprintf(tmpDir + "/%d_0", rnd)) {
 		t.Error("File name should not change:", name1, name2, name3)
 	}
 
@@ -260,7 +280,8 @@ func TestFileOutputAppendQueueLimitNoOverflow(t *testing.T) {
 
 func TestFileOutputAppendQueueLimitGzips(t *testing.T) {
 	rnd := rand.Int63()
-	name := fmt.Sprintf("/tmp/%d.gz", rnd)
+	tmpDir := t.TempDir()
+	name := fmt.Sprintf(tmpDir + "/%d.gz", rnd)
 
 	output := NewFileOutput(name, &FileOutputConfig{Append: false, FlushInterval: time.Minute, QueueLimit: 2})
 
@@ -274,12 +295,13 @@ func TestFileOutputAppendQueueLimitGzips(t *testing.T) {
 
 	output.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
 	name3 := output.file.Name()
+	output.Close()
 
-	if name2 != name1 || name1 != fmt.Sprintf("/tmp/%d_0.gz", rnd) {
+	if name2 != name1 || name1 != filepath.FromSlash(fmt.Sprintf(tmpDir + "/%d_0.gz", rnd)) {
 		t.Error("Fast changes should happen in same file:", name1, name2, name3)
 	}
 
-	if name3 == name1 || name3 != fmt.Sprintf("/tmp/%d_1.gz", rnd) {
+	if name3 == name1 || name3 != filepath.FromSlash(fmt.Sprintf(tmpDir + "/%d_1.gz", rnd)) {
 		t.Error("File name should change:", name1, name2, name3)
 	}
 
@@ -299,7 +321,8 @@ func TestFileOutputSort(t *testing.T) {
 
 func TestFileOutputAppendSizeLimitOverflow(t *testing.T) {
 	rnd := rand.Int63()
-	name := fmt.Sprintf("/tmp/%d", rnd)
+	tmpDir := t.TempDir()
+	name := fmt.Sprintf(tmpDir + "/%d", rnd)
 
 	message := []byte("1 1 1\r\ntest")
 
@@ -317,12 +340,13 @@ func TestFileOutputAppendSizeLimitOverflow(t *testing.T) {
 
 	output.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
 	name3 := output.file.Name()
+	output.Close()
 
-	if name2 != name1 || name1 != fmt.Sprintf("/tmp/%d_0", rnd) {
+	if name2 != name1 || name1 != filepath.FromSlash(fmt.Sprintf(tmpDir + "/%d_0", rnd)) {
 		t.Error("Fast changes should happen in same file:", name1, name2, name3)
 	}
 
-	if name3 == name1 || name3 != fmt.Sprintf("/tmp/%d_1", rnd) {
+	if name3 == name1 || name3 != filepath.FromSlash(fmt.Sprintf(tmpDir + "/%d_1", rnd)) {
 		t.Error("File name should change:", name1, name2, name3)
 	}
 
