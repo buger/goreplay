@@ -213,7 +213,7 @@ func TestInputFileLoop(t *testing.T) {
 	os.Remove(file.Name())
 }
 
-func TestInputFileCompressed(t *testing.T) {
+func TestInputFileCompressedGzip(t *testing.T) {
 	rnd := rand.Int63()
 	tmpDir := t.TempDir()
 
@@ -225,6 +225,33 @@ func TestInputFileCompressed(t *testing.T) {
 	output.Close()
 
 	output2 := NewFileOutput(fmt.Sprintf(tmpDir + "/%d_1.gz", rnd), &FileOutputConfig{FlushInterval: time.Minute, Append: true})
+	for i := 0; i < 1000; i++ {
+		output2.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
+	}
+	name2 := output2.file.Name()
+	output2.Close()
+
+	input := NewFileInput(fmt.Sprintf(tmpDir + "/%d*", rnd), false, 100, 0, false)
+	for i := 0; i < 2000; i++ {
+		input.PluginRead()
+	}
+
+	os.Remove(name1)
+	os.Remove(name2)
+}
+
+func TestInputFileCompressedZstd(t *testing.T) {
+	rnd := rand.Int63()
+	tmpDir := t.TempDir()
+
+	output := NewFileOutput(fmt.Sprintf(tmpDir + "/%d_0.zst", rnd), &FileOutputConfig{FlushInterval: time.Minute, Append: true})
+	for i := 0; i < 1000; i++ {
+		output.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
+	}
+	name1 := output.file.Name()
+	output.Close()
+
+	output2 := NewFileOutput(fmt.Sprintf(tmpDir + "/%d_1.zst", rnd), &FileOutputConfig{FlushInterval: time.Minute, Append: true})
 	for i := 0; i < 1000; i++ {
 		output2.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
 	}

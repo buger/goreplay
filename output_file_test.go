@@ -149,10 +149,34 @@ func TestFileOutputFilePerRequest(t *testing.T) {
 	os.Remove(name3)
 }
 
-func TestFileOutputCompression(t *testing.T) {
+func TestFileOutputCompressionGzip(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	output := NewFileOutput(tmpDir + "/log-%Y-%m-%d-%S.gz", &FileOutputConfig{Append: true, FlushInterval: time.Minute})
+
+	if output.file != nil {
+		t.Error("Should not initialize file if no writes")
+	}
+
+	for i := 0; i < 1000; i++ {
+		output.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
+	}
+
+	name := output.file.Name()
+	output.Close()
+
+	s, _ := os.Stat(name)
+	if s.Size() == 12*1000 {
+		t.Error("Should be compressed file:", s.Size())
+	}
+
+	os.Remove(name)
+}
+
+func TestFileOutputCompressionZstd(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	output := NewFileOutput(tmpDir + "/log-%Y-%m-%d-%S.zst", &FileOutputConfig{Append: true, FlushInterval: time.Minute})
 
 	if output.file != nil {
 		t.Error("Should not initialize file if no writes")
@@ -184,6 +208,8 @@ func TestGetFileIndex(t *testing.T) {
 		{tmpDir + "/logs_1", 1},
 		{tmpDir + "/logs_2.gz", 2},
 		{tmpDir + "/logs_0.gz", 0},
+		{tmpDir + "/logs_7.zst", 7},
+		{tmpDir + "/logs_5.zst", 5},
 	}
 
 	for _, c := range tests {
@@ -203,9 +229,11 @@ func TestSetFileIndex(t *testing.T) {
 	}{
 		{tmpDir + "/logs", 0, tmpDir + "/logs_0"},
 		{tmpDir + "/logs.gz", 1, tmpDir + "/logs_1.gz"},
+		{tmpDir + "/logs.zst", 1, tmpDir + "/logs_1.zst"},
 		{tmpDir + "/logs_1", 0, tmpDir + "/logs_0"},
 		{tmpDir + "/logs_0", 10, tmpDir + "/logs_10"},
 		{tmpDir + "/logs_0.gz", 10, tmpDir + "/logs_10.gz"},
+		{tmpDir + "/logs_0.zst", 10, tmpDir + "/logs_10.zst"},
 		{tmpDir + "/logs_underscores.gz", 10, tmpDir + "/logs_underscores_10.gz"},
 	}
 
@@ -302,6 +330,37 @@ func TestFileOutputAppendQueueLimitGzips(t *testing.T) {
 	}
 
 	if name3 == name1 || name3 != filepath.FromSlash(fmt.Sprintf(tmpDir + "/%d_1.gz", rnd)) {
+		t.Error("File name should change:", name1, name2, name3)
+	}
+
+	os.Remove(name1)
+	os.Remove(name3)
+}
+
+func TestFileOutputAppendQueueLimitZstd(t *testing.T) {
+	rnd := rand.Int63()
+	tmpDir := t.TempDir()
+	name := fmt.Sprintf(tmpDir + "/%d.zst", rnd)
+
+	output := NewFileOutput(name, &FileOutputConfig{Append: false, FlushInterval: time.Minute, QueueLimit: 2})
+
+	output.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
+	name1 := output.file.Name()
+
+	output.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
+	name2 := output.file.Name()
+
+	output.updateName()
+
+	output.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
+	name3 := output.file.Name()
+	output.Close()
+
+	if name2 != name1 || name1 != filepath.FromSlash(fmt.Sprintf(tmpDir + "/%d_0.zst", rnd)) {
+		t.Error("Fast changes should happen in same file:", name1, name2, name3)
+	}
+
+	if name3 == name1 || name3 != filepath.FromSlash(fmt.Sprintf(tmpDir + "/%d_1.zst", rnd)) {
 		t.Error("File name should change:", name1, name2, name3)
 	}
 
