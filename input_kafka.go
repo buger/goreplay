@@ -48,7 +48,7 @@ func NewKafkaInput(_ string, config *InputKafkaConfig, tlsConfig *KafkaTLSConfig
 	}
 
 	for index, partition := range partitions {
-		consumer, err := con.ConsumePartition(config.Topic, partition, sarama.OffsetNewest)
+		consumer, err := con.ConsumePartition(config.Topic, partition, i.config.Offset)
 		if err != nil {
 			log.Fatalln("Failed to start Sarama(Kafka) partition consumer:", err)
 		}

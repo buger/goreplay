@@ -31,6 +31,7 @@ type InputKafkaConfig struct {
 	Host       string `json:"input-kafka-host"`
 	Topic      string `json:"input-kafka-topic"`
 	UseJSON    bool   `json:"input-kafka-json-format"`
+	Offset     int64  `json:"input-kafka-offset"`
 	SASLConfig SASLKafkaConfig
 }
 
