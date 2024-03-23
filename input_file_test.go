@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"sync"
@@ -288,7 +287,7 @@ func (expectedCaptureFile *CaptureFile) PayloadsEqual(other []*Message) bool {
 }
 
 func CreateCaptureFile(requestGenerator *RequestGenerator) *CaptureFile {
-	f, err := ioutil.TempFile("", "testmainconf")
+	f, err := os.CreateTemp("", "testmainconf")
 	if err != nil {
 		panic(err)
 	}
