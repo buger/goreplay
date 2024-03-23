@@ -22,5 +22,5 @@ In case if you are planning a large load testing, you may consider use separate 
 gor --input-file logs_from_multiple_machines.*|1000% --input-file-loop --exit-after 30s --recognize-tcp-sessions --split-output --output-tcp worker1.local --output-tcp worker2.local:27017 --output-tcp worker3.local:27017 ...  --output-tcp workerN.local:27017
 
 # worker 
-gor --input-tcp :27017 --ouput-http load_test.target
+gor --input-tcp :27017 --output-http load_test.target
 ```
