@@ -89,22 +89,23 @@ func TestInputFileWithGETAndPOST(t *testing.T) {
 
 func TestInputFileMultipleFilesWithRequestsOnly(t *testing.T) {
 	rnd := rand.Int63()
+	tmpDir := t.TempDir()
 
-	file1, _ := os.OpenFile(fmt.Sprintf("/tmp/%d_0", rnd), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
+	file1, _ := os.OpenFile(fmt.Sprintf(tmpDir + "/%d_0", rnd), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
 	file1.Write([]byte("1 1 1\ntest1"))
 	file1.Write([]byte(payloadSeparator))
 	file1.Write([]byte("1 1 3\ntest2"))
 	file1.Write([]byte(payloadSeparator))
 	file1.Close()
 
-	file2, _ := os.OpenFile(fmt.Sprintf("/tmp/%d_1", rnd), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
+	file2, _ := os.OpenFile(fmt.Sprintf(tmpDir + "/%d_1", rnd), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
 	file2.Write([]byte("1 1 2\ntest3"))
 	file2.Write([]byte(payloadSeparator))
 	file2.Write([]byte("1 1 4\ntest4"))
 	file2.Write([]byte(payloadSeparator))
 	file2.Close()
 
-	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false, 100, 0, false)
+	input := NewFileInput(fmt.Sprintf(tmpDir + "/%d*", rnd), false, 100, 0, false)
 
 	for i := '1'; i <= '4'; i++ {
 		msg, _ := input.PluginRead()
@@ -119,8 +120,9 @@ func TestInputFileMultipleFilesWithRequestsOnly(t *testing.T) {
 
 func TestInputFileRequestsWithLatency(t *testing.T) {
 	rnd := rand.Int63()
+	tmpDir := t.TempDir()
 
-	file, _ := os.OpenFile(fmt.Sprintf("/tmp/%d", rnd), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
+	file, _ := os.OpenFile(fmt.Sprintf(tmpDir + "/%d", rnd), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
 	defer file.Close()
 
 	file.Write([]byte("1 1 100000000\nrequest1"))
@@ -130,7 +132,7 @@ func TestInputFileRequestsWithLatency(t *testing.T) {
 	file.Write([]byte("1 3 250000000\nrequest3"))
 	file.Write([]byte(payloadSeparator))
 
-	input := NewFileInput(fmt.Sprintf("/tmp/%d", rnd), false, 100, 0, false)
+	input := NewFileInput(fmt.Sprintf(tmpDir + "/%d", rnd), false, 100, 0, false)
 
 	start := time.Now().UnixNano()
 	for i := 0; i < 3; i++ {
@@ -147,8 +149,9 @@ func TestInputFileRequestsWithLatency(t *testing.T) {
 
 func TestInputFileMultipleFilesWithRequestsAndResponses(t *testing.T) {
 	rnd := rand.Int63()
+	tmpDir := t.TempDir()
 
-	file1, _ := os.OpenFile(fmt.Sprintf("/tmp/%d_0", rnd), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
+	file1, _ := os.OpenFile(fmt.Sprintf(tmpDir + "/%d_0", rnd), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
 	file1.Write([]byte("1 1 1\nrequest1"))
 	file1.Write([]byte(payloadSeparator))
 	file1.Write([]byte("2 1 1\nresponse1"))
@@ -159,7 +162,7 @@ func TestInputFileMultipleFilesWithRequestsAndResponses(t *testing.T) {
 	file1.Write([]byte(payloadSeparator))
 	file1.Close()
 
-	file2, _ := os.OpenFile(fmt.Sprintf("/tmp/%d_1", rnd), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
+	file2, _ := os.OpenFile(fmt.Sprintf(tmpDir + "/%d_1", rnd), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
 	file2.Write([]byte("1 3 2\nrequest3"))
 	file2.Write([]byte(payloadSeparator))
 	file2.Write([]byte("2 3 2\nresponse3"))
@@ -170,7 +173,7 @@ func TestInputFileMultipleFilesWithRequestsAndResponses(t *testing.T) {
 	file2.Write([]byte(payloadSeparator))
 	file2.Close()
 
-	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false, 100, 0, false)
+	input := NewFileInput(fmt.Sprintf(tmpDir + "/%d*", rnd), false, 100, 0, false)
 
 	for i := '1'; i <= '4'; i++ {
 		msg, _ := input.PluginRead()
@@ -190,15 +193,16 @@ func TestInputFileMultipleFilesWithRequestsAndResponses(t *testing.T) {
 
 func TestInputFileLoop(t *testing.T) {
 	rnd := rand.Int63()
+	tmpDir := t.TempDir()
 
-	file, _ := os.OpenFile(fmt.Sprintf("/tmp/%d", rnd), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
+	file, _ := os.OpenFile(fmt.Sprintf(tmpDir + "/%d", rnd), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0660)
 	file.Write([]byte("1 1 1\ntest1"))
 	file.Write([]byte(payloadSeparator))
 	file.Write([]byte("1 1 2\ntest2"))
 	file.Write([]byte(payloadSeparator))
 	file.Close()
 
-	input := NewFileInput(fmt.Sprintf("/tmp/%d", rnd), true, 100, 0, false)
+	input := NewFileInput(fmt.Sprintf(tmpDir + "/%d", rnd), true, 100, 0, false)
 
 	// Even if we have just 2 requests in file, it should indifinitly loop
 	for i := 0; i < 1000; i++ {
@@ -209,24 +213,52 @@ func TestInputFileLoop(t *testing.T) {
 	os.Remove(file.Name())
 }
 
-func TestInputFileCompressed(t *testing.T) {
+func TestInputFileCompressedGzip(t *testing.T) {
 	rnd := rand.Int63()
+	tmpDir := t.TempDir()
 
-	output := NewFileOutput(fmt.Sprintf("/tmp/%d_0.gz", rnd), &FileOutputConfig{FlushInterval: time.Minute, Append: true})
+	output := NewFileOutput(fmt.Sprintf(tmpDir + "/%d_0.gz", rnd), &FileOutputConfig{FlushInterval: time.Minute, Append: true})
 	for i := 0; i < 1000; i++ {
 		output.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
 	}
 	name1 := output.file.Name()
 	output.Close()
 
-	output2 := NewFileOutput(fmt.Sprintf("/tmp/%d_1.gz", rnd), &FileOutputConfig{FlushInterval: time.Minute, Append: true})
+	output2 := NewFileOutput(fmt.Sprintf(tmpDir + "/%d_1.gz", rnd), &FileOutputConfig{FlushInterval: time.Minute, Append: true})
 	for i := 0; i < 1000; i++ {
 		output2.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
 	}
 	name2 := output2.file.Name()
 	output2.Close()
 
-	input := NewFileInput(fmt.Sprintf("/tmp/%d*", rnd), false, 100, 0, false)
+	input := NewFileInput(fmt.Sprintf(tmpDir + "/%d*", rnd), false, 100, 0, false)
+	for i := 0; i < 2000; i++ {
+		input.PluginRead()
+	}
+
+	os.Remove(name1)
+	os.Remove(name2)
+}
+
+func TestInputFileCompressedZstd(t *testing.T) {
+	rnd := rand.Int63()
+	tmpDir := t.TempDir()
+
+	output := NewFileOutput(fmt.Sprintf(tmpDir + "/%d_0.zst", rnd), &FileOutputConfig{FlushInterval: time.Minute, Append: true})
+	for i := 0; i < 1000; i++ {
+		output.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
+	}
+	name1 := output.file.Name()
+	output.Close()
+
+	output2 := NewFileOutput(fmt.Sprintf(tmpDir + "/%d_1.zst", rnd), &FileOutputConfig{FlushInterval: time.Minute, Append: true})
+	for i := 0; i < 1000; i++ {
+		output2.PluginWrite(&Message{Meta: []byte("1 1 1\r\n"), Data: []byte("test")})
+	}
+	name2 := output2.file.Name()
+	output2.Close()
+
+	input := NewFileInput(fmt.Sprintf(tmpDir + "/%d*", rnd), false, 100, 0, false)
 	for i := 0; i < 2000; i++ {
 		input.PluginRead()
 	}
@@ -318,6 +350,7 @@ func CreateCaptureFile(requestGenerator *RequestGenerator) *CaptureFile {
 
 	time.Sleep(100 * time.Millisecond)
 	emitter.Close()
+	outputFile.flush()
 
 	return NewExpectedCaptureFile(readPayloads, f)
 

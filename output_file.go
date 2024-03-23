@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/buger/goreplay/internal/size"
+	"github.com/klauspost/compress/zstd"
 	"io"
 	"log"
 	"math/rand"
@@ -231,6 +232,11 @@ func (o *FileOutput) PluginWrite(msg *Message) (n int, err error) {
 
 		if strings.HasSuffix(o.currentName, ".gz") {
 			o.writer = gzip.NewWriter(o.file)
+		} else if strings.HasSuffix(o.currentName, ".zst") {
+			o.writer, err = zstd.NewWriter(o.file)
+			if err != nil {
+				log.Fatal(o, "Error opening file %q. Error: %s", o.currentName, err)
+			}
 		} else {
 			o.writer = bufio.NewWriter(o.file)
 		}
@@ -274,6 +280,8 @@ func (o *FileOutput) flush() {
 	if o.file != nil {
 		if strings.HasSuffix(o.currentName, ".gz") {
 			o.writer.(*gzip.Writer).Flush()
+		} else if strings.HasSuffix(o.currentName, ".zst") {
+			o.writer.(*zstd.Encoder).Flush()
 		} else {
 			o.writer.(*bufio.Writer).Flush()
 		}
@@ -294,6 +302,8 @@ func (o *FileOutput) closeLocked() error {
 	if o.file != nil {
 		if strings.HasSuffix(o.currentName, ".gz") {
 			o.writer.(*gzip.Writer).Close()
+		} else if strings.HasSuffix(o.currentName, ".zst") {
+			o.writer.(*zstd.Encoder).Close()
 		} else {
 			o.writer.(*bufio.Writer).Flush()
 		}
