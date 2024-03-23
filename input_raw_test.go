@@ -2,9 +2,6 @@ package goreplay
 
 import (
 	"bytes"
-	"github.com/buger/goreplay/internal/capture"
-	"github.com/buger/goreplay/internal/tcp"
-	"github.com/buger/goreplay/proto"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -16,6 +13,10 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/buger/goreplay/internal/capture"
+	"github.com/buger/goreplay/internal/tcp"
+	"github.com/buger/goreplay/proto"
 )
 
 const testRawExpire = time.Millisecond * 200
@@ -354,4 +355,61 @@ func BenchmarkRAWInputWithReplay(b *testing.B) {
 	b.ReportMetric(float64(respCounter), "responses")
 	b.ReportMetric(float64(replayCounter), "replayed")
 	emitter.Close()
+}
+
+func TestRAWInputOnTimer(t *testing.T) {
+	listener, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	defer listener.Close()
+
+	origin := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Write([]byte("ab"))
+		}),
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	go origin.Serve(listener)
+
+	wg := new(sync.WaitGroup)
+	wg.Add(1)
+	called := false
+	onTimer := func() {
+		if !called {
+			called = true
+			wg.Done()
+		}
+	}
+
+	conf := RAWInputConfig{
+		OnTimer: onTimer,
+	}
+	input := NewRAWInput(listener.Addr().String(), conf)
+	output := NewTestOutput(func(_ *Message) {})
+	plugins := &InOutPlugins{
+		Inputs:  []PluginReader{input},
+		Outputs: []PluginWriter{output},
+	}
+	plugins.All = append(plugins.All, input, output)
+
+	emitter := NewEmitter()
+	defer emitter.Close()
+	go emitter.Start(plugins, Settings.Middleware)
+
+	_, port, _ := net.SplitHostPort(listener.Addr().String())
+	addr := "http://127.0.0.1:" + port
+	_, err = http.Get(addr)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	wg.Wait()
+
+	if !called {
+		t.Error("want call OnTimer")
+	}
 }
