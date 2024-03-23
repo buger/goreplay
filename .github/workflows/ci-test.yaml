@@ -12,7 +12,7 @@ jobs:
     - name: install libpcap
       run: sudo apt-get install libpcap-dev -y
     - name: install Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v4
       with:
         go-version: ${{ matrix.go-version }}
     - name: checkout code
