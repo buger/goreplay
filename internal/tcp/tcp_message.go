@@ -279,7 +279,7 @@ func (parser *MessageParser) wait() {
 }
 
 func (parser *MessageParser) parsePacket(pcapPkt *PcapPacket) *Packet {
-	pckt, err := ParsePacket(pcapPkt.Data, pcapPkt.LType, pcapPkt.LTypeLen, pcapPkt.Ci, false)
+	pckt, err := ParsePacket(pcapPkt.Data, pcapPkt.LType, pcapPkt.LTypeLen, pcapPkt.Ci, true)
 	if err != nil {
 		if _, empty := err.(EmptyPacket); !empty {
 			stats.Add("packet_error", 1)
@@ -313,7 +313,7 @@ func containsOrEmpty(element net.IP, ipList []net.IP) bool {
 }
 
 func (parser *MessageParser) processPacket(pckt *Packet) {
-	if pckt == nil {
+	if pckt == nil || (len(pckt.Payload) == 0 && !pckt.FIN) {
 		return
 	}
 
@@ -356,14 +356,14 @@ func (parser *MessageParser) processPacket(pckt *Packet) {
 }
 
 func (parser *MessageParser) addPacket(m *Message, pckt *Packet) bool {
-	if !m.add(pckt) {
+	if !pckt.FIN && len(pckt.Payload) == 0 || (len(pckt.Payload) != 0 && !m.add(pckt)) {
 		return false
 	}
 
 	// If we are using protocol parsing, like HTTP, depend on its parsing func.
 	// For the binary procols wait for message to expire
 	if parser.End != nil {
-		if parser.End(m) {
+		if parser.End(m) || pckt.FIN || (pckt.Direction == DirIncoming && pckt.PSH && pckt.ACK) {
 			parser.Emit(m)
 			return true
 		}
@@ -405,6 +405,10 @@ func (parser *MessageParser) Read() *Message {
 func (parser *MessageParser) Emit(m *Message) {
 	stats.Add("message_count", 1)
 
+	if len(m.packets) == 0 {
+		return
+	}
+
 	delete(parser.m, m.packets[0].MessageID())
 
 	parser.messages <- m
@@ -430,7 +434,9 @@ func (parser *MessageParser) timer(now time.Time) {
 			if parser.End == nil || parser.allowIncompete {
 				parser.Emit(m)
 			}
-
+			if len(m.packets) == 0 {
+				continue
+			}
 			delete(parser.m, m.packets[0].MessageID())
 		}
 	}
