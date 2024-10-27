@@ -9,7 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/buger/goreplay/proto"
-	"io/ioutil"
+	"os"
 	"log"
 
 	"github.com/Shopify/sarama"
@@ -83,7 +83,7 @@ func NewTLSConfig(clientCertFile, clientKeyFile, caCertFile string) (*tls.Config
 	}
 	// Load CA cert
 	if caCertFile != "" {
-		caCert, err := ioutil.ReadFile(caCertFile)
+		caCert, err := os.ReadFile(caCertFile)
 		if err != nil {
 			return &tlsConfig, err
 		}
