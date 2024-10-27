@@ -67,15 +67,16 @@ To read or write GZIP compressed files ensure that file extension ends with ".gz
 Gor has memory buffer when it writes to file, and continuously flush changes to the file. Flushing to file happens if the buffer is filled, forced flush every 1 second, or if Gor is closed. You can change it using `--output-file-flush-interval` option. It most cases it should not be touched.
 
 ### File format
-HTTP requests stored as it is, plain text: headers and bodies. Requests separated by `\n🐵🙈🙉\n` line (using such sequence for uniqueness and fun). Before each request goes single line with meta information containing payload type (1 - request, 2 - response, 3 - replayed response), unique request ID (request and response have the same) and timestamp when request was made. An example of 2 requests:
+HTTP requests stored as it is, plain text: headers and bodies. Requests separated by `\n🐵🙈🙉\n` line (using such sequence for uniqueness and fun). Before each request goes single line with meta information containing payload type (1 - request, 2 - response, 3 - replayed response), unique request ID (request and response have the same), timestamp when request was made (in nanoseconds) and latency (time difference between request start and finish. For `request` is always zero). An example of 2 requests:
 
 ```
-1 d7123dasd913jfd21312dasdhas31 127345969\n
+1 d7123dasd913jfd21312dasdhas31 1710781031501207115 0\n
 GET / HTTP/1.1\r\n
 \r\n
 \n
 🐵🙈🙉
 \n
+1 a1ba0050a213128487cd25db 1710781031551256751 0\n
 POST /upload HTTP/1.1\r\n
 Content-Length: 7\r\n
 Host: www.w3.org\r\n
