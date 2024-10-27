@@ -28,7 +28,7 @@ gor --input-raw :80 --output-http "http://staging.server" \
 ```
 
 #### Host header
-Host header gets special treatment. By default Host get set to the value specified in --output-http. If you manually set --http-set-header "Host: anonther.com", Gor will not override Host value.
+Host header gets special treatment. By default Host get set to the value specified in --output-http. If you manually set --http-set-header "Host: another.com", Gor will not override Host value.
 
 If you app accepts traffic from multiple domains, and you want to keep original headers, there is specific `--http-original-host` with tells Gor do not touch Host header at all.
 
