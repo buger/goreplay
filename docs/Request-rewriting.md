@@ -2,7 +2,7 @@ Gor supports rewriting of URLs, URL params and headers, see below.
 
 Rewriting may be useful if you test environment does not have the same data as your production, and you want to perform all actions in the context of `test` user: for example rewrite all API tokens to some test value. Other possible use cases are toggling features on/off using custom headers or rewriting URL's if they changed in the new environment.
 
-For more complex logic you can use [Middleware](middleware.md).
+For more complex logic you can use [Middleware](Middleware.md).
 
 #### Rewrite URL based on a mapping
 `--http-rewrite-url` expects value in "<search>:<replace>" format: ":" is a dilimiter. In `<replace>` section you may use captured regexp group values. This works similar to `replace` method in Javascript or `gsub` in Ruby. 
