@@ -57,19 +57,19 @@ calllers must make sure that ParsePacket has'nt returned any error before callin
 function.
 */
 type Packet struct {
-	Direction          Dir
-	messageID          uint64
-	SrcIP, DstIP       net.IP
-	Version            uint8
-	SrcPort, DstPort   uint16
-	Ack, Seq           uint32
-	ACK, SYN, FIN, RST bool
-	Lost               uint32
-	Retry              int
-	CaptureLength      int
-	Timestamp          time.Time
-	Payload            []byte
-	buf                []byte
+	Direction               Dir
+	messageID               uint64
+	SrcIP, DstIP            net.IP
+	Version                 uint8
+	SrcPort, DstPort        uint16
+	Ack, Seq                uint32
+	ACK, SYN, FIN, RST, PSH bool
+	Lost                    uint32
+	Retry                   int
+	CaptureLength           int
+	Timestamp               time.Time
+	Payload                 []byte
+	buf                     []byte
 
 	created time.Time
 	gc      bool
@@ -204,6 +204,7 @@ func (pckt *Packet) parse(data []byte, lType, lTypeLen int, cp *gopacket.Capture
 	pckt.FIN = transLayer[13]&0x01 != 0
 	pckt.SYN = transLayer[13]&0x02 != 0
 	pckt.RST = transLayer[13]&0x04 != 0
+	pckt.PSH = transLayer[13]&0x08 != 0
 	pckt.ACK = transLayer[13]&0x10 != 0
 	pckt.Lost = uint32(cp.Length - cp.CaptureLength)
 
