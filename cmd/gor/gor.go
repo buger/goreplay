@@ -10,7 +10,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httputil"
-	httppptof "net/http/pprof"
+	httppprof "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
@@ -46,11 +46,11 @@ func init() {
 		fmt.Fprintf(w, "\n}\n")
 	})
 
-	http.HandleFunc("/debug/pprof/", httppptof.Index)
-	http.HandleFunc("/debug/pprof/cmdline", httppptof.Cmdline)
-	http.HandleFunc("/debug/pprof/profile", httppptof.Profile)
-	http.HandleFunc("/debug/pprof/symbol", httppptof.Symbol)
-	http.HandleFunc("/debug/pprof/trace", httppptof.Trace)
+	http.HandleFunc("/debug/pprof/", httppprof.Index)
+	http.HandleFunc("/debug/pprof/cmdline", httppprof.Cmdline)
+	http.HandleFunc("/debug/pprof/profile", httppprof.Profile)
+	http.HandleFunc("/debug/pprof/symbol", httppprof.Symbol)
+	http.HandleFunc("/debug/pprof/trace", httppprof.Trace)
 }
 
 func loggingMiddleware(addr string, next http.Handler) http.Handler {
