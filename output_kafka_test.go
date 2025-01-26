@@ -23,6 +23,12 @@ func TestOutputKafkaRAW(t *testing.T) {
 
 	resp := <-producer.Successes()
 
+	key, _ := resp.Key.Encode()
+
+	if string(key) != "2" {
+		t.Errorf("Key not properly encoded: %q", key)
+	}
+
 	data, _ := resp.Value.Encode()
 
 	if string(data) != "1 2 3\nGET / HTTP1.1\r\nHeader: 1\r\n\r\n" {
@@ -45,6 +51,12 @@ func TestOutputKafkaJSON(t *testing.T) {
 	output.PluginWrite(&Message{Meta: []byte("1 2 3\n"), Data: []byte("GET / HTTP1.1\r\nHeader: 1\r\n\r\n")})
 
 	resp := <-producer.Successes()
+
+	key, _ := resp.Key.Encode()
+
+	if string(key) != "2" {
+		t.Errorf("Key not properly encoded: %q", key)
+	}
 
 	data, _ := resp.Value.Encode()
 
