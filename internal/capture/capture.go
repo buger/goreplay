@@ -5,9 +5,6 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
-	"github.com/buger/goreplay/internal/size"
-	"github.com/buger/goreplay/internal/tcp"
-	"github.com/buger/goreplay/proto"
 	"io"
 	"log"
 	"net"
@@ -17,6 +14,10 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/buger/goreplay/internal/size"
+	"github.com/buger/goreplay/internal/tcp"
+	"github.com/buger/goreplay/proto"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -68,6 +69,15 @@ type PcapOptions struct {
 	AllowIncomplete bool            `json:"input-raw-allow-incomplete"`
 	IgnoreInterface []string        `json:"input-raw-ignore-interface"`
 	Transport       string
+
+	ProcessFilter func(
+		filter string,
+		config PcapOptions,
+		portsFilter func(transport string, direction string, ports []uint16) string,
+		ports []uint16,
+		hostsFilter func(direction string, hosts []string) string,
+		hosts []string,
+	) string `json:"-"`
 }
 
 // Listener handle traffic capture, this is its representation.
@@ -383,6 +393,10 @@ func (l *Listener) Filter(ifi pcap.Interface, hosts ...string) (filter string) {
 		}
 
 		filter = fmt.Sprintf("%s or %s", filter, responseFilter)
+	}
+
+	if l.config.ProcessFilter != nil {
+		filter = l.config.ProcessFilter(filter, l.config, portsFilter, l.ports, hostsFilter, hosts)
 	}
 
 	if l.config.VLAN {
