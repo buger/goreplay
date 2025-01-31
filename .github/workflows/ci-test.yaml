@@ -17,7 +17,7 @@ jobs:
         go-version: ${{ matrix.go-version }}
     - name: checkout code
       uses: actions/checkout@v3
-    - uses: actions/cache@v3.0.5
+    - uses: actions/cache@v3.3.1
       with:
         path: |
           ~/go/pkg/mod              # Module download cache
