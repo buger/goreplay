@@ -5,7 +5,8 @@ import (
 	"github.com/buger/goreplay/internal/capture"
 	"github.com/buger/goreplay/internal/tcp"
 	"github.com/buger/goreplay/proto"
-	"io/ioutil"
+	"io"
+	"os"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -222,12 +223,12 @@ func TestRAWInputIPv6(t *testing.T) {
 func TestInputRAWChunkedEncoding(t *testing.T) {
 	wg := new(sync.WaitGroup)
 
-	fileContent, _ := ioutil.ReadFile("README.md")
+	fileContent, _ := os.ReadFile("README.md")
 
 	// Origing and Replay server initialization
 	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
-		ioutil.ReadAll(r.Body)
+		io.ReadAll(r.Body)
 
 		wg.Done()
 	}))
@@ -244,7 +245,7 @@ func TestInputRAWChunkedEncoding(t *testing.T) {
 
 	replay := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
-		body, _ := ioutil.ReadAll(r.Body)
+		body, _ := io.ReadAll(r.Body)
 
 		if !bytes.Equal(body, fileContent) {
 			buf, _ := httputil.DumpRequest(r, true)

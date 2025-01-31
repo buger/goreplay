@@ -1,7 +1,7 @@
 package goreplay
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	_ "net/http/httputil"
@@ -25,7 +25,7 @@ func TestHTTPOutput(t *testing.T) {
 
 		if req.Method == "POST" {
 			defer req.Body.Close()
-			body, _ := ioutil.ReadAll(req.Body)
+			body, _ := io.ReadAll(req.Body)
 
 			if string(body) != "a=1&b=2" {
 				t.Error("Wrong POST body:", string(body))
