@@ -64,6 +64,8 @@ func (o *KafkaOutput) ErrorHandler() {
 // PluginWrite writes a message to this plugin
 func (o *KafkaOutput) PluginWrite(msg *Message) (n int, err error) {
 	var message sarama.StringEncoder
+	meta := payloadMeta(msg.Meta)
+	msgKey := sarama.StringEncoder(meta[1])
 
 	if !o.config.UseJSON {
 		message = sarama.StringEncoder(byteutils.SliceToString(msg.Meta) + byteutils.SliceToString(msg.Data))
@@ -74,7 +76,6 @@ func (o *KafkaOutput) PluginWrite(msg *Message) (n int, err error) {
 			header[k] = strings.Join(v, ", ")
 		}
 
-		meta := payloadMeta(msg.Meta)
 		req := msg.Data
 
 		kafkaMessage := KafkaMessage{
@@ -93,6 +94,7 @@ func (o *KafkaOutput) PluginWrite(msg *Message) (n int, err error) {
 	o.producer.Input() <- &sarama.ProducerMessage{
 		Topic: o.config.Topic,
 		Value: message,
+		Key:   msgKey,
 	}
 
 	return len(message), nil
