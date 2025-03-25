@@ -3,10 +3,11 @@ package capture
 import (
 	"errors"
 	"fmt"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
 	"net"
 	"time"
+
+	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 )
 
 const VxLanPacketSize = 1526 //vxlan 8 B + ethernet II 1518 B
@@ -30,7 +31,7 @@ func newVXLANHandler(port int, vnis []int) (*vxlanHandle, error) {
 	vxlanHandle := &vxlanHandle{}
 	con, err := net.ListenUDP("udp", &addr)
 	if err != nil {
-		return nil, fmt.Errorf(err.Error())
+		return nil, fmt.Errorf("failed to create VXLANHandler: %w", err)
 	}
 	vxlanHandle.connection = con
 	vxlanHandle.packetChannel = make(chan gopacket.Packet, 1000)
