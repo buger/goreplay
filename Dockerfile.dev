@@ -18,3 +18,4 @@ ADD . /go/src/github.com/buger/goreplay/
 
 RUN go get golang.org/x/lint/golint
 RUN go get
+dgsdg
