@@ -1,0 +1,38 @@
+name: AI Comment Handler
+
+
+on:
+  pull_request:
+    types: [opened] #[opened , labeled]
+  issue_comment:
+    types: [created]          
+  issues:
+    types: [opened] #[opened, labeled]  
+    
+# Define permissions needed for the workflow
+permissions:
+  issues: write
+  pull-requests: write
+  contents: read
+
+jobs:
+  trigger_probe_chat:
+    # Uncomment if you want to run on on specific lables, in this example `probe`
+    # if: |
+    #   (github.event_name == 'pull_request' && github.event.action == 'opened') || 
+    #   (github.event_name == 'issues' && github.event.action == 'opened') || 
+    #   (github.event_name == 'issue_comment' && github.event.action == 'created') || 
+    #   ((github.event_name == 'pull_request' || github.event_name == 'issues') && 
+    #    github.event.action == 'labeled' && github.event.label.name == 'probe')
+    # Use the reusable workflow from your repository (replace <your-org/repo> and <ref>)
+    uses: buger/probe/.github/workflows/probe.yml@main
+    # Pass required inputs
+    with:
+      command_prefix: "/probe" # Or '/ai', '/ask', etc.
+      # Optionally override the default npx command if the secret isn't set
+      # default_probe_chat_command: 'node path/to/custom/script.js'
+    # Pass ALL secrets from this repository to the reusable workflow
+    # This includes GITHUB_TOKEN, PROBE_CHAT_COMMAND (if set), ANTHROPIC_API_KEY, etc.
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      ANTHROPIC_API_URL: ${{ secrets.ANTHROPIC_API_URL }}
