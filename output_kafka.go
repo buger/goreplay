@@ -2,11 +2,12 @@ package goreplay
 
 import (
 	"encoding/json"
-	"github.com/buger/goreplay/internal/byteutils"
-	"github.com/buger/goreplay/proto"
 	"log"
 	"strings"
 	"time"
+
+	"github.com/buger/goreplay/internal/byteutils"
+	"github.com/buger/goreplay/proto"
 
 	"github.com/Shopify/sarama"
 	"github.com/Shopify/sarama/mocks"
@@ -64,6 +65,8 @@ func (o *KafkaOutput) ErrorHandler() {
 // PluginWrite writes a message to this plugin
 func (o *KafkaOutput) PluginWrite(msg *Message) (n int, err error) {
 	var message sarama.StringEncoder
+	meta := payloadMeta(msg.Meta)
+	recordKey := byteutils.SliceToString(meta[1])
 
 	if !o.config.UseJSON {
 		message = sarama.StringEncoder(byteutils.SliceToString(msg.Meta) + byteutils.SliceToString(msg.Data))
@@ -73,10 +76,7 @@ func (o *KafkaOutput) PluginWrite(msg *Message) (n int, err error) {
 		for k, v := range mimeHeader {
 			header[k] = strings.Join(v, ", ")
 		}
-
-		meta := payloadMeta(msg.Meta)
 		req := msg.Data
-
 		kafkaMessage := KafkaMessage{
 			ReqURL:     byteutils.SliceToString(proto.Path(req)),
 			ReqType:    byteutils.SliceToString(meta[0]),
@@ -91,8 +91,12 @@ func (o *KafkaOutput) PluginWrite(msg *Message) (n int, err error) {
 	}
 
 	o.producer.Input() <- &sarama.ProducerMessage{
-		Topic: o.config.Topic,
-		Value: message,
+		Topic:     o.config.Topic,
+		Value:     message,
+		Timestamp: time.Now(),
+		//
+		// Making ReqID as Kafka record's key
+		Key: sarama.StringEncoder(recordKey),
 	}
 
 	return len(message), nil
