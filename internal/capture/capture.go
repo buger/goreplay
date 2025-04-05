@@ -513,6 +513,10 @@ func http1StartHint(pckt *tcp.Packet) (isRequest, isResponse bool) {
 }
 
 func http1EndHint(m *tcp.Message) bool {
+	if len(m.Packets()) == 0 {
+		return false
+	}
+
 	if m.MissingChunk() {
 		return false
 	}
