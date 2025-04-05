@@ -7,7 +7,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"io/ioutil"
 	"log"
 	"math/big"
 	"net"
@@ -86,11 +85,11 @@ func TestTCPInputSecure(t *testing.T) {
 		IPAddresses: []net.IP{net.ParseIP("127.0.0.1"), net.ParseIP("::")},
 	})
 
-	serverCertPemFile, _ := ioutil.TempFile("", "server.crt")
+	serverCertPemFile, _ := os.CreateTemp("", "server.crt")
 	serverCertPemFile.Write(serverCertPem)
 	serverCertPemFile.Close()
 
-	serverPrivPemFile, _ := ioutil.TempFile("", "server.key")
+	serverPrivPemFile, _ := os.CreateTemp("", "server.key")
 	serverPrivPemFile.Write(serverPrivPem)
 	serverPrivPemFile.Close()
 
