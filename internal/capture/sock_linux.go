@@ -253,7 +253,7 @@ func (sock *SockRaw) SetPromiscuous(b bool) error {
 	return unix.SetsockoptPacketMreq(sock.fd, unix.SOL_PACKET, opt, &mreq)
 }
 
-// Stats returns number of packets and dropped packets. This will be the number of packets/dropped packets since the last call to stats (not the cummulative sum!).
+// Stats returns number of packets and dropped packets. This will be the number of packets/dropped packets since the last call to stats (not the cumulative sum!).
 func (sock *SockRaw) Stats() (*unix.TpacketStats, error) {
 	sock.mu.Lock()
 	defer sock.mu.Unlock()

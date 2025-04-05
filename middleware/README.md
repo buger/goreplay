@@ -1,6 +1,6 @@
 # GoReplay middleware
 
-GoReplay support protocol for writing middleware in any language, which allows you to implement custom logic like authentification or complex rewriting and filterting. See protocol description here: https://github.com/buger/goreplay/wiki/Middleware, but the basic idea that middleware process receive hex encoded data via STDIN and emits it back via STDOUT. STDERR for loggin inside middleware. Yes, that's simple.
+GoReplay support protocol for writing middleware in any language, which allows you to implement custom logic like authentication or complex rewriting and filterting. See protocol description here: https://github.com/buger/goreplay/wiki/Middleware, but the basic idea that middleware process receive hex encoded data via STDIN and emits it back via STDOUT. STDERR for logging inside middleware. Yes, that's simple.
 
 To simplify middleware creation we provide packages for NodeJS and Go (upcoming).
 
@@ -16,7 +16,7 @@ var gor = require("goreplay_middleware");
 gor.init();
 ```
 
-Basic idea is that you write callbacks which respond to `request`, `response`, `replay`, or `message` events, which contain request meta information and actuall http paylod. Depending on your needs you may compare, override or filter incoming requests and responses.
+Basic idea is that you write callbacks which respond to `request`, `response`, `replay`, or `message` events, which contain request meta information and actual http paylod. Depending on your needs you may compare, override or filter incoming requests and responses.
 
 You can respond to the incoming events using `on` function, by providing callbacks:
 ```javascript
@@ -33,7 +33,7 @@ gor.on('request', function(data) {
     data.http
 
     // Meta is an array size of 4, containing:
-    //   1. request type - 1, 2 or 3 (which maps to `request`, `respose` and `replay`)
+    //   1. request type - 1, 2 or 3 (which maps to `request`, `response` and `replay`)
     //   2. uuid - request unique identifier. Request responses have the same ID as their request.
     //   3. timestamp of when request was made (for responses it is time of request start too)
     //   4. latency - time difference between request start and finish. For `request` is zero.
@@ -58,7 +58,7 @@ gor.on("request", function(req) {
             if (gor.httpStatus(resp.http) != gor.httpStatus(repl.http)) {
                 // Note that STDERR is used for logging, and it actually will be send to `Gor` STDOUT.
                 // This trick is used because SDTIN and STDOUT already used for process communication.
-                // You can write logger that writes to files insead.
+                // You can write logger that writes to files instead.
                 console.error(`${gor.httpPath(req.http)} STATUS NOT MATCH: 'Expected ${gor.httpStatus(resp.http)}' got '${gor.httpStatus(repl.http)}'`)
             }
             return repl;
@@ -110,7 +110,7 @@ Package expose following functions to process raw HTTP payloads:
 * `setHttpBody` - Set HTTP Body and ensures that `Content-Length` header have proper value. Returns modified payload: `req.http = gor.setHttpBody(req.http, Buffer.from('hello!'))`.
 * `httpBodyParam` - get POST body param: `gor.httpBodyParam(req.http, param)`
 * `setHttpBodyParam` - set POST body param: `req.http = gor.setHttpBodyParam(req.http, param, value)`
-* `httpCookie` - get HTTP cookie: `gor.httpCookie(req.http, "SESSSION_ID")`
+* `httpCookie` - get HTTP cookie: `gor.httpCookie(req.http, "SESSION_ID")`
 * `setHttpCookie` - set HTTP cookie, returns modified payload: `req.http = gor.setHttpCookie(req.http, "iam", "cuckoo")`
 * `deleteHttpCookie` - delete HTTP cookie, returns modified payload: `req.http = gor.deleteHttpCookie(req.http, "iam")`
 

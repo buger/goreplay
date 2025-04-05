@@ -92,7 +92,7 @@ func process(buf []byte) {
 			// Token is inside response body
 			secureToken := proto.Body(payload)
 			originalTokens[reqID] = secureToken
-			Debug("Remember origial token:", string(secureToken))
+			Debug("Remember original token:", string(secureToken))
 		}
 	case '3': // Replayed response
 		if originalToken, ok := originalTokens[reqID]; ok {
