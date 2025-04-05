@@ -4,7 +4,7 @@ jobs:
   test:
     strategy:
       matrix:
-        go-version: [1.18.x, 1.19.x] # two latest minor versions
+        go-version: [1.24.x, 1.23.x] # two latest minor versions
     runs-on: ubuntu-latest
     steps:
     - name: update package index
@@ -17,7 +17,7 @@ jobs:
         go-version: ${{ matrix.go-version }}
     - name: checkout code
       uses: actions/checkout@v3
-    - uses: actions/cache@v3.0.5
+    - uses: actions/cache@v4
       with:
         path: |
           ~/go/pkg/mod              # Module download cache
