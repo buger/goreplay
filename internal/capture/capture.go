@@ -5,9 +5,6 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
-	"github.com/buger/goreplay/internal/size"
-	"github.com/buger/goreplay/internal/tcp"
-	"github.com/buger/goreplay/proto"
 	"io"
 	"log"
 	"net"
@@ -17,6 +14,10 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/buger/goreplay/internal/size"
+	"github.com/buger/goreplay/internal/tcp"
+	"github.com/buger/goreplay/proto"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -68,6 +69,8 @@ type PcapOptions struct {
 	AllowIncomplete bool            `json:"input-raw-allow-incomplete"`
 	IgnoreInterface []string        `json:"input-raw-ignore-interface"`
 	Transport       string
+
+	OnTimer func() `json:"-"`
 }
 
 // Listener handle traffic capture, this is its representation.
@@ -552,6 +555,9 @@ func (l *Listener) readHandle(key string, hndl packetHandle) {
 		case <-l.quit:
 			return
 		case <-timer.C:
+			if l.config.OnTimer != nil {
+				l.config.OnTimer()
+			}
 			if h, ok := hndl.handler.(PcapStatProvider); ok {
 				s, err := h.Stats()
 				if err == nil {
