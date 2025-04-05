@@ -8,6 +8,7 @@ import (
 	"errors"
 	"expvar"
 	"fmt"
+	"github.com/klauspost/compress/zstd"
 	"io"
 	"math"
 	"os"
@@ -187,6 +188,13 @@ func newFileInputReader(path string, readDepth int, dryRun bool) *fileInputReade
 			return nil
 		}
 		r.reader = bufio.NewReader(gzReader)
+	} else if strings.HasSuffix(path, ".zst") {
+		zstdReader, err := zstd.NewReader(file)
+		if err != nil {
+			Debug(0, fmt.Sprintf("[INPUT-FILE] err: %q", err))
+			return nil
+		}
+		r.reader = bufio.NewReader(zstdReader)
 	} else {
 		r.reader = bufio.NewReader(file)
 	}
