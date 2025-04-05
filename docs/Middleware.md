@@ -62,6 +62,8 @@ Content-Type: text/plain; charset=utf-8
 Header contains request meta information separated by spaces. First value is payload type, possible values: `1` - request, `2` - original response, `3` - replayed response.
 Next goes request id: unique among all requests (sha1 of time and Ack), but remain same for original and replayed response, so you can create associations between request and responses. The third argument is the time when request/response was initiated/received. Forth argument is populated only for responses and means latency.
 
+You need to set `--output-http-track-response` option if you want to track output responses in the middleware (payload type `3`).
+
 HTTP payload is unmodified HTTP requests/responses intercepted from network. You can read more about request format [here](http://www.jmarshall.com/easy/http/), [here](https://en.wikipedia.org/wiki/Hypertext_Transfer_Protocol) and [here](http://www.w3.org/Protocols/rfc2616/rfc2616.html). You can operate with payload as you want, add headers, change path, and etc. Basically you just editing a string, just ensure that it is RCF compliant.
 
 At the end modified (or untouched) request should be emitted back to STDOUT, keeping original header, and hex-encoded. If you want to filter request, just not send it. Emitting responses back is required, even if you did not touch them.
